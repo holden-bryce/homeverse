@@ -13,12 +13,17 @@
 | `CORS_ORIGINS` | CORS allowed origins | `"*"` for all origins |
 | `COMPANY_KEY` | Default company key | `"default-company-key"` |
 
+### Email Integration (Required for Contact Forms)
+
+| Variable | Description | Value |
+|----------|-------------|-------|
+| `SENDGRID_API_KEY` | SendGrid API key for email delivery | `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` |
+
 ### Optional Variables (AI/Integration Features)
 
 | Variable | Description | Required For |
 |----------|-------------|--------------|
 | `OPENAI_API_KEY` | OpenAI API key | AI-powered matching features |
-| `SENDGRID_API_KEY` | SendGrid API key | Email notifications |
 | `UNSTRUCTURED_API_KEY` | Unstructured.io API key | Document processing |
 
 ## Frontend (`homeverse-frontend`)
@@ -29,6 +34,21 @@
 |----------|-------------|---------|
 | `NEXT_PUBLIC_API_URL` | Backend API URL | `https://homeverse-api.onrender.com` |
 | `NEXT_PUBLIC_MAPBOX_TOKEN` | Mapbox API token | Your Mapbox token |
+
+## 🚀 Current Production Setup
+
+**Frontend**: https://homeverse-frontend.onrender.com
+**Backend**: https://homeverse-api.onrender.com
+
+### ✅ Required Environment Variables Already Set
+
+1. **SENDGRID_API_KEY** - ✅ Contact form emails working
+2. **CORS_ORIGINS** - ✅ Frontend can access backend APIs
+3. **JWT_SECRET_KEY** - ✅ Authentication working
+
+### 📧 Email Configuration
+
+Contact form emails are currently being sent to: **holdenbryce06@gmail.com**
 
 ## Setting Environment Variables on Render
 
