@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -95,6 +96,7 @@ const stats = [
 ]
 
 export default function ApplicantsPage() {
+  const router = useRouter()
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [amiBandFilter, setAmiBandFilter] = useState('all')
@@ -136,7 +138,10 @@ export default function ApplicantsPage() {
               <Download className="mr-2 h-4 w-4" />
               Export
             </Button>
-            <Button className="bg-sage-600 hover:bg-sage-700 text-white rounded-full px-6" onClick={() => alert('Add applicant page coming soon!')}>
+            <Button 
+              className="bg-sage-600 hover:bg-sage-700 text-white rounded-full px-6" 
+              onClick={() => router.push('/dashboard/applicants/new')}
+            >
               <Plus className="mr-2 h-4 w-4" />
               Add Applicant
             </Button>
@@ -268,10 +273,20 @@ export default function ApplicantsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end space-x-2">
-                        <Button variant="ghost" size="sm" className="rounded-full h-8 w-8 p-0 hover:bg-sage-100" onClick={() => alert(`View applicant ${applicant.email} coming soon!`)}>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="rounded-full h-8 w-8 p-0 hover:bg-sage-100" 
+                          onClick={() => router.push(`/dashboard/applicants/${applicant.id}`)}
+                        >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="sm" className="rounded-full h-8 w-8 p-0 hover:bg-sage-100" onClick={() => alert(`Edit applicant ${applicant.email} coming soon!`)}>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="rounded-full h-8 w-8 p-0 hover:bg-sage-100" 
+                          onClick={() => router.push(`/dashboard/applicants/${applicant.id}/edit`)}
+                        >
                           <Edit className="h-4 w-4" />
                         </Button>
                         <Button variant="ghost" size="sm" className="rounded-full h-8 w-8 p-0 hover:bg-red-100">
@@ -297,7 +312,10 @@ export default function ApplicantsPage() {
                   : 'Get started by adding your first applicant.'}
               </p>
               {(!searchTerm && statusFilter === 'all' && amiBandFilter === 'all') && (
-                <Button className="mt-4 bg-sage-600 hover:bg-sage-700 text-white rounded-full" onClick={() => alert('Add applicant page coming soon!')}>
+                <Button 
+                  className="mt-4 bg-sage-600 hover:bg-sage-700 text-white rounded-full" 
+                  onClick={() => router.push('/dashboard/applicants/new')}
+                >
                   <Plus className="mr-2 h-4 w-4" />
                   Add Your First Applicant
                 </Button>

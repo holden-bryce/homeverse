@@ -1,0 +1,313 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { toast } from '@/components/ui/toast'
+import { ArrowLeft, Edit, Mail, Phone, Users, DollarSign, MapPin, Loader2 } from 'lucide-react'
+
+interface ApplicantDetailProps {
+  params: {
+    id: string
+  }
+}
+
+interface Applicant {
+  id: string
+  first_name: string
+  last_name: string
+  email: string
+  phone?: string
+  household_size?: number
+  income?: number
+  ami_percent?: number
+  location_preference?: string
+  latitude?: number
+  longitude?: number
+  status: string
+  created_at: string
+}
+
+export default function ApplicantDetailPage({ params }: ApplicantDetailProps) {
+  const router = useRouter()
+  const [applicant, setApplicant] = useState<Applicant | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchApplicant = async () => {
+      try {
+        const token = localStorage.getItem('token') || document.cookie.split('token=')[1]?.split(';')[0]
+        
+        if (!token) {
+          toast({
+            variant: 'destructive',
+            title: 'Authentication Error',
+            description: 'Please log in again to continue.',
+          })
+          router.push('/auth/login')
+          return
+        }
+
+        // First try to get from real API
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/applicants`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        })
+
+        if (response.ok) {
+          const applicants = await response.json()
+          const foundApplicant = applicants.find((app: Applicant) => app.id === params.id)
+          
+          if (foundApplicant) {
+            setApplicant(foundApplicant)
+          } else {
+            // Fallback to demo data
+            const demoApplicants = [
+              {
+                id: "demo_app_001",
+                first_name: "Maria",
+                last_name: "Rodriguez",
+                email: "maria.rodriguez@email.com",
+                phone: "(555) 123-4567",
+                household_size: 3,
+                income: 45000,
+                ami_percent: 65,
+                location_preference: "Oakland, CA",
+                latitude: 37.8044,
+                longitude: -122.2711,
+                status: "active",
+                created_at: "2024-01-15T10:30:00Z"
+              },
+              {
+                id: "demo_app_002", 
+                first_name: "James",
+                last_name: "Chen",
+                email: "james.chen@email.com",
+                phone: "(555) 234-5678",
+                household_size: 2,
+                income: 52000,
+                ami_percent: 75,
+                location_preference: "San Francisco, CA",
+                latitude: 37.7749,
+                longitude: -122.4194,
+                status: "active",
+                created_at: "2024-01-20T14:15:00Z"
+              }
+            ]
+            
+            const demoApplicant = demoApplicants.find(app => app.id === params.id)
+            if (demoApplicant) {
+              setApplicant(demoApplicant)
+            } else {
+              toast({
+                variant: 'destructive',
+                title: 'Not Found',
+                description: 'Applicant not found.',
+              })
+              router.push('/dashboard/applicants')
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching applicant:', error)
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Failed to load applicant details.',
+        })
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchApplicant()
+  }, [params.id, router])
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    )
+  }
+
+  if (!applicant) {
+    return (
+      <div className="text-center py-8">
+        <p>Applicant not found</p>
+      </div>
+    )
+  }
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+    }).format(amount)
+  }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    })
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.back()}
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">
+              {applicant.first_name} {applicant.last_name}
+            </h1>
+            <p className="text-muted-foreground">Applicant Profile</p>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Badge variant={applicant.status === 'active' ? 'default' : 'secondary'}>
+            {applicant.status}
+          </Badge>
+          <Button
+            onClick={() => router.push(`/dashboard/applicants/${params.id}/edit`)}
+            className="bg-teal-600 hover:bg-teal-700"
+          >
+            <Edit className="h-4 w-4 mr-2" />
+            Edit
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Contact Information */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5" />
+              Contact Information
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <p className="text-sm font-medium">Email</p>
+              <p className="text-sm text-muted-foreground">{applicant.email}</p>
+            </div>
+            {applicant.phone && (
+              <div>
+                <p className="text-sm font-medium">Phone</p>
+                <p className="text-sm text-muted-foreground">{applicant.phone}</p>
+              </div>
+            )}
+            <div>
+              <p className="text-sm font-medium">Member Since</p>
+              <p className="text-sm text-muted-foreground">{formatDate(applicant.created_at)}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Household Information */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Household Information
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {applicant.household_size && (
+              <div>
+                <p className="text-sm font-medium">Household Size</p>
+                <p className="text-sm text-muted-foreground">{applicant.household_size} people</p>
+              </div>
+            )}
+            {applicant.income && (
+              <div>
+                <p className="text-sm font-medium">Annual Income</p>
+                <p className="text-sm text-muted-foreground">{formatCurrency(applicant.income)}</p>
+              </div>
+            )}
+            {applicant.ami_percent && (
+              <div>
+                <p className="text-sm font-medium">AMI Percentage</p>
+                <p className="text-sm text-muted-foreground">{applicant.ami_percent}%</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Location Preferences */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <MapPin className="h-5 w-5" />
+              Location Preferences
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {applicant.location_preference && (
+              <div>
+                <p className="text-sm font-medium">Preferred Location</p>
+                <p className="text-sm text-muted-foreground">{applicant.location_preference}</p>
+              </div>
+            )}
+            {applicant.latitude && applicant.longitude && (
+              <div>
+                <p className="text-sm font-medium">Coordinates</p>
+                <p className="text-sm text-muted-foreground">
+                  {applicant.latitude.toFixed(4)}, {applicant.longitude.toFixed(4)}
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Actions */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Actions</CardTitle>
+          <CardDescription>
+            Available actions for this applicant
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-4">
+            <Button
+              onClick={() => router.push(`/dashboard/developers/matching?applicant=${params.id}`)}
+              variant="outline"
+            >
+              View Matches
+            </Button>
+            <Button
+              onClick={() => window.open(`mailto:${applicant.email}`, '_blank')}
+              variant="outline"
+            >
+              <Mail className="h-4 w-4 mr-2" />
+              Send Email
+            </Button>
+            <Button
+              onClick={() => router.push(`/dashboard/applicants/${params.id}/edit`)}
+              className="bg-teal-600 hover:bg-teal-700"
+            >
+              <Edit className="h-4 w-4 mr-2" />
+              Edit Profile
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}

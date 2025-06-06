@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -99,6 +100,7 @@ const stats = [
 ]
 
 export default function ProjectsPage() {
+  const router = useRouter()
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [developerFilter, setDeveloperFilter] = useState('all')
@@ -307,10 +309,20 @@ export default function ProjectsPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end space-x-2">
-                          <Button variant="ghost" size="sm" className="rounded-full h-8 w-8 p-0 hover:bg-sage-100" onClick={() => alert(`View project ${project.name} coming soon!`)}>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="rounded-full h-8 w-8 p-0 hover:bg-sage-100" 
+                            onClick={() => router.push(`/dashboard/projects/${project.id}`)}
+                          >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" className="rounded-full h-8 w-8 p-0 hover:bg-sage-100" onClick={() => alert(`Edit project ${project.name} coming soon!`)}>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="rounded-full h-8 w-8 p-0 hover:bg-sage-100" 
+                            onClick={() => router.push(`/dashboard/projects/${project.id}/edit`)}
+                          >
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button variant="ghost" size="sm" className="rounded-full h-8 w-8 p-0 hover:bg-sage-100">
