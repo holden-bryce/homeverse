@@ -6,8 +6,6 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: python simple_backend.py
     envVars:
-      - key: PORT
-        value: 8000
       - key: DATABASE_URL
         fromDatabase:
           name: homeverse-db
