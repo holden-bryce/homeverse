@@ -6,7 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.v1 import auth, applicants, projects, lenders, reports, admin
+from app.api.v1 import auth, applicants, projects, lenders, reports, admin, contact
 from app.db.tenant_context import CompanyKeyMiddleware
 from app.utils.logging import setup_logging
 from app.utils.yaml_loader import ConfigLoader
@@ -44,6 +44,7 @@ app.include_router(projects.router, prefix="/v1", tags=["projects"])
 app.include_router(lenders.router, prefix="/v1", tags=["lenders"])
 app.include_router(reports.router, prefix="/v1", tags=["reports"])
 app.include_router(admin.router, prefix="/v1", tags=["admin"])
+app.include_router(contact.router, prefix="/v1", tags=["contact"])
 
 
 @app.exception_handler(Exception)

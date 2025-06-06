@@ -4,6 +4,7 @@ import './globals.css'
 import { QueryProvider } from '@/providers/query-provider'
 import { AuthProvider } from '@/providers/auth-provider'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { ToastProvider, ToastViewport } from '@/components/ui/toast'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -78,7 +79,10 @@ export default function RootLayout({
         <QueryProvider>
           <AuthProvider>
             <TooltipProvider>
-              {children}
+              <ToastProvider>
+                {children}
+                <ToastViewport />
+              </ToastProvider>
             </TooltipProvider>
           </AuthProvider>
         </QueryProvider>

@@ -13,6 +13,7 @@ import {
   Star
 } from 'lucide-react'
 import { Logo } from '@/components/ui/logo'
+import { ContactForm } from '@/components/forms/contact-form'
 
 export default function HomePage() {
   return (
@@ -25,7 +26,6 @@ export default function HomePage() {
             <nav className="hidden md:flex items-center space-x-8">
               <a href="#features" className="text-gray-600 hover:text-teal-600 transition-colors">Features</a>
               <a href="#how-it-works" className="text-gray-600 hover:text-teal-600 transition-colors">How It Works</a>
-              <a href="#pricing" className="text-gray-600 hover:text-teal-600 transition-colors">Pricing</a>
               <a href="#contact" className="text-gray-600 hover:text-teal-600 transition-colors">Contact</a>
             </nav>
             <div className="flex items-center space-x-4">
@@ -282,121 +282,16 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Pricing Section */}
-      <section id="pricing" className="py-20 bg-gray-50">
+      {/* Contact Section */}
+      <section id="contact" className="py-20 bg-gray-50">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Simple, Transparent Pricing</h2>
-            <p className="text-xl text-gray-600">Choose the plan that fits your organization</p>
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">Get in Touch</h2>
+            <p className="text-xl text-gray-600">Have questions? We'd love to hear from you.</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-            {/* Starter Plan */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-center">Starter</CardTitle>
-                <div className="text-center">
-                  <span className="text-4xl font-bold">$99</span>
-                  <span className="text-gray-600">/month</span>
-                </div>
-                <CardDescription className="text-center">Perfect for small teams</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-3">
-                  <li className="flex items-center">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-                    Up to 5 users
-                  </li>
-                  <li className="flex items-center">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-                    Basic matching engine
-                  </li>
-                  <li className="flex items-center">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-                    Standard reporting
-                  </li>
-                  <li className="flex items-center">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-                    Email support
-                  </li>
-                </ul>
-                <Button className="w-full mt-6" variant="outline">Start Free Trial</Button>
-              </CardContent>
-            </Card>
-
-            {/* Professional Plan */}
-            <Card className="border-teal-600">
-              <CardHeader>
-                <div className="flex justify-center">
-                  <span className="bg-teal-600 text-white px-3 py-1 rounded-full text-sm">Most Popular</span>
-                </div>
-                <CardTitle className="text-center">Professional</CardTitle>
-                <div className="text-center">
-                  <span className="text-4xl font-bold">$299</span>
-                  <span className="text-gray-600">/month</span>
-                </div>
-                <CardDescription className="text-center">For growing organizations</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-3">
-                  <li className="flex items-center">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-                    Up to 25 users
-                  </li>
-                  <li className="flex items-center">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-                    Advanced AI matching
-                  </li>
-                  <li className="flex items-center">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-                    CRA compliance reporting
-                  </li>
-                  <li className="flex items-center">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-                    Priority support
-                  </li>
-                  <li className="flex items-center">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-                    API access
-                  </li>
-                </ul>
-                <Button className="w-full mt-6">Start Free Trial</Button>
-              </CardContent>
-            </Card>
-
-            {/* Enterprise Plan */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-center">Enterprise</CardTitle>
-                <div className="text-center">
-                  <span className="text-4xl font-bold">Custom</span>
-                </div>
-                <CardDescription className="text-center">For large enterprises</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-3">
-                  <li className="flex items-center">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-                    Unlimited users
-                  </li>
-                  <li className="flex items-center">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-                    Custom integrations
-                  </li>
-                  <li className="flex items-center">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-                    White-label options
-                  </li>
-                  <li className="flex items-center">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-                    Dedicated support
-                  </li>
-                  <li className="flex items-center">
-                    <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-                    SLA guarantees
-                  </li>
-                </ul>
-                <Button className="w-full mt-6" variant="outline">Contact Sales</Button>
-              </CardContent>
+          <div className="max-w-2xl mx-auto">
+            <Card className="p-8">
+              <ContactForm />
             </Card>
           </div>
         </div>

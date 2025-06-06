@@ -688,6 +688,38 @@ async def get_heatmap_data(bounds: str = None, credentials: HTTPAuthorizationCre
     ]
 
 
+# Contact form endpoint
+class ContactRequest(BaseModel):
+    name: str
+    email: EmailStr
+    company: Optional[str] = None
+    phone: Optional[str] = None
+    subject: str
+    message: str
+
+@app.post("/api/v1/contact")
+async def submit_contact_form(contact_data: ContactRequest):
+    """Submit contact form (simplified version - just logs the message)"""
+    try:
+        print(f"Contact form submission:")
+        print(f"  Name: {contact_data.name}")
+        print(f"  Email: {contact_data.email}")
+        print(f"  Company: {contact_data.company}")
+        print(f"  Phone: {contact_data.phone}")
+        print(f"  Subject: {contact_data.subject}")
+        print(f"  Message: {contact_data.message}")
+        
+        # In a real implementation, you would:
+        # 1. Store in database
+        # 2. Send email notifications
+        # 3. Send auto-reply to customer
+        
+        return {"message": "Contact form submitted successfully"}
+        
+    except Exception as e:
+        print(f"Contact form error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to process contact form")
+
 
 # Create test users on startup
 @app.on_event("startup")
