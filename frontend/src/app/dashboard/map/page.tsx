@@ -122,7 +122,7 @@ export default function MapViewPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedAMI, setSelectedAMI] = useState('all')
   const [selectedStatus, setSelectedStatus] = useState('all')
-  const [selectedProject, setSelectedProject] = useState<string | null>(null)
+  const [selectedProject, setSelectedProject] = useState<string | undefined>(undefined)
   const [showFilters, setShowFilters] = useState(false)
   const [mapStyle, setMapStyle] = useState('streets')
 
@@ -150,7 +150,7 @@ export default function MapViewPage() {
     }
   }
 
-  const selectedProjectData = selectedProject ? projects.find(p => p.id === selectedProject) : null
+  const selectedProjectData = selectedProject ? projects.find(p => p.id === selectedProject) : undefined
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-sage-50 via-white to-cream-50">
@@ -189,7 +189,7 @@ export default function MapViewPage() {
                 setSearchTerm('')
                 setSelectedAMI('all')
                 setSelectedStatus('all')
-                setSelectedProject(null)
+                setSelectedProject(undefined)
               }}
               className="rounded-full"
             >
@@ -279,7 +279,7 @@ export default function MapViewPage() {
                   height={600}
                   selectedProject={selectedProject}
                   onProjectSelect={(projectId) => {
-                    setSelectedProject(projectId === selectedProject ? null : projectId)
+                    setSelectedProject(projectId === selectedProject ? undefined : projectId)
                   }}
                   onProjectHover={(projectId) => {
                     // Handle project hover
@@ -322,7 +322,7 @@ export default function MapViewPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => setSelectedProject(null)}
+                      onClick={() => setSelectedProject(undefined)}
                       className="rounded-full p-2"
                     >
                       ×

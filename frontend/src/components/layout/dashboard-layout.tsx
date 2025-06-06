@@ -78,14 +78,14 @@ const navigation: NavItem[] = [
   {
     id: 'map',
     label: 'Map View',
-    href: '/dashboard/lenders/analytics',
+    href: '/dashboard/map',
     icon: <Map className="h-5 w-5" />,
     roles: ['admin', 'manager', 'lender'],
   },
   {
     id: 'settings',
     label: 'Settings',
-    href: '#',
+    href: '/dashboard/settings',
     icon: <Settings className="h-5 w-5" />,
     roles: ['admin'],
   },

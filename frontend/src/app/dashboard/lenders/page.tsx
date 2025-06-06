@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -224,6 +225,7 @@ const mockMarketData = [
 ]
 
 export default function LendersPage() {
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState('overview')
   
   // API hooks with fallback to mock data
@@ -361,25 +363,50 @@ export default function LendersPage() {
             {
               label: 'Generate CRA Report',
               icon: <FileText className="mr-2 h-4 w-4" />,
-              onClick: () => {},
+              onClick: () => router.push('/dashboard/lenders/reports'),
               variant: 'default'
             },
             {
               label: 'Export Portfolio Data',
               icon: <Download className="mr-2 h-4 w-4" />,
-              onClick: () => {},
+              onClick: () => {
+                // Generate and download portfolio data
+                const portfolioData = {
+                  investments: mockInvestments,
+                  stats: portfolioStats,
+                  craMetrics: mockCRAMetrics,
+                  exportedAt: new Date().toISOString(),
+                  exportedBy: 'lender@test.com'
+                }
+                const blob = new Blob([JSON.stringify(portfolioData, null, 2)], { type: 'application/json' })
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = `portfolio-data-${new Date().toISOString().split('T')[0]}.json`
+                a.click()
+                URL.revokeObjectURL(url)
+              },
               variant: 'outline'
             },
             {
               label: 'Market Analysis',
               icon: <BarChart3 className="mr-2 h-4 w-4" />,
-              onClick: () => {},
+              onClick: () => router.push('/dashboard/lenders/analytics'),
               variant: 'outline'
             },
             {
               label: 'Schedule Review',
               icon: <Calendar className="mr-2 h-4 w-4" />,
-              onClick: () => {},
+              onClick: () => {
+                // Create a calendar event
+                const startDate = new Date()
+                startDate.setDate(startDate.getDate() + 7) // Next week
+                const endDate = new Date(startDate)
+                endDate.setHours(endDate.getHours() + 1)
+                
+                const calendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=Portfolio Review Meeting&dates=${startDate.toISOString().replace(/[-:]/g, '').split('.')[0]}Z/${endDate.toISOString().replace(/[-:]/g, '').split('.')[0]}Z&details=Quarterly portfolio review and performance assessment`
+                window.open(calendarUrl, '_blank')
+              },
               variant: 'outline'
             }
           ]}
