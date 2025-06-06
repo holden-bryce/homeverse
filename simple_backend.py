@@ -23,7 +23,7 @@ JWT_ALGORITHM = "HS256"
 app = FastAPI(title="Homeverse API", version="1.0.0")
 security = HTTPBearer()
 
-# CORS middleware
+# CORS middleware - Updated for production
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
