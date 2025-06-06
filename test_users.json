@@ -1,0 +1,39 @@
+{
+  "test_users": [
+    {
+      "email": "developer@test.com",
+      "password": "password123",
+      "role": "developer",
+      "company_key": "test-company",
+      "portal": "Developer Portal - http://localhost:3000/dashboard/developers"
+    },
+    {
+      "email": "lender@test.com", 
+      "password": "password123",
+      "role": "lender",
+      "company_key": "test-company",
+      "portal": "Lender Portal - http://localhost:3000/dashboard/lenders"
+    },
+    {
+      "email": "buyer@test.com",
+      "password": "password123", 
+      "role": "buyer",
+      "company_key": "test-company",
+      "portal": "Buyer Portal - http://localhost:3000/dashboard/buyers"
+    },
+    {
+      "email": "applicant@test.com",
+      "password": "password123",
+      "role": "applicant", 
+      "company_key": "test-company",
+      "portal": "Applicant Portal - http://localhost:3000/dashboard/applicants"
+    },
+    {
+      "email": "admin@test.com",
+      "password": "password123",
+      "role": "admin",
+      "company_key": "test-company", 
+      "portal": "Admin Portal - http://localhost:3000/dashboard"
+    }
+  ]
+}
