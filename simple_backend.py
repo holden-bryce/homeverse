@@ -65,6 +65,49 @@ def init_db():
         )
     """)
     
+    # Projects table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS projects (
+            id TEXT PRIMARY KEY,
+            company_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            developer TEXT,
+            location TEXT,
+            address TEXT,
+            latitude REAL,
+            longitude REAL,
+            total_units INTEGER,
+            affordable_units INTEGER,
+            ami_levels TEXT,
+            status TEXT DEFAULT 'planning',
+            description TEXT,
+            completion_date TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (company_id) REFERENCES companies (id)
+        )
+    """)
+    
+    # Applicants table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS applicants (
+            id TEXT PRIMARY KEY,
+            company_id TEXT NOT NULL,
+            first_name TEXT NOT NULL,
+            last_name TEXT NOT NULL,
+            email TEXT NOT NULL,
+            phone TEXT,
+            household_size INTEGER,
+            income REAL,
+            ami_percent REAL,
+            location_preference TEXT,
+            latitude REAL,
+            longitude REAL,
+            status TEXT DEFAULT 'active',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (company_id) REFERENCES companies (id)
+        )
+    """)
+    
     conn.commit()
     conn.close()
 
@@ -532,68 +575,255 @@ async def get_report(
 # Developer Portal Endpoints  
 @app.get("/api/v1/projects")
 async def get_projects(limit: int = 10, credentials: HTTPAuthorizationCredentials = Depends(security)):
-    """Get projects list"""
-    return [
-        {
-            "id": "proj_001",
-            "name": "Sunset Gardens Phase II",
-            "developer": "Urban Housing LLC",
-            "location": "San Francisco, CA",
-            "coordinates": [37.7749, -122.4194],
-            "units": 48,
-            "affordable_units": 38,
-            "ami_range": "30-80%",
-            "status": "active",
-            "funding_needed": 750000,
-            "funding_secured": 600000,
-            "timeline": "18 months",
-            "completion_date": "2026-06-15"
-        },
-        {
-            "id": "proj_002",
-            "name": "Mission Bay Affordable Housing",
-            "developer": "Bay Area Development",
-            "location": "San Francisco, CA", 
-            "coordinates": [37.7707, -122.3920],
-            "units": 65,
-            "affordable_units": 52,
-            "ami_range": "50-80%",
-            "status": "planning",
-            "funding_needed": 1200000,
-            "funding_secured": 800000,
-            "timeline": "24 months",
-            "completion_date": "2026-12-31"
-        },
-        {
-            "id": "proj_003",
-            "name": "Richmond Commons",
-            "developer": "Community Builders Inc",
-            "location": "Richmond, CA",
-            "coordinates": [37.9358, -122.3477],
-            "units": 32,
-            "affordable_units": 32,
-            "ami_range": "30-60%", 
-            "status": "completed",
-            "funding_needed": 550000,
-            "funding_secured": 550000,
-            "timeline": "12 months",
-            "completion_date": "2024-08-30"
-        }
-    ][:limit]
+    """Get projects with real database data + demo data"""
+    try:
+        # Get user info from token
+        token = credentials.credentials
+        user_data = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        
+        # Get company from user
+        conn = sqlite3.connect(DATABASE_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT company_id FROM users WHERE id = ?", (user_data["sub"],))
+        user = cursor.fetchone()
+        
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        
+        company_id = user["company_id"]
+        
+        # Get real projects from database
+        cursor.execute("""
+            SELECT * FROM projects 
+            WHERE company_id = ? 
+            ORDER BY created_at DESC 
+            LIMIT ?
+        """, (company_id, limit))
+        
+        real_projects = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        
+        # Demo data (for presentation purposes)
+        demo_projects = [
+            {
+                "id": "demo_proj_001",
+                "name": "Sunset Gardens Phase II",
+                "developer": "Urban Housing LLC",
+                "location": "San Francisco, CA",
+                "coordinates": [37.7749, -122.4194],
+                "total_units": 48,
+                "affordable_units": 38,
+                "ami_levels": "30-80%",
+                "status": "active",
+                "completion_date": "2026-06-15",
+                "created_at": "2024-01-10T09:00:00Z"
+            },
+            {
+                "id": "demo_proj_002",
+                "name": "Mission Bay Affordable Housing",
+                "developer": "Bay Area Development",
+                "location": "San Francisco, CA", 
+                "coordinates": [37.7707, -122.3920],
+                "total_units": 65,
+                "affordable_units": 52,
+                "ami_levels": "50-80%",
+                "status": "planning",
+                "completion_date": "2026-12-31",
+                "created_at": "2024-02-01T11:30:00Z"
+            },
+            {
+                "id": "demo_proj_003",
+                "name": "Richmond Commons",
+                "developer": "Community Builders Inc",
+                "location": "Richmond, CA",
+                "coordinates": [37.9358, -122.3477],
+                "total_units": 32,
+                "affordable_units": 32,
+                "ami_levels": "30-60%", 
+                "status": "completed",
+                "completion_date": "2024-08-30",
+                "created_at": "2024-01-05T14:20:00Z"
+            }
+        ]
+        
+        # Combine real and demo data
+        all_projects = real_projects + demo_projects
+        return all_projects[:limit]
+        
+    except Exception as e:
+        print(f"Error getting projects: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get projects")
 
 @app.post("/api/v1/projects") 
-async def create_project(project_data: dict, credentials: HTTPAuthorizationCredentials = Depends(security)):
+async def create_project(project_data: ProjectCreate, credentials: HTTPAuthorizationCredentials = Depends(security)):
     """Create new project"""
-    import uuid
-    project_id = f"proj_{str(uuid.uuid4())[:8]}"
-    
-    return {
-        "id": project_id,
-        "name": project_data.get("name", "New Project"),
-        "developer": project_data.get("developer", "TBD"),
-        "status": "planning",
-        "created_at": datetime.utcnow().isoformat() + "Z"
-    }
+    try:
+        # Get user info from token
+        token = credentials.credentials
+        user_data = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        
+        # Get company from user
+        conn = sqlite3.connect(DATABASE_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT company_id FROM users WHERE id = ?", (user_data["sub"],))
+        user = cursor.fetchone()
+        
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        
+        company_id = user["company_id"]
+        project_id = f"proj_{str(uuid.uuid4())[:8]}"
+        
+        # Insert project into database
+        cursor.execute("""
+            INSERT INTO projects (
+                id, company_id, name, developer, location, address, 
+                latitude, longitude, total_units, affordable_units, 
+                ami_levels, description, completion_date
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            project_id, company_id, project_data.name, project_data.developer,
+            project_data.location, project_data.address, project_data.latitude,
+            project_data.longitude, project_data.total_units, project_data.affordable_units,
+            project_data.ami_levels, project_data.description, project_data.completion_date
+        ))
+        
+        conn.commit()
+        
+        # Get the created project
+        cursor.execute("SELECT * FROM projects WHERE id = ?", (project_id,))
+        project = cursor.fetchone()
+        conn.close()
+        
+        return dict(project)
+        
+    except Exception as e:
+        print(f"Error creating project: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create project")
+
+# Applicants Endpoints
+@app.get("/api/v1/applicants")
+async def get_applicants(limit: int = 50, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Get applicants with real database data + demo data"""
+    try:
+        # Get user info from token
+        token = credentials.credentials
+        user_data = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        
+        # Get company from user
+        conn = sqlite3.connect(DATABASE_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT company_id FROM users WHERE id = ?", (user_data["sub"],))
+        user = cursor.fetchone()
+        
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        
+        company_id = user["company_id"]
+        
+        # Get real applicants from database
+        cursor.execute("""
+            SELECT * FROM applicants 
+            WHERE company_id = ? 
+            ORDER BY created_at DESC 
+            LIMIT ?
+        """, (company_id, limit))
+        
+        real_applicants = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        
+        # Demo data (for presentation purposes)
+        demo_applicants = [
+            {
+                "id": "demo_app_001",
+                "first_name": "Maria",
+                "last_name": "Rodriguez",
+                "email": "maria.rodriguez@email.com",
+                "phone": "(555) 123-4567",
+                "household_size": 3,
+                "income": 45000,
+                "ami_percent": 65,
+                "location_preference": "Oakland, CA",
+                "latitude": 37.8044,
+                "longitude": -122.2711,
+                "status": "active",
+                "created_at": "2024-01-15T10:30:00Z"
+            },
+            {
+                "id": "demo_app_002", 
+                "first_name": "James",
+                "last_name": "Chen",
+                "email": "james.chen@email.com",
+                "phone": "(555) 234-5678",
+                "household_size": 2,
+                "income": 52000,
+                "ami_percent": 75,
+                "location_preference": "San Francisco, CA",
+                "latitude": 37.7749,
+                "longitude": -122.4194,
+                "status": "active",
+                "created_at": "2024-01-20T14:15:00Z"
+            }
+        ]
+        
+        # Combine real and demo data
+        all_applicants = real_applicants + demo_applicants
+        return all_applicants[:limit]
+        
+    except Exception as e:
+        print(f"Error getting applicants: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get applicants")
+
+@app.post("/api/v1/applicants")
+async def create_applicant(applicant_data: ApplicantCreate, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Create new applicant"""
+    try:
+        # Get user info from token
+        token = credentials.credentials
+        user_data = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        
+        # Get company from user
+        conn = sqlite3.connect(DATABASE_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT company_id FROM users WHERE id = ?", (user_data["sub"],))
+        user = cursor.fetchone()
+        
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        
+        company_id = user["company_id"]
+        applicant_id = f"app_{str(uuid.uuid4())[:8]}"
+        
+        # Insert applicant into database
+        cursor.execute("""
+            INSERT INTO applicants (
+                id, company_id, first_name, last_name, email, phone,
+                household_size, income, ami_percent, location_preference,
+                latitude, longitude
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            applicant_id, company_id, applicant_data.first_name, applicant_data.last_name,
+            applicant_data.email, applicant_data.phone, applicant_data.household_size,
+            applicant_data.income, applicant_data.ami_percent, applicant_data.location_preference,
+            applicant_data.latitude, applicant_data.longitude
+        ))
+        
+        conn.commit()
+        
+        # Get the created applicant
+        cursor.execute("SELECT * FROM applicants WHERE id = ?", (applicant_id,))
+        applicant = cursor.fetchone()
+        conn.close()
+        
+        return dict(applicant)
+        
+    except Exception as e:
+        print(f"Error creating applicant: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create applicant")
 
 # Map/Heatmap Endpoints
 @app.get("/api/v1/lenders/heatmap")
@@ -697,9 +927,34 @@ class ContactRequest(BaseModel):
     subject: str
     message: str
 
+class ProjectCreate(BaseModel):
+    name: str
+    developer: Optional[str] = None
+    location: Optional[str] = None
+    address: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    total_units: Optional[int] = None
+    affordable_units: Optional[int] = None
+    ami_levels: Optional[str] = None
+    description: Optional[str] = None
+    completion_date: Optional[str] = None
+
+class ApplicantCreate(BaseModel):
+    first_name: str
+    last_name: str
+    email: EmailStr
+    phone: Optional[str] = None
+    household_size: Optional[int] = None
+    income: Optional[float] = None
+    ami_percent: Optional[float] = None
+    location_preference: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+
 @app.post("/api/v1/contact")
 async def submit_contact_form(contact_data: ContactRequest):
-    """Submit contact form (simplified version - just logs the message)"""
+    """Submit contact form with email functionality"""
     try:
         print(f"Contact form submission:")
         print(f"  Name: {contact_data.name}")
@@ -709,16 +964,106 @@ async def submit_contact_form(contact_data: ContactRequest):
         print(f"  Subject: {contact_data.subject}")
         print(f"  Message: {contact_data.message}")
         
-        # In a real implementation, you would:
-        # 1. Store in database
-        # 2. Send email notifications
-        # 3. Send auto-reply to customer
+        # Store in database
+        conn = sqlite3.connect(DATABASE_PATH)
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS contact_submissions (
+                id TEXT PRIMARY KEY,
+                name TEXT,
+                email TEXT,
+                company TEXT,
+                phone TEXT,
+                subject TEXT,
+                message TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        submission_id = str(uuid.uuid4())
+        cursor.execute("""
+            INSERT INTO contact_submissions (id, name, email, company, phone, subject, message)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (submission_id, contact_data.name, contact_data.email, 
+              contact_data.company, contact_data.phone, contact_data.subject, contact_data.message))
+        
+        conn.commit()
+        conn.close()
+        
+        # Send email notification
+        await send_contact_email(contact_data.dict())
         
         return {"message": "Contact form submitted successfully"}
         
     except Exception as e:
         print(f"Contact form error: {e}")
         raise HTTPException(status_code=500, detail="Failed to process contact form")
+
+async def send_contact_email(contact_data: dict):
+    """Send contact form email using SendGrid"""
+    sendgrid_api_key = os.getenv("SENDGRID_API_KEY")
+    
+    if not sendgrid_api_key:
+        print("SendGrid API key not configured, skipping email")
+        return
+    
+    try:
+        import sendgrid
+        from sendgrid.helpers.mail import Mail, Email, To, Content
+        
+        sg = sendgrid.SendGridAPIClient(api_key=sendgrid_api_key)
+        
+        # Email to you (notification)
+        from_email = Email("noreply@homeverse.app")
+        to_email = To("holdenbryce06@gmail.com")
+        
+        subject = f"New HomeVerse Contact: {contact_data['subject']}"
+        
+        html_content = f"""
+        <h2>New Contact Form Submission</h2>
+        <p><strong>Name:</strong> {contact_data['name']}</p>
+        <p><strong>Email:</strong> {contact_data['email']}</p>
+        <p><strong>Company:</strong> {contact_data.get('company', 'Not provided')}</p>
+        <p><strong>Phone:</strong> {contact_data.get('phone', 'Not provided')}</p>
+        <p><strong>Subject:</strong> {contact_data['subject']}</p>
+        <p><strong>Message:</strong></p>
+        <p>{contact_data['message'].replace(chr(10), '<br>')}</p>
+        <hr>
+        <p><small>Sent from HomeVerse contact form</small></p>
+        """
+        
+        content = Content("text/html", html_content)
+        mail = Mail(from_email, to_email, subject, content)
+        
+        # Send notification email
+        response = sg.client.mail.send.post(request_body=mail.get())
+        print(f"Contact notification email sent to holdenbryce06@gmail.com: {response.status_code}")
+        
+        # Auto-reply to customer
+        customer_email = To(contact_data['email'])
+        customer_subject = "Thank you for contacting HomeVerse"
+        
+        customer_content = Content("text/html", f"""
+        <h2>Thank you for contacting HomeVerse!</h2>
+        <p>Dear {contact_data['name']},</p>
+        <p>We've received your message and will get back to you as soon as possible.</p>
+        <p><strong>Your message:</strong></p>
+        <p><em>"{contact_data['message']}"</em></p>
+        <br>
+        <p>Best regards,<br>
+        The HomeVerse Team</p>
+        <p><a href="https://homeverse-frontend.onrender.com">homeverse-frontend.onrender.com</a></p>
+        """)
+        
+        customer_mail = Mail(from_email, customer_email, customer_subject, customer_content)
+        
+        # Send auto-reply
+        response = sg.client.mail.send.post(request_body=customer_mail.get())
+        print(f"Contact auto-reply sent to {contact_data['email']}: {response.status_code}")
+        
+    except Exception as e:
+        print(f"Failed to send contact email: {e}")
+        # Don't raise exception - form submission should still succeed
 
 
 # Create test users on startup
