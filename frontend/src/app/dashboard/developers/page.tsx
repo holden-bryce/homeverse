@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -150,6 +151,7 @@ const projectStatusData = [
 ]
 
 export default function DevelopersPage() {
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState('overview')
 
   const getStatusColor = (status: string) => {
@@ -280,10 +282,10 @@ export default function DevelopersPage() {
                           <span className="text-sm text-gray-600">{project.completion}%</span>
                         </div>
                         <div className="flex space-x-2">
-                          <Button variant="ghost" size="sm" className="rounded-full p-2" onClick={() => alert(`View project ${project.name} coming soon!`)}>
+                          <Button variant="ghost" size="sm" className="rounded-full p-2" onClick={() => router.push(`/dashboard/projects/${project.id}`)}>
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" className="rounded-full p-2" onClick={() => alert(`Edit project ${project.name} coming soon!`)}>
+                          <Button variant="ghost" size="sm" className="rounded-full p-2" onClick={() => router.push(`/dashboard/projects/${project.id}/edit`)}>
                             <Edit className="h-4 w-4" />
                           </Button>
                         </div>

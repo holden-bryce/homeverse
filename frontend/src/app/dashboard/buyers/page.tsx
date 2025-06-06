@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -142,6 +143,7 @@ const recentActivity = [
 ]
 
 export default function BuyersPage() {
+  const router = useRouter()
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list')
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedAMI, setSelectedAMI] = useState('all')
@@ -204,7 +206,7 @@ export default function BuyersPage() {
               <Bookmark className="mr-2 h-4 w-4" />
               Saved Projects
             </Button>
-            <Button className="bg-sage-600 hover:bg-sage-700 text-white rounded-full px-6" onClick={() => alert('Preferences page coming soon!')}>
+            <Button className="bg-sage-600 hover:bg-sage-700 text-white rounded-full px-6" onClick={() => router.push('/dashboard/buyers/preferences')}>
               <SlidersHorizontal className="mr-2 h-4 w-4" />
               Update Preferences
             </Button>
@@ -377,12 +379,12 @@ export default function BuyersPage() {
 
                       <div className="flex items-center justify-between">
                         <div className="flex space-x-2">
-                          <Button className="bg-sage-600 hover:bg-sage-700 text-white rounded-full" onClick={() => alert(`Project details for ${project.name} coming soon!`)}>
+                          <Button className="bg-sage-600 hover:bg-sage-700 text-white rounded-full" onClick={() => router.push(`/dashboard/projects/${project.id}`)}>
                             <Eye className="mr-2 h-4 w-4" />
                             View Details
                           </Button>
                           {project.status === 'accepting_applications' && (
-                            <Button variant="outline" className="border-sage-200 text-sage-700 hover:bg-sage-50 rounded-full" onClick={() => alert(`Application for ${project.name} coming soon!`)}>
+                            <Button variant="outline" className="border-sage-200 text-sage-700 hover:bg-sage-50 rounded-full" onClick={() => router.push(`/dashboard/projects/${project.id}/apply`)}>
                               Apply Now
                               <ArrowRight className="ml-2 h-4 w-4" />
                             </Button>

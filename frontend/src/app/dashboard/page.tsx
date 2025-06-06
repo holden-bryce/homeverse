@@ -17,6 +17,7 @@ import {
   MapPin
 } from 'lucide-react'
 import { useCurrentUser } from '@/lib/api/hooks'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 // Mock data - in real app this would come from API
@@ -119,6 +120,7 @@ const upcomingTasks = [
 
 export default function DashboardPage() {
   const { data: user } = useCurrentUser()
+  const router = useRouter()
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-sage-50 via-white to-cream-50">
@@ -284,11 +286,11 @@ export default function DashboardPage() {
                     View Projects
                   </Button>
                 </Link>
-                <Button variant="outline" className="w-full justify-start" onClick={() => alert('Reports page coming soon!')}>
+                <Button variant="outline" className="w-full justify-start" onClick={() => router.push('/dashboard/lenders/reports')}>
                   <FileText className="mr-2 h-4 w-4" />
                   Generate Report
                 </Button>
-                <Button variant="outline" className="w-full justify-start" onClick={() => alert('Map view coming soon!')}>
+                <Button variant="outline" className="w-full justify-start" onClick={() => router.push('/dashboard/map')}>
                   <MapPin className="mr-2 h-4 w-4" />
                   Map View
                 </Button>
