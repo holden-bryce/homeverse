@@ -43,24 +43,84 @@ export function PropertySearchMap({ properties, onPropertySelect, onFiltersChang
   const [favorites, setFavorites] = useState<string[]>([])
   const markers = useRef<mapboxgl.Marker[]>([])
 
+  const addDemoMarkers = () => {
+    if (!mapContainer.current) return
+    
+    const mapElement = mapContainer.current.querySelector('div')
+    if (!mapElement) return
+
+    // Clear existing demo markers
+    const existingMarkers = mapElement.querySelectorAll('.demo-marker')
+    existingMarkers.forEach(marker => marker.remove())
+
+    // Add demo markers for properties
+    properties.forEach((property, index) => {
+      const markerEl = document.createElement('div')
+      markerEl.className = 'demo-marker'
+      markerEl.style.cssText = `
+        width: 40px;
+        height: 40px;
+        background: ${property.matchScore && property.matchScore >= 80 ? '#0d9488' : '#6b7280'};
+        border: 3px solid white;
+        border-radius: 50%;
+        cursor: pointer;
+        position: absolute;
+        top: ${Math.min(80, 30 + index * 40)}px;
+        left: ${Math.min(300, 50 + index * 60)}px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        color: white;
+        font-size: 12px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        transition: transform 0.2s;
+        z-index: 10;
+      `
+      markerEl.textContent = property.availableUnits?.toString() || property.totalUnits.toString()
+      markerEl.title = `${property.name} - ${property.location}`
+      
+      markerEl.addEventListener('mouseenter', () => {
+        markerEl.style.transform = 'scale(1.2)'
+        onPropertyHover?.(property.id)
+      })
+      
+      markerEl.addEventListener('mouseleave', () => {
+        markerEl.style.transform = 'scale(1)'
+        onPropertyHover?.(null)
+      })
+      
+      markerEl.addEventListener('click', (e) => {
+        e.stopPropagation()
+        setSelectedProperty(property)
+        onPropertySelect?.(property)
+      })
+      
+      mapElement.appendChild(markerEl)
+    })
+  }
+
   useEffect(() => {
     if (!mapContainer.current) return
 
     console.log('Mapbox token:', mapboxgl.accessToken ? 'Set' : 'Not set')
+    console.log('Token length:', mapboxgl.accessToken?.length || 0)
     
-    if (!mapboxgl.accessToken) {
-      console.warn('Mapbox token not available, using fallback')
-      // Create fallback map
+    if (!mapboxgl.accessToken || mapboxgl.accessToken === 'pk.placeholder' || mapboxgl.accessToken.length < 10) {
+      console.warn('Mapbox token not available, using fallback map')
+      // Create fallback map with demo markers
       if (mapContainer.current) {
         mapContainer.current.innerHTML = `
-          <div class="w-full h-full bg-gradient-to-br from-teal-50 to-blue-50 flex items-center justify-center rounded-lg border">
+          <div class="w-full h-full bg-gradient-to-br from-teal-50 to-blue-50 flex items-center justify-center rounded-lg border relative">
             <div class="text-center text-gray-600">
               <div class="text-4xl mb-4">🗺️</div>
-              <div class="text-lg font-semibold mb-2">Interactive Map</div>
-              <div class="text-sm">Mapbox configuration needed</div>
+              <div class="text-lg font-semibold mb-2">Bay Area Properties</div>
+              <div class="text-sm">Interactive map with ${properties.length} properties</div>
             </div>
           </div>
         `
+        // Add demo markers
+        setTimeout(() => addDemoMarkers(), 100)
       }
       return
     }
@@ -99,6 +159,16 @@ export function PropertySearchMap({ properties, onPropertySelect, onFiltersChang
       map.current?.remove()
     }
   }, [])
+
+  // Update demo markers when properties change (for fallback map)
+  useEffect(() => {
+    if (!mapboxgl.accessToken && mapContainer.current) {
+      const mapElement = mapContainer.current.querySelector('div')
+      if (mapElement) {
+        setTimeout(() => addDemoMarkers(), 100)
+      }
+    }
+  }, [properties])
 
   useEffect(() => {
     if (!map.current) return
@@ -311,3 +381,4 @@ export function PropertySearchMap({ properties, onPropertySelect, onFiltersChang
     </div>
   )
 }
+

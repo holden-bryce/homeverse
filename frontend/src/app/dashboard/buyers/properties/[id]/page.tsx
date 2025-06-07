@@ -141,7 +141,7 @@ export default function PropertyDetailPage() {
   }
 
   const handleApply = () => {
-    router.push(`/dashboard/projects/${property.id}/apply`)
+    router.push(`/dashboard/buyers/apply/${property.id}`)
   }
 
   const handleScheduleTour = () => {

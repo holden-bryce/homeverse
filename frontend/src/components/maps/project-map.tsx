@@ -213,8 +213,8 @@ export function ProjectMap({
           color: #64748b;
         ">
           <div style="font-size: 48px; margin-bottom: 16px;">🗺️</div>
-          <div style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">Map Unavailable</div>
-          <div style="font-size: 14px;">Mapbox configuration needed</div>
+          <div style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">Bay Area Projects</div>
+          <div style="font-size: 14px;">Interactive map with ${projects.length} projects</div>
         </div>
       </div>
     `
