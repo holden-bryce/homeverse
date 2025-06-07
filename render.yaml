@@ -50,7 +50,7 @@ services:
       - key: NEXT_PUBLIC_API_URL
         value: https://homeverse-api.onrender.com
       - key: NEXT_PUBLIC_MAPBOX_TOKEN
-        sync: false
+        value: pk.eyJ1IjoiaG9sZGVuYnJ5Y2UiLCJhIjoiY21iaml2MmpiMGZzbDJqcHZ3ZjYzY25lMiJ9.AxpeDrJxeVfemXWSfLHQqw
 
   # Redis service
   - type: redis
