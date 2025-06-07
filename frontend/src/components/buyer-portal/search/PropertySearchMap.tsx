@@ -30,10 +30,11 @@ interface Property {
 interface PropertySearchMapProps {
   properties: Property[]
   onPropertySelect?: (property: Property) => void
+  onPropertyHover?: (propertyId: string | null) => void
   onFiltersChange?: (filters: any) => void
 }
 
-export function PropertySearchMap({ properties, onPropertySelect, onFiltersChange }: PropertySearchMapProps) {
+export function PropertySearchMap({ properties, onPropertySelect, onPropertyHover, onFiltersChange }: PropertySearchMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<mapboxgl.Map | null>(null)
   const [viewMode, setViewMode] = useState<'map' | 'list' | 'split'>('split')
@@ -82,12 +83,12 @@ export function PropertySearchMap({ properties, onPropertySelect, onFiltersChang
       
       markerEl.addEventListener('mouseenter', () => {
         markerEl.style.transform = 'scale(1.2)'
-        onPropertyHover?.(property.id)
+        if (onPropertyHover) onPropertyHover(property.id)
       })
       
       markerEl.addEventListener('mouseleave', () => {
         markerEl.style.transform = 'scale(1)'
-        onPropertyHover?.(null)
+        if (onPropertyHover) onPropertyHover(null)
       })
       
       markerEl.addEventListener('click', (e) => {
@@ -168,8 +169,9 @@ export function PropertySearchMap({ properties, onPropertySelect, onFiltersChang
         setTimeout(() => addDemoMarkers(), 100)
       }
     }
-  }, [properties])
+  }, [properties.length]) // Only depend on length to avoid infinite re-renders
 
+  // Update markers when properties change
   useEffect(() => {
     if (!map.current) return
 
