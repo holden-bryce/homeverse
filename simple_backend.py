@@ -1190,7 +1190,7 @@ async def send_contact_email(contact_data: dict):
         sg = sendgrid.SendGridAPIClient(api_key=sendgrid_api_key)
         
         # Email to you (notification) - use verified sender email
-        from_email = Email("holdenbryce06@gmail.com")  # Use your verified email as sender
+        from_email = Email("holden@1404.io")  # Use your verified email as sender
         to_email = To("holdenbryce06@gmail.com")
         
         subject = f"New HomeVerse Contact: {contact_data['subject']}"

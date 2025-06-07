@@ -44,18 +44,55 @@ export function PropertySearchMap({ properties, onPropertySelect, onFiltersChang
   const markers = useRef<mapboxgl.Marker[]>([])
 
   useEffect(() => {
-    if (!mapContainer.current || !mapboxgl.accessToken) return
+    if (!mapContainer.current) return
 
-    // Initialize map
-    map.current = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/light-v11',
-      center: [-122.4194, 37.7749], // San Francisco
-      zoom: 12
-    })
+    console.log('Mapbox token:', mapboxgl.accessToken ? 'Set' : 'Not set')
+    
+    if (!mapboxgl.accessToken) {
+      console.warn('Mapbox token not available, using fallback')
+      // Create fallback map
+      if (mapContainer.current) {
+        mapContainer.current.innerHTML = `
+          <div class="w-full h-full bg-gradient-to-br from-teal-50 to-blue-50 flex items-center justify-center rounded-lg border">
+            <div class="text-center text-gray-600">
+              <div class="text-4xl mb-4">🗺️</div>
+              <div class="text-lg font-semibold mb-2">Interactive Map</div>
+              <div class="text-sm">Mapbox configuration needed</div>
+            </div>
+          </div>
+        `
+      }
+      return
+    }
 
-    // Add navigation controls
-    map.current.addControl(new mapboxgl.NavigationControl(), 'top-right')
+    try {
+      // Initialize map
+      map.current = new mapboxgl.Map({
+        container: mapContainer.current,
+        style: 'mapbox://styles/mapbox/light-v11',
+        center: [-122.4194, 37.7749], // San Francisco
+        zoom: 12
+      })
+
+      // Add navigation controls
+      map.current.addControl(new mapboxgl.NavigationControl(), 'top-right')
+      
+      console.log('Mapbox map initialized successfully')
+    } catch (error) {
+      console.error('Error initializing Mapbox:', error)
+      // Fallback
+      if (mapContainer.current) {
+        mapContainer.current.innerHTML = `
+          <div class="w-full h-full bg-gradient-to-br from-red-50 to-orange-50 flex items-center justify-center rounded-lg border">
+            <div class="text-center text-gray-600">
+              <div class="text-4xl mb-4">⚠️</div>
+              <div class="text-lg font-semibold mb-2">Map Error</div>
+              <div class="text-sm">Check Mapbox configuration</div>
+            </div>
+          </div>
+        `
+      }
+    }
 
     // Cleanup
     return () => {
