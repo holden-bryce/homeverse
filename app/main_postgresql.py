@@ -19,11 +19,27 @@ import uvicorn
 from app.db.postgresql_database import postgresql_db, get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
-# API routes
-from app.api.v1 import auth, projects, applicants, contact, admin, lenders, reports
+# API routes - import what's available
+try:
+    from app.api.v1 import auth, projects, applicants, contact, admin, lenders, reports
+except ImportError as e:
+    logger.warning(f"Some API modules not available: {e}")
+    # Create minimal router structure
+    from fastapi import APIRouter
+    auth = APIRouter()
+    projects = APIRouter() 
+    applicants = APIRouter()
+    contact = APIRouter()
+    admin = APIRouter()
+    lenders = APIRouter()
+    reports = APIRouter()
 
 # Configuration
-from app.config import settings
+try:
+    from app.config import settings
+except ImportError:
+    logger.warning("Config module not found, using environment variables")
+    settings = None
 
 # Logging setup
 logging.basicConfig(

@@ -350,6 +350,14 @@ class DatabaseMigrator:
             if not await self.validate_postgresql_schema():
                 raise Exception("PostgreSQL schema validation failed")
             
+            # Check if SQLite database exists
+            if not os.path.exists(self.sqlite_path):
+                logger.info("📭 No SQLite database found - setting up fresh PostgreSQL database")
+                if create_defaults:
+                    await self.create_default_data()
+                logger.info("✅ Fresh PostgreSQL database setup completed")
+                return
+            
             # Get tables from SQLite
             sqlite_tables = self.get_sqlite_tables()
             logger.info(f"📋 Found SQLite tables: {sqlite_tables}")
@@ -401,6 +409,7 @@ async def main():
     parser = argparse.ArgumentParser(description='Migrate HomeVerse from SQLite to PostgreSQL')
     parser.add_argument('--dry-run', action='store_true', help='Run migration without making changes')
     parser.add_argument('--no-defaults', action='store_true', help='Skip creating default test data')
+    parser.add_argument('--create-defaults', action='store_true', help='Force create default test data')
     parser.add_argument('--sqlite-path', default=SQLITE_DB_PATH, help='Path to SQLite database')
     parser.add_argument('--postgres-url', default=POSTGRESQL_URL, help='PostgreSQL connection URL')
     
@@ -409,9 +418,12 @@ async def main():
     migrator = DatabaseMigrator(args.sqlite_path, args.postgres_url)
     
     try:
+        # Determine if we should create defaults
+        create_defaults = args.create_defaults or not args.no_defaults
+        
         await migrator.run_migration(
             dry_run=args.dry_run,
-            create_defaults=not args.no_defaults
+            create_defaults=create_defaults
         )
         logger.info("🏁 Migration process completed successfully!")
         

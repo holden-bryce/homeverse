@@ -4,7 +4,7 @@ services:
     name: homeverse-api
     runtime: python
     buildCommand: pip install -r requirements.txt
-    startCommand: python simple_backend.py
+    startCommand: python app/simple_production.py
     envVars:
       - key: DATABASE_URL
         fromDatabase:
@@ -27,6 +27,18 @@ services:
         value: "*"
       - key: COMPANY_KEY
         value: "default-company-key"
+      - key: DATABASE_TYPE
+        value: "postgresql"
+      - key: DATABASE_POOL_SIZE
+        value: "20"
+      - key: DATABASE_MAX_OVERFLOW
+        value: "30"
+      - key: DATABASE_POOL_TIMEOUT
+        value: "30"
+      - key: ENVIRONMENT
+        value: "production"
+      - key: LOG_LEVEL
+        value: "INFO"
 
   # Frontend Next.js service
   - type: web
