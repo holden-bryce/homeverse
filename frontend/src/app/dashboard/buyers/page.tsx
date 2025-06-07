@@ -1,597 +1,506 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { PropertySearchMap } from '@/components/buyer-portal/search/PropertySearchMap'
+import { PropertyCard } from '@/components/buyer-portal/search/PropertyCard'
+import { SearchFilters } from '@/components/buyer-portal/search/SearchFilters'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from '@/components/ui/toast'
 import { 
   Search,
-  Filter,
-  MapPin,
-  Building2,
-  DollarSign,
-  Users,
-  Calendar,
+  SlidersHorizontal,
   Heart,
   Star,
-  Eye,
-  Bookmark,
-  SlidersHorizontal,
-  Map,
-  List,
-  ArrowRight,
   Clock,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  TrendingUp,
+  Home,
+  MapPin,
+  Bookmark,
+  Bell
 } from 'lucide-react'
-import Link from 'next/link'
-import { ProjectMap } from '@/components/maps/project-map'
 
-// Mock data for projects
-const projects = [
+// Enhanced mock data with Zillow-style properties
+const mockProperties = [
   {
     id: '1',
     name: 'Sunset Gardens',
-    developer: 'Urban Housing LLC',
+    address: '1234 Sunset Blvd',
     location: 'San Francisco, CA',
     coordinates: [37.7749, -122.4194] as [number, number],
-    ami_ranges: ['30%', '50%', '80%'],
-    unit_types: ['Studio', '1BR', '2BR'],
-    units_available: 24,
-    total_units: 120,
-    estimated_delivery: '2024-12-15',
-    status: 'accepting_applications',
-    amenities: ['parking', 'playground', 'laundry', 'fitness'],
-    description: 'Modern affordable housing in the heart of San Francisco with excellent transit access.',
-    price_range: '$1,200 - $2,800',
-    transit_score: 95,
-    school_rating: 8,
-    is_saved: true,
-    match_score: 94,
-    images: ['/api/placeholder/400/300'],
+    images: ['/api/placeholder/800/600'],
+    monthlyRent: 1800,
+    bedrooms: 2,
+    bathrooms: 1,
+    sqft: 850,
+    amiLevels: '30-80%',
+    availableUnits: 24,
+    totalUnits: 120,
+    status: 'Available',
+    completionDate: '2024-12-15',
+    matchScore: 94,
+    developer: 'Urban Housing LLC',
+    amenities: ['Parking', 'Laundry', 'Gym', 'Pet Friendly'],
   },
   {
     id: '2',
     name: 'Riverside Commons',
-    developer: 'Bay Area Developers',
+    address: '5678 River Road',
     location: 'Oakland, CA',
     coordinates: [37.8044, -122.2711] as [number, number],
-    ami_ranges: ['50%', '80%', '120%'],
-    unit_types: ['1BR', '2BR', '3BR'],
-    units_available: 15,
-    total_units: 85,
-    estimated_delivery: '2025-03-20',
-    status: 'construction',
-    amenities: ['parking', 'transit', 'laundry', 'community_room'],
-    description: 'Family-friendly community near top-rated schools and public transportation.',
-    price_range: '$1,500 - $3,200',
-    transit_score: 88,
-    school_rating: 9,
-    is_saved: false,
-    match_score: 88,
-    images: ['/api/placeholder/400/300'],
+    images: ['/api/placeholder/800/600'],
+    monthlyRent: 2200,
+    bedrooms: 3,
+    bathrooms: 2,
+    sqft: 1200,
+    amiLevels: '50-120%',
+    availableUnits: 15,
+    totalUnits: 85,
+    status: 'Coming Soon',
+    completionDate: '2025-03-20',
+    matchScore: 88,
+    developer: 'Bay Area Developers',
+    amenities: ['Parking', 'Pool', 'Playground', 'Elevator'],
   },
   {
     id: '3',
     name: 'Harbor View Apartments',
-    developer: 'Coastal Development Group',
+    address: '9012 Harbor Way',
     location: 'San Jose, CA',
     coordinates: [37.3382, -121.8863] as [number, number],
-    ami_ranges: ['30%', '60%', '80%'],
-    unit_types: ['Studio', '1BR', '2BR', '3BR'],
-    units_available: 45,
-    total_units: 200,
-    estimated_delivery: '2025-08-30',
-    status: 'planning',
-    amenities: ['parking', 'playground', 'fitness', 'pool'],
-    description: 'Waterfront living with stunning bay views and modern amenities.',
-    price_range: '$1,400 - $3,500',
-    transit_score: 76,
-    school_rating: 7,
-    is_saved: false,
-    match_score: 82,
-    images: ['/api/placeholder/400/300'],
+    images: ['/api/placeholder/800/600'],
+    monthlyRent: 2500,
+    bedrooms: 2,
+    bathrooms: 2,
+    sqft: 1100,
+    amiLevels: '60-100%',
+    availableUnits: 45,
+    totalUnits: 200,
+    status: 'Available',
+    completionDate: '2025-08-30',
+    matchScore: 82,
+    developer: 'Coastal Development Group',
+    amenities: ['Parking', 'Gym', 'Pool', 'Concierge'],
+  },
+  {
+    id: '4',
+    name: 'Mission Bay Towers',
+    address: '3456 Mission St',
+    location: 'San Francisco, CA',
+    coordinates: [37.7707, -122.3920] as [number, number],
+    images: ['/api/placeholder/800/600'],
+    monthlyRent: 1650,
+    bedrooms: 1,
+    bathrooms: 1,
+    sqft: 650,
+    amiLevels: '30-60%',
+    availableUnits: 12,
+    totalUnits: 60,
+    status: 'Waitlist',
+    completionDate: '2024-10-30',
+    matchScore: 91,
+    developer: 'Mission Housing Corp',
+    amenities: ['Laundry', 'Bike Storage', 'Rooftop Deck'],
+  },
+  {
+    id: '5',
+    name: 'Downtown Plaza',
+    address: '789 Market Street',
+    location: 'San Francisco, CA',
+    coordinates: [37.7849, -122.4094] as [number, number],
+    images: ['/api/placeholder/800/600'],
+    monthlyRent: 2800,
+    bedrooms: 2,
+    bathrooms: 2,
+    sqft: 950,
+    amiLevels: '80-120%',
+    availableUnits: 8,
+    totalUnits: 100,
+    status: 'Available',
+    completionDate: '2024-06-15',
+    matchScore: 76,
+    developer: 'Urban Core Development',
+    amenities: ['Parking', 'Gym', 'Concierge', 'Business Center'],
   },
 ]
 
 const savedSearches = [
   {
     id: '1',
-    name: '2BR near transit',
-    criteria: 'unit_type=2BR&max_commute=30&transit_score=80+',
-    results_count: 12,
-    last_updated: '2024-01-15',
+    name: '2BR under $2000',
+    criteria: 'Bedrooms: 2, Max Rent: $2000',
+    newMatches: 3,
+    lastChecked: '2 hours ago',
   },
   {
     id: '2',
-    name: 'Family-friendly 50% AMI',
-    criteria: 'ami_band=50%&household_size=4&amenities=playground',
-    results_count: 8,
-    last_updated: '2024-01-12',
-  },
-]
-
-const recentActivity = [
-  {
-    id: '1',
-    type: 'application',
-    title: 'Application submitted',
-    description: 'Sunset Gardens - 2BR unit application',
-    time: '2 hours ago',
-    status: 'pending',
-  },
-  {
-    id: '2',
-    type: 'match',
-    title: 'New match found',
-    description: 'Harbor View Apartments - 94% compatibility',
-    time: '1 day ago',
-    status: 'new',
+    name: 'Pet-friendly in SF',
+    criteria: 'Location: San Francisco, Pet Friendly',
+    newMatches: 5,
+    lastChecked: '1 day ago',
   },
   {
     id: '3',
-    type: 'update',
-    title: 'Project status updated',
-    description: 'Riverside Commons construction progress',
-    time: '3 days ago',
-    status: 'info',
+    name: '30% AMI eligible',
+    criteria: 'AMI: 30%, Any location',
+    newMatches: 2,
+    lastChecked: '3 days ago',
   },
 ]
 
-export default function BuyersPage() {
+const applications = [
+  {
+    id: '1',
+    propertyName: 'Sunset Gardens',
+    status: 'under_review',
+    submittedDate: '2024-01-10',
+    lastUpdate: '2024-01-12',
+    position: 15,
+    totalApplicants: 150,
+  },
+  {
+    id: '2',
+    propertyName: 'Mission Bay Towers',
+    status: 'approved',
+    submittedDate: '2023-12-28',
+    lastUpdate: '2024-01-05',
+    offerExpires: '2024-01-20',
+  },
+  {
+    id: '3',
+    propertyName: 'Harbor View Apartments',
+    status: 'waitlisted',
+    submittedDate: '2023-12-15',
+    lastUpdate: '2023-12-20',
+    position: 45,
+  },
+]
+
+export default function ZillowStyleBuyerPortal() {
   const router = useRouter()
-  const [viewMode, setViewMode] = useState<'list' | 'map'>('list')
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedAMI, setSelectedAMI] = useState('all')
-  const [selectedUnitType, setSelectedUnitType] = useState('all')
-  const [selectedStatus, setSelectedStatus] = useState('all')
+  const [activeTab, setActiveTab] = useState('discover')
+  const [favorites, setFavorites] = useState<string[]>([])
+  const [properties, setProperties] = useState(mockProperties)
+  const [filteredProperties, setFilteredProperties] = useState(mockProperties)
   const [showFilters, setShowFilters] = useState(false)
-  const [hoveredProject, setHoveredProject] = useState<string | null>(null)
 
-  const filteredProjects = projects.filter(project => {
-    const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         project.location.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesAMI = selectedAMI === 'all' || project.ami_ranges.includes(selectedAMI)
-    const matchesUnitType = selectedUnitType === 'all' || project.unit_types.includes(selectedUnitType)
-    const matchesStatus = selectedStatus === 'all' || project.status === selectedStatus
-    
-    return matchesSearch && matchesAMI && matchesUnitType && matchesStatus
-  })
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'accepting_applications':
-        return 'bg-green-100 text-green-800 border-green-200'
-      case 'construction':
-        return 'bg-teal-100 text-teal-800 border-teal-200'
-      case 'planning':
-        return 'bg-amber-100 text-amber-800 border-amber-200'
-      case 'waitlist_only':
-        return 'bg-red-100 text-red-800 border-red-200'
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-200'
-    }
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    const filtered = properties.filter(p => 
+      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.address.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    setFilteredProperties(filtered)
   }
 
-  const getStatusIcon = (status: string) => {
+  const handleFilterChange = (filters: any) => {
+    // Apply filters to properties
+    let filtered = [...properties]
+    
+    // Price filter
+    if (filters.priceRange) {
+      filtered = filtered.filter(p => 
+        p.monthlyRent >= filters.priceRange[0] && 
+        p.monthlyRent <= filters.priceRange[1]
+      )
+    }
+    
+    // Bedroom filter
+    if (filters.bedrooms.length > 0) {
+      filtered = filtered.filter(p => {
+        const bedroomStr = p.bedrooms?.toString() || 'Studio'
+        return filters.bedrooms.includes(bedroomStr) || 
+               (filters.bedrooms.includes('4+') && p.bedrooms >= 4)
+      })
+    }
+    
+    // Status filter
+    if (filters.status.length > 0) {
+      filtered = filtered.filter(p => filters.status.includes(p.status))
+    }
+    
+    // Sort
+    if (filters.sortBy === 'price_low') {
+      filtered.sort((a, b) => (a.monthlyRent || 0) - (b.monthlyRent || 0))
+    } else if (filters.sortBy === 'price_high') {
+      filtered.sort((a, b) => (b.monthlyRent || 0) - (a.monthlyRent || 0))
+    } else if (filters.sortBy === 'match_score') {
+      filtered.sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0))
+    }
+    
+    setFilteredProperties(filtered)
+  }
+
+  const toggleFavorite = (propertyId: string) => {
+    setFavorites(prev => 
+      prev.includes(propertyId) 
+        ? prev.filter(id => id !== propertyId)
+        : [...prev, propertyId]
+    )
+    toast({
+      title: favorites.includes(propertyId) ? "Removed from favorites" : "Added to favorites",
+      description: "Your favorites list has been updated.",
+    })
+  }
+
+  const getApplicationStatusColor = (status: string) => {
     switch (status) {
-      case 'accepting_applications':
-        return <CheckCircle className="h-4 w-4" />
-      case 'construction':
-      case 'planning':
-        return <Clock className="h-4 w-4" />
-      case 'waitlist_only':
-        return <AlertCircle className="h-4 w-4" />
+      case 'approved':
+        return 'bg-green-100 text-green-800'
+      case 'under_review':
+        return 'bg-blue-100 text-blue-800'
+      case 'waitlisted':
+        return 'bg-yellow-100 text-yellow-800'
       default:
-        return <Clock className="h-4 w-4" />
+        return 'bg-gray-100 text-gray-800'
     }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-sage-50 via-white to-cream-50">
-      <div className="p-6 space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Project Discovery</h1>
-            <p className="text-gray-600 mt-1">
-              Find affordable housing opportunities that match your needs
-            </p>
-          </div>
-          <div className="flex space-x-3">
-            <Button variant="outline" className="border-sage-200 text-sage-700 hover:bg-sage-50 rounded-full">
-              <Bookmark className="mr-2 h-4 w-4" />
-              Saved Projects
-            </Button>
-            <Button className="bg-sage-600 hover:bg-sage-700 text-white rounded-full px-6" onClick={() => router.push('/dashboard/buyers/preferences')}>
-              <SlidersHorizontal className="mr-2 h-4 w-4" />
-              Update Preferences
-            </Button>
-          </div>
-        </div>
-
-        {/* Search and Filters */}
-        <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-          <CardContent className="p-6">
-            <div className="flex flex-col space-y-4">
-              {/* Primary Search */}
-              <div className="flex space-x-4">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                  <Input
-                    placeholder="Search by project name, location, or developer..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 bg-white border-sage-200 focus:border-sage-400 rounded-full h-12"
-                  />
-                </div>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowFilters(!showFilters)}
-                  className="rounded-full px-6 h-12"
-                >
-                  <Filter className="mr-2 h-4 w-4" />
-                  Filters
-                </Button>
-                <div className="flex border border-sage-200 rounded-full p-1">
-                  <Button
-                    variant={viewMode === 'list' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setViewMode('list')}
-                    className="rounded-full"
-                  >
-                    <List className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant={viewMode === 'map' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setViewMode('map')}
-                    className="rounded-full"
-                  >
-                    <Map className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              {/* Advanced Filters */}
-              {showFilters && (
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-4 border-t border-sage-100">
-                  <Select value={selectedAMI} onValueChange={setSelectedAMI}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="AMI Range" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All AMI Ranges</SelectItem>
-                      <SelectItem value="30%">30% AMI</SelectItem>
-                      <SelectItem value="50%">50% AMI</SelectItem>
-                      <SelectItem value="60%">60% AMI</SelectItem>
-                      <SelectItem value="80%">80% AMI</SelectItem>
-                      <SelectItem value="120%">120% AMI</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  <Select value={selectedUnitType} onValueChange={setSelectedUnitType}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Unit Type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Unit Types</SelectItem>
-                      <SelectItem value="Studio">Studio</SelectItem>
-                      <SelectItem value="1BR">1 Bedroom</SelectItem>
-                      <SelectItem value="2BR">2 Bedroom</SelectItem>
-                      <SelectItem value="3BR">3 Bedroom</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Statuses</SelectItem>
-                      <SelectItem value="accepting_applications">Accepting Applications</SelectItem>
-                      <SelectItem value="construction">Under Construction</SelectItem>
-                      <SelectItem value="planning">In Planning</SelectItem>
-                      <SelectItem value="waitlist_only">Waitlist Only</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  <Button 
-                    variant="outline" 
-                    className="w-full"
-                    onClick={() => {
-                      toast({
-                        title: "Advanced Filters",
-                        description: "Advanced filtering options coming soon!",
-                      })
-                    }}
-                  >
-                    More Filters
-                  </Button>
-                </div>
-              )}
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white border-b sticky top-0 z-40">
+        <div className="px-6 py-4">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Find Your Next Home</h1>
+              <p className="text-gray-600 text-sm">Discover affordable housing opportunities</p>
             </div>
-          </CardContent>
-        </Card>
-
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Main Content */}
-          <div className="lg:col-span-3">
-            {viewMode === 'list' ? (
-              <div className="space-y-6">
-                {filteredProjects.map((project) => (
-                  <Card key={project.id} className="border-0 shadow-lg bg-white/80 backdrop-blur-sm hover:shadow-xl transition-shadow">
-                    <CardContent className="p-6">
-                      <div className="flex justify-between items-start mb-4">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-3 mb-2">
-                            <h3 className="text-xl font-bold text-gray-900">{project.name}</h3>
-                            <Badge className={`${getStatusColor(project.status)} rounded-full border`}>
-                              {getStatusIcon(project.status)}
-                              <span className="ml-1">{project.status.replace('_', ' ')}</span>
-                            </Badge>
-                            {project.match_score && (
-                              <Badge className="bg-sage-100 text-sage-800 border border-sage-200 rounded-full">
-                                <Star className="h-3 w-3 mr-1" />
-                                {project.match_score}% match
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="flex items-center text-gray-600 mb-2">
-                            <MapPin className="h-4 w-4 mr-1" />
-                            {project.location}
-                            <span className="mx-2">•</span>
-                            <Building2 className="h-4 w-4 mr-1" />
-                            {project.developer}
-                          </div>
-                          <p className="text-gray-600 mb-4">{project.description}</p>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="rounded-full p-2"
-                        >
-                          <Heart className={`h-4 w-4 ${project.is_saved ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
-                        </Button>
-                      </div>
-
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                        <div>
-                          <div className="text-sm text-gray-500">Price Range</div>
-                          <div className="font-semibold">{project.price_range}</div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-gray-500">Available Units</div>
-                          <div className="font-semibold">{project.units_available} of {project.total_units}</div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-gray-500">Delivery</div>
-                          <div className="font-semibold">{new Date(project.estimated_delivery).toLocaleDateString()}</div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-gray-500">Transit Score</div>
-                          <div className="font-semibold">{project.transit_score}/100</div>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap gap-2 mb-4">
-                        <div className="text-sm text-gray-500 mr-2">AMI Ranges:</div>
-                        {project.ami_ranges.map((ami) => (
-                          <Badge key={ami} className="bg-cream-100 text-cream-800 border border-cream-200 rounded-full text-xs">
-                            {ami} AMI
-                          </Badge>
-                        ))}
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <div className="flex space-x-2">
-                          <Button className="bg-sage-600 hover:bg-sage-700 text-white rounded-full" onClick={() => router.push(`/dashboard/projects/${project.id}`)}>
-                            <Eye className="mr-2 h-4 w-4" />
-                            View Details
-                          </Button>
-                          {project.status === 'accepting_applications' && (
-                            <Button variant="outline" className="border-sage-200 text-sage-700 hover:bg-sage-50 rounded-full" onClick={() => router.push(`/dashboard/projects/${project.id}/apply`)}>
-                              Apply Now
-                              <ArrowRight className="ml-2 h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                        <div className="flex items-center space-x-4 text-sm text-gray-500">
-                          <div className="flex items-center">
-                            <Users className="h-4 w-4 mr-1" />
-                            {project.unit_types.join(', ')}
-                          </div>
-                          <div className="flex items-center">
-                            <Calendar className="h-4 w-4 mr-1" />
-                            Est. {new Date(project.estimated_delivery).getFullYear()}
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-
-                {filteredProjects.length === 0 && (
-                  <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-                    <CardContent className="p-12 text-center">
-                      <div className="mx-auto h-24 w-24 bg-sage-100 rounded-full flex items-center justify-center mb-4">
-                        <Building2 className="h-12 w-12 text-sage-400" />
-                      </div>
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">No projects found</h3>
-                      <p className="text-gray-500 mb-4">
-                        Try adjusting your search criteria or filters to find more projects.
-                      </p>
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          setSearchTerm('')
-                          setSelectedAMI('all')
-                          setSelectedUnitType('all')
-                          setSelectedStatus('all')
-                        }}
-                        className="rounded-full"
-                      >
-                        Clear Filters
-                      </Button>
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
-            ) : (
-              // Map View
-              <div className="space-y-6">
-                <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-                  <CardContent className="p-0">
-                    <ProjectMap
-                      projects={filteredProjects}
-                      height={600}
-                      onProjectSelect={(projectId) => {
-                        // Navigate to project details
-                        router.push(`/dashboard/projects/${projectId}`)
-                      }}
-                      onProjectHover={(projectId) => {
-                        // Show project tooltip/preview
-                        setHoveredProject(projectId)
-                      }}
-                    />
-                  </CardContent>
-                </Card>
-
-                {/* Map Results Summary */}
-                <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-                  <CardContent className="p-6">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900">
-                          {filteredProjects.length} projects found
-                        </h3>
-                        <p className="text-gray-600">
-                          Click on map markers to view project details
-                        </p>
-                      </div>
-                      <Button
-                        onClick={() => setViewMode('list')}
-                        variant="outline"
-                        className="border-sage-200 text-sage-700 hover:bg-sage-50 rounded-full"
-                      >
-                        <List className="mr-2 h-4 w-4" />
-                        Switch to List View
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
+            <div className="flex items-center gap-3">
+              <Button variant="outline" size="sm" className="rounded-full">
+                <Bell className="h-4 w-4 mr-1" />
+                Alerts
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="rounded-full"
+                onClick={() => router.push('/dashboard/buyers/preferences')}
+              >
+                <SlidersHorizontal className="h-4 w-4 mr-1" />
+                Preferences
+              </Button>
+              <Badge className="bg-teal-100 text-teal-800">
+                <Heart className="h-3 w-3 mr-1" />
+                {favorites.length} Saved
+              </Badge>
+            </div>
           </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Saved Searches */}
-            <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-              <CardHeader>
-                <CardTitle className="text-lg">Saved Searches</CardTitle>
-                <CardDescription>
-                  Quick access to your favorite criteria
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {savedSearches.map((search) => (
-                  <div key={search.id} className="p-3 border border-sage-100 rounded-lg hover:bg-sage-50 cursor-pointer">
-                    <div className="font-medium text-gray-900">{search.name}</div>
-                    <div className="text-sm text-gray-500">{search.results_count} results</div>
-                    <div className="text-xs text-gray-400 mt-1">
-                      Updated {new Date(search.last_updated).toLocaleDateString()}
-                    </div>
-                  </div>
-                ))}
-                <Button 
-                  variant="outline" 
-                  className="w-full rounded-full"
-                  onClick={() => {
-                    const searchParams = {
-                      searchTerm,
-                      selectedAMI,
-                      selectedUnitType,
-                      selectedStatus
-                    }
-                    localStorage.setItem(`saved-search-${Date.now()}`, JSON.stringify(searchParams))
-                    toast({
-                      title: "Search Saved",
-                      description: "Your search preferences have been saved!",
-                    })
-                  }}
-                >
-                  Create New Search
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Recent Activity */}
-            <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-              <CardHeader>
-                <CardTitle className="text-lg">Recent Activity</CardTitle>
-                <CardDescription>
-                  Your application updates
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {recentActivity.map((activity) => (
-                  <div key={activity.id} className="flex items-start space-x-3">
-                    <div className={`h-8 w-8 rounded-full flex items-center justify-center ${
-                      activity.status === 'pending' ? 'bg-amber-100' :
-                      activity.status === 'new' ? 'bg-green-100' : 'bg-teal-100'
-                    }`}>
-                      {activity.type === 'application' && <Building2 className="h-4 w-4 text-amber-600" />}
-                      {activity.type === 'match' && <Star className="h-4 w-4 text-green-600" />}
-                      {activity.type === 'update' && <Clock className="h-4 w-4 text-teal-600" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-900 text-sm">{activity.title}</p>
-                      <p className="text-xs text-gray-600">{activity.description}</p>
-                      <p className="text-xs text-gray-400 mt-1">{activity.time}</p>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-
-            {/* Application Status */}
-            <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-              <CardHeader>
-                <CardTitle className="text-lg">Application Status</CardTitle>
-                <CardDescription>
-                  Track your applications
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Active Applications</span>
-                    <span className="font-semibold">3</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Under Review</span>
-                    <span className="font-semibold">1</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Waitlisted</span>
-                    <span className="font-semibold">2</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Approved</span>
-                    <span className="font-semibold text-green-600">1</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          
+          {/* Search Bar */}
+          <form onSubmit={handleSearch} className="flex gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+              <Input
+                placeholder="Search by location, property name, or address..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 h-12 text-lg"
+              />
+            </div>
+            <Button type="submit" className="bg-teal-600 hover:bg-teal-700 h-12 px-8">
+              Search
+            </Button>
+          </form>
+        </div>
+        
+        {/* Tabs */}
+        <div className="px-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-4 h-12 bg-transparent">
+              <TabsTrigger value="discover" className="data-[state=active]:border-b-2 data-[state=active]:border-teal-600">
+                <MapPin className="h-4 w-4 mr-2" />
+                Discover
+              </TabsTrigger>
+              <TabsTrigger value="saved" className="data-[state=active]:border-b-2 data-[state=active]:border-teal-600">
+                <Heart className="h-4 w-4 mr-2" />
+                Saved Homes
+              </TabsTrigger>
+              <TabsTrigger value="applications" className="data-[state=active]:border-b-2 data-[state=active]:border-teal-600">
+                <Home className="h-4 w-4 mr-2" />
+                Applications
+              </TabsTrigger>
+              <TabsTrigger value="searches" className="data-[state=active]:border-b-2 data-[state=active]:border-teal-600">
+                <Bookmark className="h-4 w-4 mr-2" />
+                Saved Searches
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
       </div>
+
+      {/* Content */}
+      <div className="flex-1">
+        {activeTab === 'discover' && (
+          <div className="h-[calc(100vh-180px)]">
+            <PropertySearchMap
+              properties={filteredProperties}
+              onFiltersChange={handleFilterChange}
+              onPropertySelect={(property) => {
+                router.push(`/dashboard/buyers/properties/${property.id}`)
+              }}
+            />
+          </div>
+        )}
+
+        {activeTab === 'saved' && (
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {properties.filter(p => favorites.includes(p.id)).map(property => (
+                <PropertyCard
+                  key={property.id}
+                  property={property}
+                  isFavorited={true}
+                  onFavorite={toggleFavorite}
+                />
+              ))}
+            </div>
+            {favorites.length === 0 && (
+              <Card className="max-w-md mx-auto mt-12">
+                <CardContent className="text-center py-12">
+                  <Heart className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">No saved homes yet</h3>
+                  <p className="text-gray-600 mb-4">
+                    Start exploring and save homes you're interested in
+                  </p>
+                  <Button 
+                    onClick={() => setActiveTab('discover')}
+                    className="bg-teal-600 hover:bg-teal-700"
+                  >
+                    Start Searching
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'applications' && (
+          <div className="p-6 max-w-4xl mx-auto">
+            <div className="space-y-4">
+              {applications.map(app => (
+                <Card key={app.id}>
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h3 className="text-lg font-semibold mb-2">{app.propertyName}</h3>
+                        <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
+                          <span>Submitted: {new Date(app.submittedDate).toLocaleDateString()}</span>
+                          <span>•</span>
+                          <span>Last Update: {new Date(app.lastUpdate).toLocaleDateString()}</span>
+                        </div>
+                        
+                        {app.position && (
+                          <div className="flex items-center gap-2 mb-3">
+                            <Clock className="h-4 w-4 text-gray-400" />
+                            <span className="text-sm">
+                              Position #{app.position} {app.totalApplicants && `of ${app.totalApplicants} applicants`}
+                            </span>
+                          </div>
+                        )}
+                        
+                        {app.offerExpires && (
+                          <div className="flex items-center gap-2 text-green-600">
+                            <CheckCircle className="h-4 w-4" />
+                            <span className="text-sm font-medium">
+                              Offer expires: {new Date(app.offerExpires).toLocaleDateString()}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="flex flex-col items-end gap-3">
+                        <Badge className={getApplicationStatusColor(app.status)}>
+                          {app.status.replace('_', ' ')}
+                        </Badge>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => router.push(`/dashboard/buyers/applications/${app.id}`)}
+                        >
+                          View Details
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'searches' && (
+          <div className="p-6 max-w-4xl mx-auto">
+            <div className="grid gap-4">
+              {savedSearches.map(search => (
+                <Card key={search.id} className="hover:shadow-lg transition-shadow cursor-pointer">
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h3 className="text-lg font-semibold mb-1">{search.name}</h3>
+                        <p className="text-sm text-gray-600 mb-2">{search.criteria}</p>
+                        <p className="text-sm text-gray-500">Last checked: {search.lastChecked}</p>
+                      </div>
+                      <div className="text-right">
+                        {search.newMatches > 0 && (
+                          <Badge className="bg-teal-100 text-teal-800 mb-2">
+                            {search.newMatches} new
+                          </Badge>
+                        )}
+                        <div>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              // Apply saved search filters
+                              toast({
+                                title: "Search Applied",
+                                description: `Showing results for "${search.name}"`,
+                              })
+                              setActiveTab('discover')
+                            }}
+                          >
+                            View Results
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+              
+              <Button 
+                variant="outline" 
+                className="w-full h-24 border-dashed"
+                onClick={() => setShowFilters(true)}
+              >
+                <Search className="h-6 w-6 mr-2" />
+                Create New Saved Search
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Filters Modal */}
+      {showFilters && (
+        <SearchFilters
+          isModal
+          onClose={() => setShowFilters(false)}
+          onFilterChange={(filters) => {
+            handleFilterChange(filters)
+            setShowFilters(false)
+          }}
+        />
+      )}
     </div>
   )
 }
