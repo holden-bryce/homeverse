@@ -142,6 +142,43 @@ async def get_reports(limit: int = 5, type: str = None):
     
     return {"reports": reports[:limit]}
 
+# Auth endpoints to fix 404 errors
+@app.get("/api/v1/auth/me")
+async def get_current_user():
+    """Get current user - returns demo user for now"""
+    return {
+        "id": "user_001",
+        "email": "buyer@test.com",
+        "first_name": "John",
+        "last_name": "Doe",
+        "role": "buyer",
+        "company_id": "comp_001",
+        "created_at": "2024-01-15",
+        "is_active": True,
+        "preferences": {
+            "notifications": True,
+            "theme": "light",
+            "language": "en"
+        }
+    }
+
+@app.get("/api/v1/auth/company")
+async def get_current_company():
+    """Get current company - returns demo company for now"""
+    return {
+        "id": "comp_001",
+        "name": "HomeVerse Demo",
+        "plan": "premium",
+        "seats": 10,
+        "used_seats": 5,
+        "features": ["analytics", "reporting", "api_access", "advanced_matching"],
+        "settings": {
+            "allow_public_projects": True,
+            "require_2fa": False,
+            "data_retention_days": 365
+        }
+    }
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "8000"))
     uvicorn.run(app, host="0.0.0.0", port=port)
