@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ActivityDetailModal } from '@/components/ui/activity-modal'
 import { 
   DollarSign, 
   TrendingUp, 
@@ -34,7 +35,8 @@ import {
   usePortfolioStats, 
   useInvestments, 
   useCRAMetrics, 
-  useReports 
+  useReports,
+  useActivities 
 } from '@/lib/api/hooks'
 import { formatCurrency, formatPercentage } from '@/lib/utils'
 import { 
@@ -227,12 +229,15 @@ const mockMarketData = [
 export default function LendersPage() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState('overview')
+  const [selectedActivity, setSelectedActivity] = useState<string | null>(null)
+  const [isActivityModalOpen, setIsActivityModalOpen] = useState(false)
   
   // API hooks with fallback to mock data
   const { data: portfolioStatsData, isLoading: statsLoading } = usePortfolioStats()
   const { data: investments = mockInvestments, isLoading: investmentsLoading } = useInvestments({ limit: 5 })
   const { data: craMetrics = mockCRAMetrics, isLoading: craLoading } = useCRAMetrics()
   const { data: reports = [], isLoading: reportsLoading } = useReports({ type: 'cra', limit: 5 })
+  const { data: activities = [], isLoading: activitiesLoading } = useActivities({ limit: 10 })
   
   // Transform API data to component format
   const portfolioStats = portfolioStatsData ? [
@@ -314,6 +319,24 @@ export default function LendersPage() {
       default:
         return 'text-gray-600'
     }
+  }
+
+  // Format activities for display
+  const formattedActivities = activities.length > 0 ? activities.map(activity => ({
+    id: activity.id,
+    type: activity.type as 'investment' | 'application' | 'project' | 'compliance' | 'notification',
+    title: activity.title,
+    description: activity.description,
+    timestamp: activity.created_at,
+    status: activity.status as 'success' | 'warning' | 'error' | 'info' | undefined,
+    entity_type: activity.entity_type,
+    entity_id: activity.entity_id,
+    metadata: activity.metadata
+  })) : mockActivityFeed
+
+  const handleActivityClick = (activity: any) => {
+    setSelectedActivity(activity.id)
+    setIsActivityModalOpen(true)
   }
 
   return (
@@ -448,13 +471,21 @@ export default function LendersPage() {
               title="Recent Activity" 
               description="Latest updates and notifications"
               actions={
-                <Button variant="outline" size="sm">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => router.push('/dashboard/activities')}
+                >
                   <Activity className="mr-2 h-4 w-4" />
                   View All
                 </Button>
               }
             >
-              <ActivityFeed activities={mockActivityFeed} maxItems={6} />
+              <ActivityFeed 
+                activities={formattedActivities} 
+                maxItems={6} 
+                onActivityClick={handleActivityClick}
+              />
             </ChartCard>
           </div>
 
@@ -846,6 +877,16 @@ export default function LendersPage() {
         </TabsContent>
       </Tabs>
       </div>
+      
+      {/* Activity Detail Modal */}
+      <ActivityDetailModal
+        activityId={selectedActivity}
+        isOpen={isActivityModalOpen}
+        onClose={() => {
+          setIsActivityModalOpen(false)
+          setSelectedActivity(null)
+        }}
+      />
     </div>
   )
 }

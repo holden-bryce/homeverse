@@ -76,7 +76,7 @@ export function PropertyCard({ property, variant = 'grid', onFavorite, isFavorit
           <div className="relative w-80 h-64">
             <Link href={`/dashboard/buyers/properties/${property.id}`}>
               <Image
-                src={property.images?.[0] || '/placeholder-property.jpg'}
+                src={imageError ? 'https://via.placeholder.com/800x600.png?text=Property+Image' : (property.images?.[0] || 'https://via.placeholder.com/800x600.png?text=No+Image')}
                 alt={property.name}
                 fill
                 className="object-cover"
@@ -181,7 +181,7 @@ export function PropertyCard({ property, variant = 'grid', onFavorite, isFavorit
       <div className="relative h-64">
         <Link href={`/dashboard/buyers/properties/${property.id}`}>
           <Image
-            src={property.images?.[0] || '/placeholder-property.jpg'}
+            src={imageError ? 'https://via.placeholder.com/800x600.png?text=Property+Image' : (property.images?.[0] || 'https://via.placeholder.com/800x600.png?text=No+Image')}
             alt={property.name}
             fill
             className={cn(

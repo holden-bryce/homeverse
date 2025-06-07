@@ -4,7 +4,7 @@ services:
     name: homeverse-api
     runtime: python
     buildCommand: pip install -r requirements.txt
-    startCommand: python app/simple_production.py
+    startCommand: python simple_backend.py
     envVars:
       - key: DATABASE_URL
         fromDatabase:
@@ -20,7 +20,7 @@ services:
       - key: OPENAI_API_KEY
         sync: false
       - key: SENDGRID_API_KEY
-        sync: false
+        value: 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
       - key: UNSTRUCTURED_API_KEY
         sync: false
       - key: CORS_ORIGINS

@@ -270,11 +270,15 @@ interface ActivityFeedProps {
     description: string
     timestamp: string
     status?: 'success' | 'warning' | 'error' | 'info'
+    entity_type?: string
+    entity_id?: string
+    metadata?: any
   }>
   maxItems?: number
+  onActivityClick?: (activity: any) => void
 }
 
-export function ActivityFeed({ activities, maxItems = 10 }: ActivityFeedProps) {
+export function ActivityFeed({ activities, maxItems = 10, onActivityClick }: ActivityFeedProps) {
   const getActivityIcon = (type: string) => {
     switch (type) {
       case 'investment':
@@ -293,12 +297,16 @@ export function ActivityFeed({ activities, maxItems = 10 }: ActivityFeedProps) {
   return (
     <div className="space-y-3">
       {activities.slice(0, maxItems).map((activity) => (
-        <div key={activity.id} className="flex items-start space-x-3 p-3 rounded-lg hover:bg-sage-50/50 transition-colors">
+        <div 
+          key={activity.id} 
+          className="flex items-start space-x-3 p-3 rounded-lg hover:bg-sage-50/50 transition-colors cursor-pointer"
+          onClick={() => onActivityClick && onActivityClick(activity)}
+        >
           <div className="flex-shrink-0 mt-1">
             {getActivityIcon(activity.type)}
           </div>
           <div className="flex-1 min-w-0">
-            <h4 className="text-sm font-medium text-gray-900 truncate">
+            <h4 className="text-sm font-medium text-gray-900 truncate hover:text-sage-600">
               {activity.title}
             </h4>
             <p className="text-sm text-gray-600 mt-1">

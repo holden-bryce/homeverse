@@ -82,6 +82,7 @@ def init_db():
             status TEXT DEFAULT 'planning',
             description TEXT,
             completion_date TEXT,
+            images TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (company_id) REFERENCES companies (id)
         )
@@ -105,6 +106,25 @@ def init_db():
             status TEXT DEFAULT 'active',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (company_id) REFERENCES companies (id)
+        )
+    """)
+    
+    # Activity log table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS activity_logs (
+            id TEXT PRIMARY KEY,
+            company_id TEXT NOT NULL,
+            user_id TEXT NOT NULL,
+            type TEXT NOT NULL,
+            title TEXT NOT NULL,
+            description TEXT NOT NULL,
+            entity_type TEXT,
+            entity_id TEXT,
+            metadata TEXT,
+            status TEXT DEFAULT 'info',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (company_id) REFERENCES companies (id),
+            FOREIGN KEY (user_id) REFERENCES users (id)
         )
     """)
     
@@ -239,6 +259,64 @@ def verify_user_credentials(conn, email: str, password: str):
         return user
     return None
 
+def log_activity(conn, user_id: str, company_id: str, activity_type: str, title: str, 
+                description: str, entity_type: str = None, entity_id: str = None, 
+                metadata: dict = None, status: str = "info"):
+    """Log user activity"""
+    cursor = conn.cursor()
+    activity_id = str(uuid.uuid4())
+    
+    cursor.execute("""
+        INSERT INTO activity_logs (
+            id, company_id, user_id, type, title, description, 
+            entity_type, entity_id, metadata, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        activity_id, company_id, user_id, activity_type, title, description,
+        entity_type, entity_id, json.dumps(metadata) if metadata else None, status
+    ))
+    
+    conn.commit()
+    return activity_id
+
+def get_activities(conn, company_id: str, limit: int = 50, offset: int = 0):
+    """Get activities for a company"""
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT al.*, u.email as user_email 
+        FROM activity_logs al
+        JOIN users u ON al.user_id = u.id
+        WHERE al.company_id = ?
+        ORDER BY al.created_at DESC
+        LIMIT ? OFFSET ?
+    """, (company_id, limit, offset))
+    
+    activities = []
+    for row in cursor.fetchall():
+        activity = dict(row)
+        if activity.get('metadata'):
+            activity['metadata'] = json.loads(activity['metadata'])
+        activities.append(activity)
+    
+    return activities
+
+def get_activity_detail(conn, activity_id: str, company_id: str):
+    """Get detailed activity information"""
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT al.*, u.email as user_email 
+        FROM activity_logs al
+        JOIN users u ON al.user_id = u.id
+        WHERE al.id = ? AND al.company_id = ?
+    """, (activity_id, company_id))
+    
+    activity = cursor.fetchone()
+    if activity:
+        activity = dict(activity)
+        if activity.get('metadata'):
+            activity['metadata'] = json.loads(activity['metadata'])
+    return activity
+
 # API Routes
 @app.get("/health")
 async def health():
@@ -267,6 +345,17 @@ async def login(request: LoginRequest, conn=Depends(get_db)):
     user = verify_user_credentials(conn, request.email, request.password)
     if not user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
+    
+    # Log login activity
+    log_activity(
+        conn, 
+        user['id'], 
+        user['company_id'],
+        "auth",
+        "User Login",
+        f"{user['email']} logged in successfully",
+        status="success"
+    )
     
     # Create access token
     token_data = {"sub": user['id'], "email": user['email'], "role": user['role']}
@@ -550,19 +639,51 @@ async def get_reports(
     return reports[skip:skip + limit]
 
 @app.post("/api/v1/reports")
-async def create_report(report_data: dict, credentials: HTTPAuthorizationCredentials = Depends(security)):
+async def create_report(report_data: dict, credentials: HTTPAuthorizationCredentials = Depends(security), conn=Depends(get_db)):
     """Generate new report"""
-    import uuid
-    report_id = f"rpt_{str(uuid.uuid4())[:8]}"
-    
-    return {
-        "id": report_id,
-        "report_type": report_data.get("report_type", "custom"),
-        "name": f"{report_data.get('report_type', 'Custom Report')} - {datetime.utcnow().strftime('%B %Y')}",
-        "status": "pending",
-        "created_at": datetime.utcnow().isoformat() + "Z",
-        "parameters": report_data.get("parameters", {})
-    }
+    try:
+        # Get user info from token
+        token = credentials.credentials
+        user_data = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        
+        # Get company from user
+        cursor = conn.cursor()
+        cursor.execute("SELECT company_id FROM users WHERE id = ?", (user_data["sub"],))
+        user = cursor.fetchone()
+        
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        
+        company_id = user["company_id"]
+        report_id = f"rpt_{str(uuid.uuid4())[:8]}"
+        report_type = report_data.get("report_type", "custom")
+        report_name = f"{report_type.replace('_', ' ').title()} - {datetime.utcnow().strftime('%B %Y')}"
+        
+        # Log activity
+        log_activity(
+            conn,
+            user_data["sub"],
+            company_id,
+            "compliance",
+            "Report Generated",
+            f"Generated {report_type} report",
+            entity_type="report",
+            entity_id=report_id,
+            metadata={"report_type": report_type, "parameters": report_data.get("parameters", {})},
+            status="info"
+        )
+        
+        return {
+            "id": report_id,
+            "report_type": report_type,
+            "name": report_name,
+            "status": "pending",
+            "created_at": datetime.utcnow().isoformat() + "Z",
+            "parameters": report_data.get("parameters", {})
+        }
+    except Exception as e:
+        print(f"Error creating report: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create report")
 
 @app.get("/api/v1/reports/{report_id}")
 async def get_report(
@@ -633,12 +754,19 @@ async def get_projects(limit: int = 10, credentials: HTTPAuthorizationCredential
                 "developer": "Urban Housing LLC",
                 "location": "San Francisco, CA",
                 "coordinates": [37.7749, -122.4194],
+                "latitude": 37.7749,
+                "longitude": -122.4194,
                 "total_units": 48,
                 "affordable_units": 38,
                 "ami_levels": "30-80%",
                 "status": "active",
                 "completion_date": "2026-06-15",
-                "created_at": "2024-01-10T09:00:00Z"
+                "created_at": "2024-01-10T09:00:00Z",
+                "images": json.dumps([
+                    "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800&h=600&fit=crop",
+                    "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=800&h=600&fit=crop",
+                    "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=600&fit=crop"
+                ])
             },
             {
                 "id": "demo_proj_002",
@@ -646,12 +774,19 @@ async def get_projects(limit: int = 10, credentials: HTTPAuthorizationCredential
                 "developer": "Bay Area Development",
                 "location": "San Francisco, CA", 
                 "coordinates": [37.7707, -122.3920],
+                "latitude": 37.7707,
+                "longitude": -122.3920,
                 "total_units": 65,
                 "affordable_units": 52,
                 "ami_levels": "50-80%",
                 "status": "planning",
                 "completion_date": "2026-12-31",
-                "created_at": "2024-02-01T11:30:00Z"
+                "created_at": "2024-02-01T11:30:00Z",
+                "images": json.dumps([
+                    "https://images.unsplash.com/photo-1555636222-cae831e670b3?w=800&h=600&fit=crop",
+                    "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&h=600&fit=crop",
+                    "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop"
+                ])
             },
             {
                 "id": "demo_proj_003",
@@ -659,12 +794,19 @@ async def get_projects(limit: int = 10, credentials: HTTPAuthorizationCredential
                 "developer": "Community Builders Inc",
                 "location": "Richmond, CA",
                 "coordinates": [37.9358, -122.3477],
+                "latitude": 37.9358,
+                "longitude": -122.3477,
                 "total_units": 32,
                 "affordable_units": 32,
                 "ami_levels": "30-60%", 
                 "status": "completed",
                 "completion_date": "2024-08-30",
-                "created_at": "2024-01-05T14:20:00Z"
+                "created_at": "2024-01-05T14:20:00Z",
+                "images": json.dumps([
+                    "https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=800&h=600&fit=crop",
+                    "https://images.unsplash.com/photo-1565363887715-8884629e09ee?w=800&h=600&fit=crop",
+                    "https://images.unsplash.com/photo-1554995207-c18c203602cb?w=800&h=600&fit=crop"
+                ])
             }
         ]
         
@@ -702,16 +844,31 @@ async def create_project(project_data: ProjectCreate, credentials: HTTPAuthoriza
             INSERT INTO projects (
                 id, company_id, name, developer, location, address, 
                 latitude, longitude, total_units, affordable_units, 
-                ami_levels, description, completion_date
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ami_levels, description, completion_date, images
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             project_id, company_id, project_data.name, project_data.developer,
             project_data.location, project_data.address, project_data.latitude,
             project_data.longitude, project_data.total_units, project_data.affordable_units,
-            project_data.ami_levels, project_data.description, project_data.completion_date
+            project_data.ami_levels, project_data.description, project_data.completion_date,
+            json.dumps(getattr(project_data, 'images', []))
         ))
         
         conn.commit()
+        
+        # Log activity
+        log_activity(
+            conn,
+            user_data["sub"],
+            company_id,
+            "project",
+            "New Project Created",
+            f"Created project: {project_data.name}",
+            entity_type="project",
+            entity_id=project_id,
+            metadata={"location": project_data.location, "units": project_data.total_units},
+            status="success"
+        )
         
         # Get the created project
         cursor.execute("SELECT * FROM projects WHERE id = ?", (project_id,))
@@ -835,6 +992,20 @@ async def create_applicant(applicant_data: ApplicantCreate, credentials: HTTPAut
         
         conn.commit()
         
+        # Log activity
+        log_activity(
+            conn,
+            user_data["sub"],
+            company_id,
+            "applicant",
+            "New Applicant Added",
+            f"Added applicant: {applicant_data.first_name} {applicant_data.last_name}",
+            entity_type="applicant",
+            entity_id=applicant_id,
+            metadata={"email": applicant_data.email, "household_size": applicant_data.household_size},
+            status="success"
+        )
+        
         # Get the created applicant
         cursor.execute("SELECT * FROM applicants WHERE id = ?", (applicant_id,))
         applicant = cursor.fetchone()
@@ -924,6 +1095,20 @@ async def update_applicant(applicant_id: str, applicant_data: ApplicantCreate, c
         ))
         
         conn.commit()
+        
+        # Log activity
+        log_activity(
+            conn,
+            user_data["sub"],
+            company_id,
+            "applicant",
+            "Applicant Updated",
+            f"Updated applicant: {applicant_data.first_name} {applicant_data.last_name}",
+            entity_type="applicant",
+            entity_id=applicant_id,
+            metadata={"email": applicant_data.email},
+            status="info"
+        )
         
         # Get the updated applicant
         cursor.execute("SELECT * FROM applicants WHERE id = ?", (applicant_id,))
@@ -1015,6 +1200,20 @@ async def update_project(project_id: str, project_data: ProjectCreate, credentia
         
         conn.commit()
         
+        # Log activity
+        log_activity(
+            conn,
+            user_data["sub"],
+            company_id,
+            "project",
+            "Project Updated",
+            f"Updated project: {project_data.name}",
+            entity_type="project",
+            entity_id=project_id,
+            metadata={"location": project_data.location, "units": project_data.total_units},
+            status="info"
+        )
+        
         # Get the updated project
         cursor.execute("SELECT * FROM projects WHERE id = ?", (project_id,))
         project = cursor.fetchone()
@@ -1025,6 +1224,78 @@ async def update_project(project_id: str, project_data: ProjectCreate, credentia
     except Exception as e:
         print(f"Error updating project: {e}")
         raise HTTPException(status_code=500, detail="Failed to update project")
+
+# Activity Endpoints
+@app.get("/api/v1/activities")
+async def get_activity_feed(
+    limit: int = 50,
+    offset: int = 0,
+    type: str = None,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    conn=Depends(get_db)
+):
+    """Get activity feed for the current user's company"""
+    try:
+        # Get user info from token
+        token = credentials.credentials
+        user_data = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        
+        # Get company from user
+        cursor = conn.cursor()
+        cursor.execute("SELECT company_id FROM users WHERE id = ?", (user_data["sub"],))
+        user = cursor.fetchone()
+        
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        
+        company_id = user["company_id"]
+        
+        # Get activities
+        activities = get_activities(conn, company_id, limit, offset)
+        
+        # Filter by type if specified
+        if type:
+            activities = [a for a in activities if a['type'] == type]
+        
+        return activities
+        
+    except Exception as e:
+        print(f"Error getting activities: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get activities")
+
+@app.get("/api/v1/activities/{activity_id}")
+async def get_activity_details(
+    activity_id: str,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    conn=Depends(get_db)
+):
+    """Get detailed information about a specific activity"""
+    try:
+        # Get user info from token
+        token = credentials.credentials
+        user_data = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        
+        # Get company from user
+        cursor = conn.cursor()
+        cursor.execute("SELECT company_id FROM users WHERE id = ?", (user_data["sub"],))
+        user = cursor.fetchone()
+        
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        
+        company_id = user["company_id"]
+        
+        # Get activity detail
+        activity = get_activity_detail(conn, activity_id, company_id)
+        
+        if not activity:
+            raise HTTPException(status_code=404, detail="Activity not found")
+        
+        return activity
+        
+    except Exception as e:
+        print(f"Error getting activity detail: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get activity detail")
 
 # Map/Heatmap Endpoints
 @app.get("/api/v1/lenders/heatmap")
@@ -1190,7 +1461,7 @@ async def send_contact_email(contact_data: dict):
         sg = sendgrid.SendGridAPIClient(api_key=sendgrid_api_key)
         
         # Email to you (notification) - use verified sender email
-        from_email = Email("holden@1404.io")  # Use your verified email as sender
+        from_email = Email("holden@1404.com")  # Use your verified email as sender
         to_email = To("holdenbryce06@gmail.com")
         
         subject = f"New HomeVerse Contact: {contact_data['subject']}"
@@ -1272,10 +1543,55 @@ async def create_test_users():
         
         for user_data in test_users:
             try:
-                create_user(conn, user_data["email"], user_data["password"], 
+                user = create_user(conn, user_data["email"], user_data["password"], 
                            company['id'], user_data["role"])
                 print(f"Created test user: {user_data['email']} ({user_data['role']})")
-            except:
+                
+                # Add some sample activities for demo purposes
+                if user_data["role"] == "lender":
+                    # Add sample activities for lender
+                    log_activity(conn, user['id'], company['id'], "investment", 
+                               "New Investment Made", 
+                               "Invested $750,000 in Sunset Gardens Phase II",
+                               entity_type="investment", entity_id="inv_001",
+                               metadata={"amount": 750000, "project": "Sunset Gardens Phase II"},
+                               status="success")
+                    
+                    log_activity(conn, user['id'], company['id'], "compliance",
+                               "CRA Report Completed",
+                               "Q4 2024 CRA Compliance Report submitted",
+                               entity_type="report", entity_id="rpt_001",
+                               status="success")
+                    
+                    log_activity(conn, user['id'], company['id'], "project",
+                               "Project Milestone Reached",
+                               "Richmond Commons construction completed ahead of schedule",
+                               entity_type="project", entity_id="demo_proj_003",
+                               status="info")
+                    
+                    log_activity(conn, user['id'], company['id'], "notification",
+                               "Portfolio Update",
+                               "Monthly portfolio value increased by 7.2%",
+                               metadata={"previous_value": 2330000, "current_value": 2500000},
+                               status="success")
+                    
+            except Exception as e:
+                # If user exists, try to add activities for existing lender user
+                if "already exists" in str(e) and user_data["role"] == "lender":
+                    existing_user = get_user_by_email(conn, user_data["email"])
+                    if existing_user:
+                        # Check if activities already exist to avoid duplicates
+                        cursor = conn.cursor()
+                        cursor.execute("SELECT COUNT(*) FROM activity_logs WHERE user_id = ?", (existing_user['id'],))
+                        count = cursor.fetchone()[0]
+                        if count == 0:
+                            log_activity(conn, existing_user['id'], company['id'], "investment", 
+                                       "New Investment Made", 
+                                       "Invested $750,000 in Sunset Gardens Phase II",
+                                       entity_type="investment", entity_id="inv_001",
+                                       metadata={"amount": 750000, "project": "Sunset Gardens Phase II"},
+                                       status="success")
+                            print(f"Added sample activities for existing user: {user_data['email']}")
                 print(f"Test user already exists: {user_data['email']}")
                 
     finally:

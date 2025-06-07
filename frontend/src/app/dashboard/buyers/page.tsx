@@ -34,7 +34,11 @@ const mockProperties = [
     address: '1234 Sunset Blvd',
     location: 'San Francisco, CA',
     coordinates: [37.7749, -122.4194] as [number, number],
-    images: ['https://via.placeholder.com/800x600.png?text=Sunset+Gardens'],
+    images: [
+      'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=600&fit=crop'
+    ],
     monthlyRent: 1800,
     bedrooms: 2,
     bathrooms: 1,
@@ -54,7 +58,11 @@ const mockProperties = [
     address: '5678 River Road',
     location: 'Oakland, CA',
     coordinates: [37.8044, -122.2711] as [number, number],
-    images: ['https://via.placeholder.com/800x600.png?text=Riverside+Commons'],
+    images: [
+      'https://images.unsplash.com/photo-1555636222-cae831e670b3?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop'
+    ],
     monthlyRent: 2200,
     bedrooms: 3,
     bathrooms: 2,
@@ -74,7 +82,11 @@ const mockProperties = [
     address: '9012 Harbor Way',
     location: 'San Jose, CA',
     coordinates: [37.3382, -121.8863] as [number, number],
-    images: ['https://via.placeholder.com/800x600.png?text=Sunset+Gardens'],
+    images: [
+      'https://images.unsplash.com/photo-1565363887715-8884629e09ee?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1554995207-c18c203602cb?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&h=600&fit=crop'
+    ],
     monthlyRent: 2500,
     bedrooms: 2,
     bathrooms: 2,
@@ -94,7 +106,11 @@ const mockProperties = [
     address: '3456 Mission St',
     location: 'San Francisco, CA',
     coordinates: [37.7707, -122.3920] as [number, number],
-    images: ['https://via.placeholder.com/800x600.png?text=Sunset+Gardens'],
+    images: [
+      'https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1515263487990-61b07816b324?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560185893-a55cbc8c57e8?w=800&h=600&fit=crop'
+    ],
     monthlyRent: 1650,
     bedrooms: 1,
     bathrooms: 1,
@@ -114,7 +130,11 @@ const mockProperties = [
     address: '789 Market Street',
     location: 'San Francisco, CA',
     coordinates: [37.7849, -122.4094] as [number, number],
-    images: ['https://via.placeholder.com/800x600.png?text=Sunset+Gardens'],
+    images: [
+      'https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1527359443443-84a48aec73d2?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1534237710431-e2fc698436d0?w=800&h=600&fit=crop'
+    ],
     monthlyRent: 2800,
     bedrooms: 2,
     bathrooms: 2,

@@ -402,3 +402,50 @@ export const useInvestmentPerformance = (timeframe?: '1M' | '3M' | '6M' | '1Y' |
   })
 }
 
+// Activity Hooks
+export const useActivities = (params?: {
+  type?: string
+  limit?: number
+  offset?: number
+}) => {
+  const searchParams = new URLSearchParams()
+  if (params?.type) searchParams.append('type', params.type)
+  if (params?.limit) searchParams.append('limit', params.limit.toString())
+  if (params?.offset) searchParams.append('offset', params.offset.toString())
+
+  return useQuery({
+    queryKey: ['activities', params],
+    queryFn: (): Promise<{
+      id: string
+      type: string
+      title: string
+      description: string
+      entity_type?: string
+      entity_id?: string
+      metadata?: any
+      status?: string
+      created_at: string
+      user_email: string
+    }[]> => apiClient.get(`/api/v1/activities?${searchParams.toString()}`),
+  })
+}
+
+export const useActivityDetail = (id: string) => {
+  return useQuery({
+    queryKey: ['activity', id],
+    queryFn: (): Promise<{
+      id: string
+      type: string
+      title: string
+      description: string
+      entity_type?: string
+      entity_id?: string
+      metadata?: any
+      status?: string
+      created_at: string
+      user_email: string
+    }> => apiClient.get(`/api/v1/activities/${id}`),
+    enabled: !!id,
+  })
+}
+

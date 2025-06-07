@@ -110,3 +110,26 @@ export function getStatusColor(status: string): string {
 export function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
+
+export function formatDistanceToNow(date: Date): string {
+  const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000)
+  
+  if (seconds < 60) {
+    return `${seconds} seconds`
+  } else if (seconds < 3600) {
+    const minutes = Math.floor(seconds / 60)
+    return `${minutes} minute${minutes > 1 ? 's' : ''}`
+  } else if (seconds < 86400) {
+    const hours = Math.floor(seconds / 3600)
+    return `${hours} hour${hours > 1 ? 's' : ''}`
+  } else if (seconds < 2592000) {
+    const days = Math.floor(seconds / 86400)
+    return `${days} day${days > 1 ? 's' : ''}`
+  } else if (seconds < 31536000) {
+    const months = Math.floor(seconds / 2592000)
+    return `${months} month${months > 1 ? 's' : ''}`
+  } else {
+    const years = Math.floor(seconds / 31536000)
+    return `${years} year${years > 1 ? 's' : ''}`
+  }
+}

@@ -360,7 +360,10 @@ export function PropertySearchMap({ properties, onPropertySelect, onPropertyHove
           <div className="mt-4 flex gap-2">
             <Button 
               className="flex-1 bg-teal-600 hover:bg-teal-700"
-              onClick={() => window.location.href = `/dashboard/buyers/properties/${selectedProperty.id}`}
+              onClick={() => {
+                console.log('Navigating to property:', selectedProperty.id, selectedProperty.name)
+                window.location.href = `/dashboard/buyers/properties/${selectedProperty.id}`
+              }}
             >
               View Details
             </Button>
