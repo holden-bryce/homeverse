@@ -211,6 +211,12 @@ export default function ZillowStyleBuyerPortal() {
   const [filteredProperties, setFilteredProperties] = useState(mockProperties)
   const [showFilters, setShowFilters] = useState(false)
 
+  // Load favorites from localStorage on mount
+  useEffect(() => {
+    const savedFavorites = JSON.parse(localStorage.getItem('favorites') || '[]')
+    setFavorites(savedFavorites)
+  }, [])
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     const filtered = properties.filter(p => 
@@ -260,11 +266,13 @@ export default function ZillowStyleBuyerPortal() {
   }
 
   const toggleFavorite = (propertyId: string) => {
-    setFavorites(prev => 
-      prev.includes(propertyId) 
-        ? prev.filter(id => id !== propertyId)
-        : [...prev, propertyId]
-    )
+    const newFavorites = favorites.includes(propertyId) 
+      ? favorites.filter(id => id !== propertyId)
+      : [...favorites, propertyId]
+    
+    setFavorites(newFavorites)
+    localStorage.setItem('favorites', JSON.stringify(newFavorites))
+    
     toast({
       title: favorites.includes(propertyId) ? "Removed from favorites" : "Added to favorites",
       description: "Your favorites list has been updated.",
