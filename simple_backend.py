@@ -133,6 +133,27 @@ class UserCreate(BaseModel):
     role: str
     company_id: str
 
+class ProjectCreate(BaseModel):
+    name: str
+    developer: Optional[str] = None
+    location: Optional[str] = None
+    address: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    total_units: Optional[int] = None
+    affordable_units: Optional[int] = None
+    ami_levels: Optional[str] = None
+    description: Optional[str] = None
+    completion_date: Optional[str] = None
+
+class ApplicantCreate(BaseModel):
+    first_name: str
+    last_name: str
+    email: EmailStr
+    phone: Optional[str] = None
+    household_size: Optional[int] = None
+    income: Optional[float] = None
+
 # Utility functions
 def hash_password(password: str) -> str:
     """Hash password using SHA256"""
@@ -926,31 +947,6 @@ class ContactRequest(BaseModel):
     phone: Optional[str] = None
     subject: str
     message: str
-
-class ProjectCreate(BaseModel):
-    name: str
-    developer: Optional[str] = None
-    location: Optional[str] = None
-    address: Optional[str] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-    total_units: Optional[int] = None
-    affordable_units: Optional[int] = None
-    ami_levels: Optional[str] = None
-    description: Optional[str] = None
-    completion_date: Optional[str] = None
-
-class ApplicantCreate(BaseModel):
-    first_name: str
-    last_name: str
-    email: EmailStr
-    phone: Optional[str] = None
-    household_size: Optional[int] = None
-    income: Optional[float] = None
-    ami_percent: Optional[float] = None
-    location_preference: Optional[str] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
 
 @app.post("/api/v1/contact")
 async def submit_contact_form(contact_data: ContactRequest):
