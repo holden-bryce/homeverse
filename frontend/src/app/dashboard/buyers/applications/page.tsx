@@ -61,6 +61,15 @@ export default function ApplicationsPage() {
   const router = useRouter()
   const [applications, setApplications] = useState(mockApplications)
 
+  useEffect(() => {
+    // Load applications from localStorage
+    const savedApplications = JSON.parse(localStorage.getItem('applications') || '[]')
+    if (savedApplications.length > 0) {
+      // Combine saved applications with mock data
+      setApplications([...savedApplications, ...mockApplications])
+    }
+  }, [])
+
   const getApplicationStatusColor = (status: string) => {
     switch (status) {
       case 'approved':

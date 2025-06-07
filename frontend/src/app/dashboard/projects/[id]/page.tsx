@@ -48,6 +48,7 @@ interface Project {
 export default function ProjectDetailPage({ params }: ProjectDetailProps) {
   const router = useRouter()
   const [project, setProject] = useState<Project | null>(null)
+  const [loading, setLoading] = useState(true)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
