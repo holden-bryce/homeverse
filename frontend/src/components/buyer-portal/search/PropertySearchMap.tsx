@@ -198,8 +198,9 @@ export function PropertySearchMap({ properties, onPropertySelect, onPropertyHove
       el.style.fontSize = '12px'
       el.innerHTML = property.availableUnits?.toString() || property.totalUnits.toString()
 
+      // Swap coordinates from [lat, lng] to [lng, lat] for Mapbox
       const marker = new mapboxgl.Marker(el)
-        .setLngLat(property.coordinates)
+        .setLngLat([property.coordinates[1], property.coordinates[0]])
         .setPopup(
           new mapboxgl.Popup({ offset: 25 }).setHTML(`
             <div class="p-3">
@@ -225,7 +226,8 @@ export function PropertySearchMap({ properties, onPropertySelect, onPropertyHove
     if (properties.length > 0) {
       const bounds = new mapboxgl.LngLatBounds()
       properties.forEach(property => {
-        bounds.extend(property.coordinates)
+        // Swap coordinates from [lat, lng] to [lng, lat] for Mapbox
+        bounds.extend([property.coordinates[1], property.coordinates[0]])
       })
       map.current.fitBounds(bounds, { padding: 50 })
     }

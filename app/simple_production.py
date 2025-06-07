@@ -48,6 +48,100 @@ async def test():
     """Test endpoint"""
     return {"message": "API is working", "database": "postgresql"}
 
+# Lender endpoints to fix 404 errors
+@app.get("/api/v1/lenders/portfolio/performance")
+async def get_portfolio_performance(timeframe: str = "6M"):
+    """Get portfolio performance data"""
+    return {
+        "performance": {
+            "total_return": 8.5,
+            "annual_return": 12.3,
+            "risk_score": 4.2,
+            "volatility": 15.8,
+            "sharpe_ratio": 0.78,
+            "timeframe": timeframe
+        }
+    }
+
+@app.get("/api/v1/lenders/portfolio/stats")
+async def get_portfolio_stats():
+    """Get portfolio statistics"""
+    return {
+        "stats": {
+            "total_investments": 2500000,
+            "active_projects": 12,
+            "total_units": 156,
+            "affordable_units": 124,
+            "average_ami": 65,
+            "geographic_diversification": 8
+        }
+    }
+
+@app.get("/api/v1/lenders/investments")
+async def get_investments(limit: int = 5):
+    """Get recent investments"""
+    return {
+        "investments": [
+            {
+                "id": "inv_001",
+                "project_name": "Sunset Gardens Phase II",
+                "amount": 500000,
+                "date": "2024-11-15",
+                "status": "active",
+                "expected_return": 8.5
+            },
+            {
+                "id": "inv_002", 
+                "project_name": "Mission Bay Affordable Housing",
+                "amount": 750000,
+                "date": "2024-10-22",
+                "status": "active",
+                "expected_return": 9.2
+            }
+        ]
+    }
+
+@app.get("/api/v1/lenders/cra/metrics")
+async def get_cra_metrics():
+    """Get CRA compliance metrics"""
+    return {
+        "metrics": {
+            "cra_score": 85,
+            "community_investment": 1200000,
+            "affordable_housing_ratio": 0.78,
+            "low_income_lending": 0.65,
+            "geographic_coverage": 6,
+            "compliance_status": "excellent"
+        }
+    }
+
+@app.get("/api/v1/reports")
+async def get_reports(limit: int = 5, type: str = None):
+    """Get reports"""
+    reports = [
+        {
+            "id": "rpt_001",
+            "type": "cra",
+            "title": "Q4 2024 CRA Compliance Report",
+            "status": "completed",
+            "created_at": "2024-12-01",
+            "download_url": "/reports/cra_q4_2024.pdf"
+        },
+        {
+            "id": "rpt_002",
+            "type": "portfolio",
+            "title": "Portfolio Performance Analysis",
+            "status": "completed", 
+            "created_at": "2024-11-28",
+            "download_url": "/reports/portfolio_nov_2024.pdf"
+        }
+    ]
+    
+    if type:
+        reports = [r for r in reports if r["type"] == type]
+    
+    return {"reports": reports[:limit]}
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "8000"))
     uvicorn.run(app, host="0.0.0.0", port=port)

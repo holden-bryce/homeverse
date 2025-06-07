@@ -184,8 +184,9 @@ export function ProjectMap({
         onProjectHover?.(null)
       })
 
+      // Swap coordinates from [lat, lng] to [lng, lat] for Mapbox
       const marker = new mapboxgl.Marker(markerElement)
-        .setLngLat(project.coordinates)
+        .setLngLat([project.coordinates[1], project.coordinates[0]])
         .addTo(map.current!)
 
       markers.current[project.id] = marker
