@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Modal } from '@/components/ui/modal'
+import { Modal, ModalContent, ModalHeader, ModalTitle } from '@/components/ui/modal'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { 
@@ -87,101 +87,106 @@ export function ActivityDetailModal({ activityId, isOpen, onClose }: ActivityDet
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Activity Details">
-      {isLoading ? (
-        <div className="animate-pulse space-y-4">
-          <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-          <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-          <div className="h-32 bg-gray-200 rounded"></div>
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {/* Header */}
-          <div className="flex items-start justify-between">
-            <div className="flex items-start space-x-3">
-              <div className="flex-shrink-0">
-                {getActivityIcon(activity.type)}
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">
-                  {activity.title}
-                </h3>
-                <p className="text-sm text-gray-600 mt-1">
-                  {activity.description}
-                </p>
-              </div>
-            </div>
-            {activity.status && (
-              <Badge className={`${getStatusColor(activity.status)} rounded-full border-0`}>
-                {activity.status}
-              </Badge>
-            )}
+    <Modal open={isOpen} onOpenChange={onClose}>
+      <ModalContent>
+        <ModalHeader>
+          <ModalTitle>Activity Details</ModalTitle>
+        </ModalHeader>
+        {isLoading ? (
+          <div className="animate-pulse space-y-4">
+            <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+            <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+            <div className="h-32 bg-gray-200 rounded"></div>
           </div>
-
-          {/* Details */}
-          <div className="space-y-4 border-t pt-4">
-            <div className="flex items-center space-x-2 text-sm text-gray-600">
-              <Calendar className="h-4 w-4" />
-              <span>
-                {new Date(activity.created_at).toLocaleString()}
-              </span>
+        ) : (
+          <div className="space-y-6">
+            {/* Header */}
+            <div className="flex items-start justify-between">
+              <div className="flex items-start space-x-3">
+                <div className="flex-shrink-0">
+                  {getActivityIcon(activity.type)}
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {activity.title}
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {activity.description}
+                  </p>
+                </div>
+              </div>
+              {activity.status && (
+                <Badge className={`${getStatusColor(activity.status)} rounded-full border-0`}>
+                  {activity.status}
+                </Badge>
+              )}
             </div>
 
-            <div className="flex items-center space-x-2 text-sm text-gray-600">
-              <User className="h-4 w-4" />
-              <span>
-                {activity.user_email}
-              </span>
-            </div>
-
-            {activity.type === 'investment' && activity.metadata?.amount && (
+            {/* Details */}
+            <div className="space-y-4 border-t pt-4">
               <div className="flex items-center space-x-2 text-sm text-gray-600">
-                <DollarSign className="h-4 w-4" />
+                <Calendar className="h-4 w-4" />
                 <span>
-                  Investment Amount: {formatCurrency(activity.metadata.amount)}
+                  {new Date(activity.created_at).toLocaleString()}
                 </span>
               </div>
-            )}
 
-            {activity.entity_type && (
-              <div className="flex items-center space-x-2 text-sm text-gray-600 capitalize">
-                <FileText className="h-4 w-4" />
+              <div className="flex items-center space-x-2 text-sm text-gray-600">
+                <User className="h-4 w-4" />
                 <span>
-                  Related {activity.entity_type}
+                  {activity.user_email}
                 </span>
               </div>
-            )}
-          </div>
 
-          {/* Metadata */}
-          {activity.metadata && Object.keys(activity.metadata).length > 0 && (
-            <div className="space-y-2 border-t pt-4">
-              <h4 className="text-sm font-medium text-gray-700">Additional Details</h4>
-              <div className="bg-gray-50 rounded-lg p-3">
-                <pre className="text-xs text-gray-600 whitespace-pre-wrap">
-                  {JSON.stringify(activity.metadata, null, 2)}
-                </pre>
-              </div>
+              {activity.type === 'investment' && activity.metadata?.amount && (
+                <div className="flex items-center space-x-2 text-sm text-gray-600">
+                  <DollarSign className="h-4 w-4" />
+                  <span>
+                    Investment Amount: {formatCurrency(activity.metadata.amount)}
+                  </span>
+                </div>
+              )}
+
+              {activity.entity_type && (
+                <div className="flex items-center space-x-2 text-sm text-gray-600 capitalize">
+                  <FileText className="h-4 w-4" />
+                  <span>
+                    Related {activity.entity_type}
+                  </span>
+                </div>
+              )}
             </div>
-          )}
 
-          {/* Actions */}
-          <div className="flex justify-end space-x-3 border-t pt-4">
-            <Button variant="outline" onClick={onClose}>
-              Close
-            </Button>
-            {activity.entity_type && activity.entity_id && (
-              <Button 
-                onClick={navigateToEntity}
-                className="bg-sage-600 hover:bg-sage-700 text-white"
-              >
-                <ExternalLink className="mr-2 h-4 w-4" />
-                View Related {activity.entity_type}
-              </Button>
+            {/* Metadata */}
+            {activity.metadata && Object.keys(activity.metadata).length > 0 && (
+              <div className="space-y-2 border-t pt-4">
+                <h4 className="text-sm font-medium text-gray-700">Additional Details</h4>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <pre className="text-xs text-gray-600 whitespace-pre-wrap">
+                    {JSON.stringify(activity.metadata, null, 2)}
+                  </pre>
+                </div>
+              </div>
             )}
+
+            {/* Actions */}
+            <div className="flex justify-end space-x-3 border-t pt-4">
+              <Button variant="outline" onClick={onClose}>
+                Close
+              </Button>
+              {activity.entity_type && activity.entity_id && (
+                <Button 
+                  onClick={navigateToEntity}
+                  className="bg-sage-600 hover:bg-sage-700 text-white"
+                >
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  View Related {activity.entity_type}
+                </Button>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </ModalContent>
     </Modal>
   )
 }
