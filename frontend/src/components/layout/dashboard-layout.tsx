@@ -76,6 +76,13 @@ const navigation: NavItem[] = [
     roles: ['admin', 'manager', 'lender'],
   },
   {
+    id: 'buyer-portal',
+    label: 'Buyer Portal',
+    href: '/dashboard/buyers',
+    icon: <Home className="h-5 w-5" />,
+    roles: ['admin'],
+  },
+  {
     id: 'housing-search',
     label: 'Find Housing',
     href: '/dashboard/buyers',
@@ -87,14 +94,14 @@ const navigation: NavItem[] = [
     label: 'My Applications',
     href: '/dashboard/buyers/applications',
     icon: <FileText className="h-5 w-5" />,
-    roles: ['applicant', 'buyer'],
+    roles: ['admin', 'applicant', 'buyer'],
   },
   {
     id: 'preferences',
     label: 'Preferences',
     href: '/dashboard/buyers/preferences',
     icon: <Settings className="h-5 w-5" />,
-    roles: ['applicant', 'buyer'],
+    roles: ['admin', 'applicant', 'buyer'],
   },
   {
     id: 'map',

@@ -11,7 +11,7 @@ import { Map, List, Filter, X, Maximize2, Minimize2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // Initialize Mapbox
-mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || ''
+mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || ''
 
 interface Property {
   id: string

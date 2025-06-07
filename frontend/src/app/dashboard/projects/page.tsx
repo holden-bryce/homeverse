@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -23,6 +23,7 @@ import {
   TrendingUp
 } from 'lucide-react'
 import Link from 'next/link'
+import { toast } from '@/components/ui/toast'
 
 // Type for projects that handles both old and new field names
 interface Project {
@@ -45,54 +46,6 @@ interface Project {
   units_leased?: number
   created_at: string
 }
-
-// Mock data - in real app this would come from API
-const projects: Project[] = [
-  {
-    id: '1',
-    name: 'Sunset Gardens',
-    developer_name: 'Green Valley Development',
-    location: [37.7749, -122.4194] as [number, number],
-    unit_count: 120,
-    ami_min: 30,
-    ami_max: 80,
-    est_delivery: '2024-12-15',
-    status: 'active',
-    address: 'San Francisco, CA',
-    total_investment: 25000000,
-    units_leased: 45,
-    created_at: '2024-01-15T10:00:00Z',
-  },
-  {
-    id: '2',
-    name: 'Riverside Commons',
-    developer_name: 'Urban Housing Partners',
-    location: [37.7849, -122.4094] as [number, number],
-    unit_count: 85,
-    ami_min: 50,
-    ami_max: 120,
-    est_delivery: '2025-03-20',
-    status: 'construction',
-    address: 'Oakland, CA',
-    total_investment: 18500000,
-    units_leased: 0,
-    created_at: '2024-02-01T14:30:00Z',
-  },
-  {
-    id: '3',
-    name: 'Harbor View Apartments',
-    developer_name: 'Coastal Development LLC',
-    location: [37.7649, -122.4294] as [number, number],
-    unit_count: 200,
-    ami_min: 30,
-    ami_max: 60,
-    status: 'planning',
-    address: 'San Jose, CA',
-    total_investment: 42000000,
-    units_leased: 0,
-    created_at: '2024-02-10T09:15:00Z',
-  },
-]
 
 const stats = [
   {
@@ -126,6 +79,50 @@ export default function ProjectsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [developerFilter, setDeveloperFilter] = useState('all')
+  const [projects, setProjects] = useState<Project[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    fetchProjects()
+  }, [])
+
+  const fetchProjects = async () => {
+    try {
+      const token = localStorage.getItem('token') || document.cookie.split('token=')[1]?.split(';')[0]
+      
+      if (!token) {
+        toast({
+          variant: 'destructive',
+          title: 'Authentication Error',
+          description: 'Please log in again to continue.',
+        })
+        router.push('/auth/login')
+        return
+      }
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/projects`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch projects')
+      }
+
+      const data = await response.json()
+      setProjects(data)
+    } catch (error) {
+      console.error('Error fetching projects:', error)
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to load projects.',
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const filteredProjects = projects.filter(project => {
     const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||

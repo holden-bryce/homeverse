@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -24,55 +24,7 @@ import {
   Trash2
 } from 'lucide-react'
 import Link from 'next/link'
-
-// Mock data - in real app this would come from API
-const applicants = [
-  {
-    id: '1',
-    email: 'john.doe@email.com',
-    household_size: 2,
-    ami_band: '50%',
-    status: 'active',
-    geo_point: [37.7749, -122.4194] as [number, number],
-    preferences: { 
-      unit_type: '1BR',
-      max_commute: 30,
-      amenities: ['parking', 'laundry']
-    },
-    created_at: '2024-01-15T10:00:00Z',
-    matches_count: 5,
-  },
-  {
-    id: '2',
-    email: 'jane.smith@email.com',
-    household_size: 4,
-    ami_band: '80%',
-    status: 'matched',
-    geo_point: [37.7849, -122.4094] as [number, number],
-    preferences: { 
-      unit_type: '2BR',
-      max_commute: 45,
-      amenities: ['playground', 'parking']
-    },
-    created_at: '2024-01-20T14:30:00Z',
-    matches_count: 3,
-  },
-  {
-    id: '3',
-    email: 'bob.wilson@email.com',
-    household_size: 1,
-    ami_band: '30%',
-    status: 'waitlisted',
-    geo_point: [37.7649, -122.4294] as [number, number],
-    preferences: { 
-      unit_type: 'Studio',
-      max_commute: 60,
-      amenities: ['transit']
-    },
-    created_at: '2024-01-25T09:15:00Z',
-    matches_count: 1,
-  },
-]
+import { toast } from '@/components/ui/toast'
 
 const stats = [
   {
@@ -100,11 +52,59 @@ export default function ApplicantsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [amiBandFilter, setAmiBandFilter] = useState('all')
+  const [applicants, setApplicants] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    fetchApplicants()
+  }, [])
+
+  const fetchApplicants = async () => {
+    try {
+      const token = localStorage.getItem('token') || document.cookie.split('token=')[1]?.split(';')[0]
+      
+      if (!token) {
+        toast({
+          variant: 'destructive',
+          title: 'Authentication Error',
+          description: 'Please log in again to continue.',
+        })
+        router.push('/auth/login')
+        return
+      }
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/applicants`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch applicants')
+      }
+
+      const data = await response.json()
+      setApplicants(data)
+    } catch (error) {
+      console.error('Error fetching applicants:', error)
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to load applicants.',
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const filteredApplicants = applicants.filter(applicant => {
-    const matchesSearch = applicant.email.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesSearch = (
+      applicant.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      applicant.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      applicant.last_name?.toLowerCase().includes(searchTerm.toLowerCase())
+    )
     const matchesStatus = statusFilter === 'all' || applicant.status === statusFilter
-    const matchesAmiBand = amiBandFilter === 'all' || applicant.ami_band === amiBandFilter
+    const matchesAmiBand = amiBandFilter === 'all' || applicant.ami_band === amiBandFilter || applicant.ami_percent?.toString() === amiBandFilter
     
     return matchesSearch && matchesStatus && matchesAmiBand
   })
@@ -231,44 +231,54 @@ export default function ApplicantsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredApplicants.map((applicant) => (
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-8">
+                      <div className="flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sage-600"></div>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : filteredApplicants.map((applicant) => (
                   <TableRow key={applicant.id} className="hover:bg-sage-50/50 transition-colors">
                     <TableCell>
                       <div>
-                        <div className="font-medium">{applicant.email}</div>
-                        <div className="text-sm text-gray-500">
-                          Prefers {applicant.preferences.unit_type}
+                        <div className="font-medium">
+                          {applicant.first_name || applicant.email?.split('@')[0] || 'Unknown'} {applicant.last_name || ''}
                         </div>
+                        <div className="text-sm text-gray-500">{applicant.email}</div>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center">
                         <Users className="h-4 w-4 text-gray-400 mr-1" />
-                        {applicant.household_size}
+                        {applicant.household_size || '-'}
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge className="bg-cream-100 text-cream-800 border border-cream-200 rounded-full">{applicant.ami_band}</Badge>
+                      <Badge className="bg-cream-100 text-cream-800 border border-cream-200 rounded-full">
+                        {applicant.ami_percent ? `${applicant.ami_percent}%` : '-'}
+                      </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge className={`${getStatusColor(applicant.status)} rounded-full border`}>
-                        {applicant.status}
+                      <Badge className={`${getStatusColor(applicant.status || 'active')} rounded-full border`}>
+                        {applicant.status || 'active'}
                       </Badge>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center text-sm text-gray-500">
                         <MapPin className="h-4 w-4 mr-1" />
-                        {applicant.geo_point[0].toFixed(2)}, {applicant.geo_point[1].toFixed(2)}
+                        {applicant.location_preference || 'Any location'}
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="text-center">
-                        <span className="font-medium">{applicant.matches_count}</span>
+                        <span className="font-medium">{applicant.matches_count || 0}</span>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="text-sm text-gray-500">
-                        {new Date(applicant.created_at).toLocaleDateString()}
+                        {applicant.created_at ? new Date(applicant.created_at).toLocaleDateString() : '-'}
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
