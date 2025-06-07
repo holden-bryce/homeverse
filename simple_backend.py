@@ -846,6 +846,186 @@ async def create_applicant(applicant_data: ApplicantCreate, credentials: HTTPAut
         print(f"Error creating applicant: {e}")
         raise HTTPException(status_code=500, detail="Failed to create applicant")
 
+@app.get("/api/v1/applicants/{applicant_id}")
+async def get_applicant(applicant_id: str, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Get specific applicant by ID"""
+    try:
+        # Get user info from token
+        token = credentials.credentials
+        user_data = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        
+        # Get company from user
+        conn = sqlite3.connect(DATABASE_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT company_id FROM users WHERE id = ?", (user_data["sub"],))
+        user = cursor.fetchone()
+        
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        
+        company_id = user["company_id"]
+        
+        # Get applicant from database
+        cursor.execute("""
+            SELECT * FROM applicants 
+            WHERE id = ? AND company_id = ?
+        """, (applicant_id, company_id))
+        
+        applicant = cursor.fetchone()
+        conn.close()
+        
+        if not applicant:
+            raise HTTPException(status_code=404, detail="Applicant not found")
+        
+        return dict(applicant)
+        
+    except Exception as e:
+        print(f"Error getting applicant: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get applicant")
+
+@app.put("/api/v1/applicants/{applicant_id}")
+async def update_applicant(applicant_id: str, applicant_data: ApplicantCreate, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Update existing applicant"""
+    try:
+        # Get user info from token
+        token = credentials.credentials
+        user_data = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        
+        # Get company from user
+        conn = sqlite3.connect(DATABASE_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT company_id FROM users WHERE id = ?", (user_data["sub"],))
+        user = cursor.fetchone()
+        
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        
+        company_id = user["company_id"]
+        
+        # Check if applicant exists and belongs to company
+        cursor.execute("SELECT id FROM applicants WHERE id = ? AND company_id = ?", (applicant_id, company_id))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=404, detail="Applicant not found")
+        
+        # Update applicant in database
+        cursor.execute("""
+            UPDATE applicants SET
+                first_name = ?, last_name = ?, email = ?, phone = ?,
+                household_size = ?, income = ?, ami_percent = ?, 
+                location_preference = ?, latitude = ?, longitude = ?
+            WHERE id = ? AND company_id = ?
+        """, (
+            applicant_data.first_name, applicant_data.last_name, applicant_data.email, 
+            applicant_data.phone, applicant_data.household_size, applicant_data.income, 
+            applicant_data.ami_percent, applicant_data.location_preference, 
+            applicant_data.latitude, applicant_data.longitude, applicant_id, company_id
+        ))
+        
+        conn.commit()
+        
+        # Get the updated applicant
+        cursor.execute("SELECT * FROM applicants WHERE id = ?", (applicant_id,))
+        applicant = cursor.fetchone()
+        conn.close()
+        
+        return dict(applicant)
+        
+    except Exception as e:
+        print(f"Error updating applicant: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update applicant")
+
+@app.get("/api/v1/projects/{project_id}")
+async def get_project(project_id: str, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Get specific project by ID"""
+    try:
+        # Get user info from token
+        token = credentials.credentials
+        user_data = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        
+        # Get company from user
+        conn = sqlite3.connect(DATABASE_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT company_id FROM users WHERE id = ?", (user_data["sub"],))
+        user = cursor.fetchone()
+        
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        
+        company_id = user["company_id"]
+        
+        # Get project from database
+        cursor.execute("""
+            SELECT * FROM projects 
+            WHERE id = ? AND company_id = ?
+        """, (project_id, company_id))
+        
+        project = cursor.fetchone()
+        conn.close()
+        
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+        
+        return dict(project)
+        
+    except Exception as e:
+        print(f"Error getting project: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get project")
+
+@app.put("/api/v1/projects/{project_id}")
+async def update_project(project_id: str, project_data: ProjectCreate, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Update existing project"""
+    try:
+        # Get user info from token
+        token = credentials.credentials
+        user_data = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        
+        # Get company from user
+        conn = sqlite3.connect(DATABASE_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT company_id FROM users WHERE id = ?", (user_data["sub"],))
+        user = cursor.fetchone()
+        
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        
+        company_id = user["company_id"]
+        
+        # Check if project exists and belongs to company
+        cursor.execute("SELECT id FROM projects WHERE id = ? AND company_id = ?", (project_id, company_id))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=404, detail="Project not found")
+        
+        # Update project in database
+        cursor.execute("""
+            UPDATE projects SET
+                name = ?, developer = ?, location = ?, address = ?, 
+                latitude = ?, longitude = ?, total_units = ?, affordable_units = ?, 
+                ami_levels = ?, description = ?, completion_date = ?
+            WHERE id = ? AND company_id = ?
+        """, (
+            project_data.name, project_data.developer, project_data.location, 
+            project_data.address, project_data.latitude, project_data.longitude,
+            project_data.total_units, project_data.affordable_units, project_data.ami_levels,
+            project_data.description, project_data.completion_date, project_id, company_id
+        ))
+        
+        conn.commit()
+        
+        # Get the updated project
+        cursor.execute("SELECT * FROM projects WHERE id = ?", (project_id,))
+        project = cursor.fetchone()
+        conn.close()
+        
+        return dict(project)
+        
+    except Exception as e:
+        print(f"Error updating project: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update project")
+
 # Map/Heatmap Endpoints
 @app.get("/api/v1/lenders/heatmap")
 async def get_heatmap_data(bounds: str = None, credentials: HTTPAuthorizationCredentials = Depends(security)):
@@ -1009,8 +1189,8 @@ async def send_contact_email(contact_data: dict):
         
         sg = sendgrid.SendGridAPIClient(api_key=sendgrid_api_key)
         
-        # Email to you (notification)
-        from_email = Email("noreply@homeverse.app")
+        # Email to you (notification) - use verified sender email
+        from_email = Email("holdenbryce06@gmail.com")  # Use your verified email as sender
         to_email = To("holdenbryce06@gmail.com")
         
         subject = f"New HomeVerse Contact: {contact_data['subject']}"
@@ -1059,7 +1239,13 @@ async def send_contact_email(contact_data: dict):
         
     except Exception as e:
         print(f"Failed to send contact email: {e}")
-        # Don't raise exception - form submission should still succeed
+        # Fallback logging
+        print(f"📧 CONTACT FORM SUBMISSION - {datetime.now()}")
+        print(f"Name: {contact_data['name']}")
+        print(f"Email: {contact_data['email']}")
+        print(f"Subject: {contact_data['subject']}")
+        print(f"Message: {contact_data['message']}")
+        print("=" * 50)
 
 
 # Create test users on startup

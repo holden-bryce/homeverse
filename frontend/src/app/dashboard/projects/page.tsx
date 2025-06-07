@@ -24,8 +24,30 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 
+// Type for projects that handles both old and new field names
+interface Project {
+  id: string
+  name: string
+  developer_name?: string
+  developer?: string
+  location?: [number, number] | string
+  unit_count?: number
+  total_units?: number
+  ami_min?: number
+  ami_max?: number
+  affordable_units?: number
+  ami_levels?: string
+  est_delivery?: string
+  completion_date?: string
+  status: string
+  address?: string
+  total_investment?: number
+  units_leased?: number
+  created_at: string
+}
+
 // Mock data - in real app this would come from API
-const projects = [
+const projects: Project[] = [
   {
     id: '1',
     name: 'Sunset Gardens',
@@ -107,9 +129,9 @@ export default function ProjectsPage() {
 
   const filteredProjects = projects.filter(project => {
     const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         project.developer_name.toLowerCase().includes(searchTerm.toLowerCase())
+                         (project.developer_name || project.developer || '').toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = statusFilter === 'all' || project.status === statusFilter
-    const matchesDeveloper = developerFilter === 'all' || project.developer_name === developerFilter
+    const matchesDeveloper = developerFilter === 'all' || project.developer_name === developerFilter || project.developer === developerFilter
     
     return matchesSearch && matchesStatus && matchesDeveloper
   })
@@ -148,7 +170,20 @@ export default function ProjectsPage() {
             </p>
           </div>
           <div className="flex space-x-3">
-            <Button variant="outline" className="border-sage-200 text-sage-700 hover:bg-sage-50 rounded-full">
+            <Button 
+              variant="outline" 
+              className="border-sage-200 text-sage-700 hover:bg-sage-50 rounded-full"
+              onClick={() => {
+                const csvContent = `Project Name,Developer,Location,Total Units,AMI Range,Status\n${filteredProjects.map(p => `"${p.name}","${p.developer_name || p.developer || ''}","${p.address || p.location || ''}",${p.unit_count || p.total_units || 0},"${p.ami_min || 0}-${p.ami_max || 0}%","${p.status}"`).join('\n')}`
+                const blob = new Blob([csvContent], { type: 'text/csv' })
+                const url = window.URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = `homeverse-projects-${new Date().toISOString().split('T')[0]}.csv`
+                a.click()
+                window.URL.revokeObjectURL(url)
+              }}
+            >
               <Download className="mr-2 h-4 w-4" />
               Export
             </Button>
@@ -264,13 +299,13 @@ export default function ProjectsPage() {
                       <TableCell>
                         <div className="flex items-center text-sm">
                           <MapPin className="h-4 w-4 text-gray-400 mr-1" />
-                          {project.address || `${project.location[0].toFixed(2)}, ${project.location[1].toFixed(2)}`}
+                          {project.address || (Array.isArray(project.location) ? `${project.location[0].toFixed(2)}, ${project.location[1].toFixed(2)}` : project.location || 'Location TBD')}
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center">
                           <Building2 className="h-4 w-4 text-gray-400 mr-1" />
-                          {project.unit_count}
+                          {project.unit_count || project.total_units || 0}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -325,7 +360,20 @@ export default function ProjectsPage() {
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm" className="rounded-full h-8 w-8 p-0 hover:bg-sage-100">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="rounded-full h-8 w-8 p-0 hover:bg-sage-100"
+                            onClick={() => {
+                              const actions = [
+                                { label: 'Duplicate Project', action: () => console.log('Duplicate project:', project.id) },
+                                { label: 'Archive Project', action: () => console.log('Archive project:', project.id) },
+                                { label: 'Export Details', action: () => console.log('Export project:', project.id) }
+                              ]
+                              // For now, show first available action
+                              if (actions.length > 0) actions[0].action()
+                            }}
+                          >
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </div>

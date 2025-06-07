@@ -98,40 +98,55 @@ export default function ContactPage() {
     e.preventDefault()
     setIsSubmitting(true)
 
-    // Simulate form submission
-    await new Promise(resolve => setTimeout(resolve, 1500))
+    try {
+      // Use real backend API instead of localStorage simulation
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/contact`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: `${formData.firstName} ${formData.lastName}`,
+          email: formData.email,
+          phone: formData.phone,
+          company: formData.company,
+          subject: formData.subject,
+          message: formData.message,
+        }),
+      })
 
-    console.log('Contact form submitted:', formData)
-    
-    // Save to localStorage for demo purposes
-    const existingContacts = JSON.parse(localStorage.getItem('contactSubmissions') || '[]')
-    const newContact = {
-      id: Date.now().toString(),
-      ...formData,
-      submittedAt: new Date().toISOString(),
-      status: 'new'
+      if (response.ok) {
+        toast({
+          title: "Message sent successfully!",
+          description: "We'll get back to you within 24 hours.",
+        })
+
+        // Reset form
+        setFormData({
+          firstName: '',
+          lastName: '',
+          email: '',
+          phone: '',
+          company: '',
+          role: '',
+          subject: '',
+          department: '',
+          message: '',
+          urgency: 'medium'
+        })
+      } else {
+        throw new Error('Failed to send message')
+      }
+    } catch (error) {
+      console.error('Contact form error:', error)
+      toast({
+        variant: 'destructive',
+        title: "Error sending message",
+        description: "Please try again or contact us directly.",
+      })
+    } finally {
+      setIsSubmitting(false)
     }
-    localStorage.setItem('contactSubmissions', JSON.stringify([...existingContacts, newContact]))
-
-    setIsSubmitting(false)
-    toast({
-      title: "Message sent successfully!",
-      description: "We'll get back to you within 24 hours.",
-    })
-
-    // Reset form
-    setFormData({
-      firstName: '',
-      lastName: '',
-      email: '',
-      phone: '',
-      company: '',
-      role: '',
-      subject: '',
-      department: '',
-      message: '',
-      urgency: 'medium'
-    })
   }
 
   return (

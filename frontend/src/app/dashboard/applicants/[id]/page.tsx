@@ -50,65 +50,61 @@ export default function ApplicantDetailPage({ params }: ApplicantDetailProps) {
           return
         }
 
-        // First try to get from real API
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/applicants`, {
+        // First try to get specific applicant from API
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/applicants/${params.id}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
         })
 
         if (response.ok) {
-          const applicants = await response.json()
-          const foundApplicant = applicants.find((app: Applicant) => app.id === params.id)
-          
-          if (foundApplicant) {
-            setApplicant(foundApplicant)
-          } else {
-            // Fallback to demo data
-            const demoApplicants = [
-              {
-                id: "demo_app_001",
-                first_name: "Maria",
-                last_name: "Rodriguez",
-                email: "maria.rodriguez@email.com",
-                phone: "(555) 123-4567",
-                household_size: 3,
-                income: 45000,
-                ami_percent: 65,
-                location_preference: "Oakland, CA",
-                latitude: 37.8044,
-                longitude: -122.2711,
-                status: "active",
-                created_at: "2024-01-15T10:30:00Z"
-              },
-              {
-                id: "demo_app_002", 
-                first_name: "James",
-                last_name: "Chen",
-                email: "james.chen@email.com",
-                phone: "(555) 234-5678",
-                household_size: 2,
-                income: 52000,
-                ami_percent: 75,
-                location_preference: "San Francisco, CA",
-                latitude: 37.7749,
-                longitude: -122.4194,
-                status: "active",
-                created_at: "2024-01-20T14:15:00Z"
-              }
-            ]
-            
-            const demoApplicant = demoApplicants.find(app => app.id === params.id)
-            if (demoApplicant) {
-              setApplicant(demoApplicant)
-            } else {
-              toast({
-                variant: 'destructive',
-                title: 'Not Found',
-                description: 'Applicant not found.',
-              })
-              router.push('/dashboard/applicants')
+          const applicant = await response.json()
+          setApplicant(applicant)
+        } else {
+          // Fallback to demo data
+          const demoApplicants = [
+            {
+              id: "demo_app_001",
+              first_name: "Maria",
+              last_name: "Rodriguez",
+              email: "maria.rodriguez@email.com",
+              phone: "(555) 123-4567",
+              household_size: 3,
+              income: 45000,
+              ami_percent: 65,
+              location_preference: "Oakland, CA",
+              latitude: 37.8044,
+              longitude: -122.2711,
+              status: "active",
+              created_at: "2024-01-15T10:30:00Z"
+            },
+            {
+              id: "demo_app_002", 
+              first_name: "James",
+              last_name: "Chen",
+              email: "james.chen@email.com",
+              phone: "(555) 234-5678",
+              household_size: 2,
+              income: 52000,
+              ami_percent: 75,
+              location_preference: "San Francisco, CA",
+              latitude: 37.7749,
+              longitude: -122.4194,
+              status: "active",
+              created_at: "2024-01-20T14:15:00Z"
             }
+          ]
+          
+          const demoApplicant = demoApplicants.find(app => app.id === params.id)
+          if (demoApplicant) {
+            setApplicant(demoApplicant)
+          } else {
+            toast({
+              variant: 'destructive',
+              title: 'Not Found',
+              description: 'Applicant not found.',
+            })
+            router.push('/dashboard/applicants')
           }
         }
       } catch (error) {

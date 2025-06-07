@@ -60,7 +60,12 @@ export default function HomePage() {
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
               </Link>
-              <Button size="xl" variant="outline" className="w-full sm:w-auto">
+              <Button 
+                size="xl" 
+                variant="outline" 
+                className="w-full sm:w-auto"
+                onClick={() => window.open('https://www.youtube.com/watch?v=demo', '_blank')}
+              >
                 Watch Demo
               </Button>
             </div>
@@ -309,7 +314,12 @@ export default function HomePage() {
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </Link>
-            <Button size="xl" variant="outline" className="border-white text-white hover:bg-white hover:text-teal-600 w-full sm:w-auto">
+            <Button 
+              size="xl" 
+              variant="outline" 
+              className="border-white text-white hover:bg-white hover:text-teal-600 w-full sm:w-auto"
+              onClick={() => window.open('mailto:demo@homeverse.com?subject=Schedule Demo Request', '_blank')}
+            >
               Schedule Demo
             </Button>
           </div>
@@ -334,7 +344,7 @@ export default function HomePage() {
                 <li><a href="/auth/login" className="hover:text-white transition-colors">Lenders Portal</a></li>
                 <li><a href="/auth/login" className="hover:text-white transition-colors">Developers Portal</a></li>
                 <li><a href="/auth/login" className="hover:text-white transition-colors">Buyers Portal</a></li>
-                <li><a href="/contact" className="hover:text-white transition-colors">API</a></li>
+                <li><a href="https://docs.homeverse.com/api" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">API Docs</a></li>
               </ul>
             </div>
             <div>

@@ -516,11 +516,17 @@ export default function DeveloperMatchingPage() {
                                 </div>
 
                                 <div className="flex space-x-3 pt-4">
-                                  <Button className="bg-sage-600 hover:bg-sage-700">
+                                  <Button 
+                                    className="bg-sage-600 hover:bg-sage-700"
+                                    onClick={() => window.open(`mailto:${selectedMatch.applicant.email}?subject=Regarding ${selectedMatch.project_name} Housing Opportunity`, '_blank')}
+                                  >
                                     <Mail className="mr-2 h-4 w-4" />
                                     Send Email
                                   </Button>
-                                  <Button variant="outline">
+                                  <Button 
+                                    variant="outline"
+                                    onClick={() => selectedMatch.applicant.phone && window.open(`tel:${selectedMatch.applicant.phone}`, '_self')}
+                                  >
                                     <Phone className="mr-2 h-4 w-4" />
                                     Call Applicant
                                   </Button>

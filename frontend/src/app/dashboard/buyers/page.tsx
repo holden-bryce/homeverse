@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { toast } from '@/components/ui/toast'
 import { 
   Search,
   Filter,
@@ -150,6 +151,7 @@ export default function BuyersPage() {
   const [selectedUnitType, setSelectedUnitType] = useState('all')
   const [selectedStatus, setSelectedStatus] = useState('all')
   const [showFilters, setShowFilters] = useState(false)
+  const [hoveredProject, setHoveredProject] = useState<string | null>(null)
 
   const filteredProjects = projects.filter(project => {
     const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -299,7 +301,16 @@ export default function BuyersPage() {
                     </SelectContent>
                   </Select>
 
-                  <Button variant="outline" className="w-full">
+                  <Button 
+                    variant="outline" 
+                    className="w-full"
+                    onClick={() => {
+                      toast({
+                        title: "Advanced Filters",
+                        description: "Advanced filtering options coming soon!",
+                      })
+                    }}
+                  >
                     More Filters
                   </Button>
                 </div>
@@ -440,12 +451,12 @@ export default function BuyersPage() {
                       projects={filteredProjects}
                       height={600}
                       onProjectSelect={(projectId) => {
-                        // Handle project selection
-                        console.log('Selected project:', projectId)
+                        // Navigate to project details
+                        router.push(`/dashboard/projects/${projectId}`)
                       }}
                       onProjectHover={(projectId) => {
-                        // Handle project hover
-                        console.log('Hovered project:', projectId)
+                        // Show project tooltip/preview
+                        setHoveredProject(projectId)
                       }}
                     />
                   </CardContent>
@@ -498,7 +509,23 @@ export default function BuyersPage() {
                     </div>
                   </div>
                 ))}
-                <Button variant="outline" className="w-full rounded-full">
+                <Button 
+                  variant="outline" 
+                  className="w-full rounded-full"
+                  onClick={() => {
+                    const searchParams = {
+                      searchTerm,
+                      selectedAMI,
+                      selectedUnitType,
+                      selectedStatus
+                    }
+                    localStorage.setItem(`saved-search-${Date.now()}`, JSON.stringify(searchParams))
+                    toast({
+                      title: "Search Saved",
+                      description: "Your search preferences have been saved!",
+                    })
+                  }}
+                >
                   Create New Search
                 </Button>
               </CardContent>

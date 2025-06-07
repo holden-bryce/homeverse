@@ -76,6 +76,27 @@ const navigation: NavItem[] = [
     roles: ['admin', 'manager', 'lender'],
   },
   {
+    id: 'housing-search',
+    label: 'Find Housing',
+    href: '/dashboard/buyers',
+    icon: <Search className="h-5 w-5" />,
+    roles: ['applicant', 'buyer'],
+  },
+  {
+    id: 'my-applications',
+    label: 'My Applications',
+    href: '/dashboard/buyers/applications',
+    icon: <FileText className="h-5 w-5" />,
+    roles: ['applicant', 'buyer'],
+  },
+  {
+    id: 'preferences',
+    label: 'Preferences',
+    href: '/dashboard/buyers/preferences',
+    icon: <Settings className="h-5 w-5" />,
+    roles: ['applicant', 'buyer'],
+  },
+  {
     id: 'map',
     label: 'Map View',
     href: '/dashboard/map',

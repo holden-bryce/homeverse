@@ -18,53 +18,41 @@ import {
   Info
 } from 'lucide-react'
 import Link from 'next/link'
-import { useCreateProject } from '@/lib/api/hooks'
 import { toast } from '@/components/ui/toast'
 
 interface ProjectFormData {
   name: string
-  developer_name: string
-  location: [number, number]
-  unit_count: number
-  ami_min: number
-  ami_max: number
-  est_delivery: string
-  metadata_json: {
-    description: string
-    address: string
-    total_investment: number
-    target_demographics: string[]
-    amenities: string[]
-    contact_email: string
-    contact_phone: string
-  }
+  developer: string
+  location: string
+  address: string
+  latitude: number
+  longitude: number
+  total_units: number
+  affordable_units: number
+  ami_levels: string
+  description: string
+  completion_date: string
 }
 
 export default function NewProjectPage() {
   const router = useRouter()
-  const createProject = useCreateProject()
+  const [isSubmitting, setIsSubmitting] = useState(false)
   
   const [formData, setFormData] = useState<ProjectFormData>({
     name: '',
-    developer_name: '',
-    location: [37.7749, -122.4194], // Default to SF
-    unit_count: 0,
-    ami_min: 30,
-    ami_max: 80,
-    est_delivery: '',
-    metadata_json: {
-      description: '',
-      address: '',
-      total_investment: 0,
-      target_demographics: [],
-      amenities: [],
-      contact_email: '',
-      contact_phone: ''
-    }
+    developer: '',
+    location: '',
+    address: '',
+    latitude: 37.7749, // Default to SF
+    longitude: -122.4194,
+    total_units: 0,
+    affordable_units: 0,
+    ami_levels: '',
+    description: '',
+    completion_date: ''
   })
 
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -75,12 +63,9 @@ export default function NewProjectPage() {
     const newErrors: Record<string, string> = {}
     
     if (!formData.name) newErrors.name = 'Project name is required'
-    if (!formData.developer_name) newErrors.developer_name = 'Developer name is required'
-    if (!formData.metadata_json.address) newErrors.address = 'Address is required'
-    if (formData.unit_count <= 0) newErrors.unit_count = 'Unit count must be greater than 0'
-    if (formData.ami_min < 0 || formData.ami_min > 200) newErrors.ami_min = 'AMI min must be between 0-200%'
-    if (formData.ami_max < 0 || formData.ami_max > 200) newErrors.ami_max = 'AMI max must be between 0-200%'
-    if (formData.ami_min >= formData.ami_max) newErrors.ami_max = 'AMI max must be greater than AMI min'
+    if (!formData.developer) newErrors.developer = 'Developer name is required'
+    if (!formData.address) newErrors.address = 'Address is required'
+    if (formData.total_units <= 0) newErrors.total_units = 'Total units must be greater than 0'
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors)
@@ -89,13 +74,36 @@ export default function NewProjectPage() {
     }
 
     try {
-      await createProject.mutateAsync(formData)
-      toast({ 
-        title: 'Success!',
-        description: 'Project created successfully!',
-        variant: 'success' 
+      const token = localStorage.getItem('token') || document.cookie.split('token=')[1]?.split(';')[0]
+      
+      if (!token) {
+        toast({
+          variant: 'destructive',
+          title: 'Authentication Error',
+          description: 'Please log in again to continue.',
+        })
+        return
+      }
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/projects`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
       })
-      router.push('/dashboard/projects')
+
+      if (response.ok) {
+        toast({ 
+          title: 'Success!',
+          description: 'Project created successfully!',
+          variant: 'success' 
+        })
+        router.push('/dashboard/projects')
+      } else {
+        throw new Error('Failed to create project')
+      }
     } catch (error: any) {
       toast({ 
         title: 'Error',
@@ -107,21 +115,10 @@ export default function NewProjectPage() {
   }
 
   const updateFormData = (field: string, value: any) => {
-    if (field.startsWith('metadata_json.')) {
-      const metadataField = field.replace('metadata_json.', '')
-      setFormData(prev => ({
-        ...prev,
-        metadata_json: {
-          ...prev.metadata_json,
-          [metadataField]: value
-        }
-      }))
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [field]: value
-      }))
-    }
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }))
   }
 
   return (
@@ -171,15 +168,15 @@ export default function NewProjectPage() {
                 </div>
                 
                 <div>
-                  <Label htmlFor="developer_name">Developer Name *</Label>
+                  <Label htmlFor="developer">Developer Name *</Label>
                   <Input
-                    id="developer_name"
-                    value={formData.developer_name}
-                    onChange={(e) => updateFormData('developer_name', e.target.value)}
-                    className={`rounded-lg ${errors.developer_name ? 'border-red-500' : 'border-sage-200'}`}
+                    id="developer"
+                    value={formData.developer}
+                    onChange={(e) => updateFormData('developer', e.target.value)}
+                    className={`rounded-lg ${errors.developer ? 'border-red-500' : 'border-sage-200'}`}
                     placeholder="e.g., Green Valley Development"
                   />
-                  {errors.developer_name && <p className="text-red-500 text-sm mt-1">{errors.developer_name}</p>}
+                  {errors.developer && <p className="text-red-500 text-sm mt-1">{errors.developer}</p>}
                 </div>
               </div>
 
@@ -187,8 +184,8 @@ export default function NewProjectPage() {
                 <Label htmlFor="description">Project Description</Label>
                 <Textarea
                   id="description"
-                  value={formData.metadata_json.description}
-                  onChange={(e) => updateFormData('metadata_json.description', e.target.value)}
+                  value={formData.description}
+                  onChange={(e) => updateFormData('description', e.target.value)}
                   className="rounded-lg border-sage-200"
                   placeholder="Describe the project goals, community impact, and unique features..."
                   rows={3}
@@ -213,12 +210,23 @@ export default function NewProjectPage() {
                 <Label htmlFor="address">Full Address *</Label>
                 <Input
                   id="address"
-                  value={formData.metadata_json.address}
-                  onChange={(e) => updateFormData('metadata_json.address', e.target.value)}
+                  value={formData.address}
+                  onChange={(e) => updateFormData('address', e.target.value)}
                   className={`rounded-lg ${errors.address ? 'border-red-500' : 'border-sage-200'}`}
                   placeholder="e.g., 123 Main Street, San Francisco, CA 94102"
                 />
                 {errors.address && <p className="text-red-500 text-sm mt-1">{errors.address}</p>}
+              </div>
+
+              <div>
+                <Label htmlFor="location">Location</Label>
+                <Input
+                  id="location"
+                  value={formData.location}
+                  onChange={(e) => updateFormData('location', e.target.value)}
+                  className="rounded-lg border-sage-200"
+                  placeholder="e.g., San Francisco, CA"
+                />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -228,8 +236,8 @@ export default function NewProjectPage() {
                     id="latitude"
                     type="number"
                     step="any"
-                    value={formData.location[0]}
-                    onChange={(e) => updateFormData('location', [parseFloat(e.target.value) || 0, formData.location[1]])}
+                    value={formData.latitude}
+                    onChange={(e) => updateFormData('latitude', parseFloat(e.target.value) || 0)}
                     className="rounded-lg border-sage-200"
                     placeholder="37.7749"
                   />
@@ -241,8 +249,8 @@ export default function NewProjectPage() {
                     id="longitude"
                     type="number"
                     step="any"
-                    value={formData.location[1]}
-                    onChange={(e) => updateFormData('location', [formData.location[0], parseFloat(e.target.value) || 0])}
+                    value={formData.longitude}
+                    onChange={(e) => updateFormData('longitude', parseFloat(e.target.value) || 0)}
                     className="rounded-lg border-sage-200"
                     placeholder="-122.4194"
                   />
@@ -265,117 +273,57 @@ export default function NewProjectPage() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <Label htmlFor="unit_count">Total Units *</Label>
+                  <Label htmlFor="total_units">Total Units *</Label>
                   <Input
-                    id="unit_count"
+                    id="total_units"
                     type="number"
                     min="1"
-                    value={formData.unit_count || ''}
-                    onChange={(e) => updateFormData('unit_count', parseInt(e.target.value) || 0)}
-                    className={`rounded-lg ${errors.unit_count ? 'border-red-500' : 'border-sage-200'}`}
+                    value={formData.total_units || ''}
+                    onChange={(e) => updateFormData('total_units', parseInt(e.target.value) || 0)}
+                    className={`rounded-lg ${errors.total_units ? 'border-red-500' : 'border-sage-200'}`}
                     placeholder="120"
                   />
-                  {errors.unit_count && <p className="text-red-500 text-sm mt-1">{errors.unit_count}</p>}
+                  {errors.total_units && <p className="text-red-500 text-sm mt-1">{errors.total_units}</p>}
                 </div>
                 
                 <div>
-                  <Label htmlFor="ami_min">Min AMI % *</Label>
+                  <Label htmlFor="affordable_units">Affordable Units</Label>
                   <Input
-                    id="ami_min"
+                    id="affordable_units"
                     type="number"
                     min="0"
-                    max="200"
-                    value={formData.ami_min || ''}
-                    onChange={(e) => updateFormData('ami_min', parseInt(e.target.value) || 0)}
-                    className={`rounded-lg ${errors.ami_min ? 'border-red-500' : 'border-sage-200'}`}
-                    placeholder="30"
+                    value={formData.affordable_units || ''}
+                    onChange={(e) => updateFormData('affordable_units', parseInt(e.target.value) || 0)}
+                    className="rounded-lg border-sage-200"
+                    placeholder="96"
                   />
-                  {errors.ami_min && <p className="text-red-500 text-sm mt-1">{errors.ami_min}</p>}
                 </div>
                 
                 <div>
-                  <Label htmlFor="ami_max">Max AMI % *</Label>
+                  <Label htmlFor="ami_levels">AMI Levels</Label>
                   <Input
-                    id="ami_max"
-                    type="number"
-                    min="0"
-                    max="200"
-                    value={formData.ami_max || ''}
-                    onChange={(e) => updateFormData('ami_max', parseInt(e.target.value) || 0)}
-                    className={`rounded-lg ${errors.ami_max ? 'border-red-500' : 'border-sage-200'}`}
-                    placeholder="80"
+                    id="ami_levels"
+                    value={formData.ami_levels}
+                    onChange={(e) => updateFormData('ami_levels', e.target.value)}
+                    className="rounded-lg border-sage-200"
+                    placeholder="30-80%"
                   />
-                  {errors.ami_max && <p className="text-red-500 text-sm mt-1">{errors.ami_max}</p>}
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="est_delivery">Estimated Delivery Date</Label>
-                  <Input
-                    id="est_delivery"
-                    type="date"
-                    value={formData.est_delivery}
-                    onChange={(e) => updateFormData('est_delivery', e.target.value)}
-                    className="rounded-lg border-sage-200"
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="total_investment">Total Investment ($)</Label>
-                  <Input
-                    id="total_investment"
-                    type="number"
-                    min="0"
-                    value={formData.metadata_json.total_investment || ''}
-                    onChange={(e) => updateFormData('metadata_json.total_investment', parseInt(e.target.value) || 0)}
-                    className="rounded-lg border-sage-200"
-                    placeholder="25000000"
-                  />
-                </div>
+              <div>
+                <Label htmlFor="completion_date">Estimated Completion Date</Label>
+                <Input
+                  id="completion_date"
+                  type="date"
+                  value={formData.completion_date}
+                  onChange={(e) => updateFormData('completion_date', e.target.value)}
+                  className="rounded-lg border-sage-200"
+                />
               </div>
             </CardContent>
           </Card>
 
-          {/* Contact Information */}
-          <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Info className="mr-2 h-5 w-5 text-sage-600" />
-                Contact Information
-              </CardTitle>
-              <CardDescription>
-                Contact details for project inquiries
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="contact_email">Contact Email</Label>
-                  <Input
-                    id="contact_email"
-                    type="email"
-                    value={formData.metadata_json.contact_email}
-                    onChange={(e) => updateFormData('metadata_json.contact_email', e.target.value)}
-                    className="rounded-lg border-sage-200"
-                    placeholder="contact@developer.com"
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="contact_phone">Contact Phone</Label>
-                  <Input
-                    id="contact_phone"
-                    type="tel"
-                    value={formData.metadata_json.contact_phone}
-                    onChange={(e) => updateFormData('metadata_json.contact_phone', e.target.value)}
-                    className="rounded-lg border-sage-200"
-                    placeholder="(555) 123-4567"
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
 
           {/* Form Actions */}
           <div className="flex justify-end space-x-4">

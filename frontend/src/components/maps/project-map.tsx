@@ -65,8 +65,136 @@ export function ProjectMap({
   useEffect(() => {
     if (map.current || !mapContainer.current) return
 
-    // For demo purposes, we'll use a mock map implementation
-    // In production, you would initialize Mapbox GL JS here
+    // Check if we have a valid Mapbox token
+    if (MAPBOX_TOKEN === 'pk.placeholder' || !MAPBOX_TOKEN || MAPBOX_TOKEN.length < 10) {
+      // Show fallback map
+      mapContainer.current.innerHTML = `
+        <div style="
+          width: 100%; 
+          height: ${height}px; 
+          background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+          border-radius: 12px;
+          position: relative;
+          overflow: hidden;
+        ">
+          <div style="
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #64748b;
+          ">
+            <div style="font-size: 48px; margin-bottom: 16px;">🗺️</div>
+            <div style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">Interactive Map</div>
+            <div style="font-size: 14px;">Mapbox integration will render here</div>
+            <div style="font-size: 12px; margin-top: 8px; opacity: 0.7;">
+              Set NEXT_PUBLIC_MAPBOX_TOKEN to enable
+            </div>
+          </div>
+        </div>
+      `
+      return
+    }
+
+    // Initialize real Mapbox map
+    mapboxgl.accessToken = MAPBOX_TOKEN
+
+    try {
+      map.current = new mapboxgl.Map({
+        container: mapContainer.current,
+        style: 'mapbox://styles/mapbox/light-v11',
+        center: center as [number, number],
+        zoom: zoom,
+        attributionControl: false
+      })
+
+      // Add controls
+      if (showControls) {
+        map.current.addControl(new mapboxgl.NavigationControl(), 'top-right')
+      }
+
+      // Wait for map to load before adding markers
+      map.current.on('load', () => {
+        addProjectMarkers()
+      })
+
+    } catch (error) {
+      console.error('Error initializing Mapbox:', error)
+      // Fallback to demo implementation
+      showFallbackMap()
+    }
+
+  }, [center, zoom, height, showControls])
+
+  const addProjectMarkers = () => {
+    if (!map.current) return
+
+    // Clear existing markers
+    Object.values(markers.current).forEach(marker => marker.remove())
+    markers.current = {}
+
+    // Add new markers for each project
+    projects.forEach((project) => {
+      const markerElement = document.createElement('div')
+      markerElement.innerHTML = `
+        <div style="
+          width: 40px;
+          height: 40px;
+          background: ${project.status === 'accepting_applications' ? '#16a34a' : 
+                      project.status === 'construction' ? '#0d9488' : '#d97706'};
+          border: 3px solid white;
+          border-radius: 50%;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: bold;
+          color: white;
+          font-size: 12px;
+          box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+          transition: transform 0.2s;
+        ">
+          ${project.units_available || '?'}
+        </div>
+      `
+
+      markerElement.addEventListener('click', () => {
+        setSelectedProjectData(project)
+        
+        // Get marker position for popup
+        const markerBounds = markerElement.getBoundingClientRect()
+        const mapBounds = mapContainer.current?.getBoundingClientRect()
+        if (mapBounds) {
+          setPopupPosition({
+            x: markerBounds.left - mapBounds.left + 20,
+            y: markerBounds.top - mapBounds.top - 10
+          })
+        }
+        onProjectSelect?.(project.id)
+      })
+
+      markerElement.addEventListener('mouseenter', () => {
+        markerElement.style.transform = 'scale(1.2)'
+        onProjectHover?.(project.id)
+      })
+
+      markerElement.addEventListener('mouseleave', () => {
+        markerElement.style.transform = 'scale(1)'
+        onProjectHover?.(null)
+      })
+
+      const marker = new mapboxgl.Marker(markerElement)
+        .setLngLat(project.coordinates)
+        .addTo(map.current!)
+
+      markers.current[project.id] = marker
+    })
+  }
+
+  const showFallbackMap = () => {
+    if (!mapContainer.current) return
+    
     mapContainer.current.innerHTML = `
       <div style="
         width: 100%; 
@@ -85,16 +213,13 @@ export function ProjectMap({
           color: #64748b;
         ">
           <div style="font-size: 48px; margin-bottom: 16px;">🗺️</div>
-          <div style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">Interactive Map</div>
-          <div style="font-size: 14px;">Mapbox integration will render here</div>
-          <div style="font-size: 12px; margin-top: 8px; opacity: 0.7;">
-            Set NEXT_PUBLIC_MAPBOX_TOKEN to enable
-          </div>
+          <div style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">Map Unavailable</div>
+          <div style="font-size: 14px;">Mapbox configuration needed</div>
         </div>
       </div>
     `
-
-    // Simulate project markers with demo data
+    
+    // Add demo markers to fallback map
     setTimeout(() => {
       if (mapContainer.current) {
         const mapElement = mapContainer.current.querySelector('div')
@@ -108,7 +233,6 @@ export function ProjectMap({
                           project.status === 'construction' ? '#0d9488' : '#d97706'};
               border: 3px solid white;
               border-radius: 50%;
-              box-shadow: 0 2px 8px rgba(0,0,0,0.2);
               cursor: pointer;
               position: absolute;
               top: ${30 + index * 60}px;
@@ -116,9 +240,10 @@ export function ProjectMap({
               display: flex;
               align-items: center;
               justify-content: center;
-              color: white;
               font-weight: bold;
+              color: white;
               font-size: 12px;
+              box-shadow: 0 4px 8px rgba(0,0,0,0.2);
               transition: transform 0.2s;
               z-index: 10;
             `
@@ -154,14 +279,24 @@ export function ProjectMap({
         }
       }
     }, 100)
+  }
 
+  // Update markers when projects change
+  useEffect(() => {
+    if (map.current && map.current.loaded()) {
+      addProjectMarkers()
+    }
+  }, [projects])
+
+  // Cleanup on unmount
+  useEffect(() => {
     return () => {
-      // Cleanup would go here for real Mapbox instance
-      if (mapContainer.current) {
-        mapContainer.current.innerHTML = ''
+      if (map.current) {
+        map.current.remove()
       }
     }
-  }, [projects, height, onProjectSelect, onProjectHover])
+
+  }, [])
 
   const getStatusColor = (status: string) => {
     switch (status) {

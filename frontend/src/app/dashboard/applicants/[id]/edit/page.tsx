@@ -57,62 +57,58 @@ export default function EditApplicantPage({ params }: EditApplicantProps) {
           return
         }
 
-        // First try to get from real API
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/applicants`, {
+        // First try to get specific applicant from API
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/applicants/${params.id}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
         })
 
         if (response.ok) {
-          const applicants = await response.json()
-          const foundApplicant = applicants.find((app: any) => app.id === params.id)
-          
-          if (foundApplicant) {
-            reset(foundApplicant)
-          } else {
-            // Fallback to demo data
-            const demoApplicants = [
-              {
-                id: "demo_app_001",
-                first_name: "Maria",
-                last_name: "Rodriguez",
-                email: "maria.rodriguez@email.com",
-                phone: "(555) 123-4567",
-                household_size: 3,
-                income: 45000,
-                ami_percent: 65,
-                location_preference: "Oakland, CA",
-                latitude: 37.8044,
-                longitude: -122.2711,
-              },
-              {
-                id: "demo_app_002", 
-                first_name: "James",
-                last_name: "Chen",
-                email: "james.chen@email.com",
-                phone: "(555) 234-5678",
-                household_size: 2,
-                income: 52000,
-                ami_percent: 75,
-                location_preference: "San Francisco, CA",
-                latitude: 37.7749,
-                longitude: -122.4194,
-              }
-            ]
-            
-            const demoApplicant = demoApplicants.find(app => app.id === params.id)
-            if (demoApplicant) {
-              reset(demoApplicant)
-            } else {
-              toast({
-                variant: 'destructive',
-                title: 'Not Found',
-                description: 'Applicant not found.',
-              })
-              router.push('/dashboard/applicants')
-              return
+          const applicant = await response.json()
+          reset(applicant)
+        } else {
+          // Fallback to demo data
+          const demoApplicants = [
+            {
+              id: "demo_app_001",
+              first_name: "Maria",
+              last_name: "Rodriguez",
+              email: "maria.rodriguez@email.com",
+              phone: "(555) 123-4567",
+              household_size: 3,
+              income: 45000,
+              ami_percent: 65,
+              location_preference: "Oakland, CA",
+              latitude: 37.8044,
+              longitude: -122.2711,
+            },
+            {
+              id: "demo_app_002", 
+              first_name: "James",
+              last_name: "Chen",
+              email: "james.chen@email.com",
+              phone: "(555) 234-5678",
+              household_size: 2,
+              income: 52000,
+              ami_percent: 75,
+              location_preference: "San Francisco, CA",
+              latitude: 37.7749,
+              longitude: -122.4194,
             }
+          ]
+          
+          const demoApplicant = demoApplicants.find(app => app.id === params.id)
+          if (demoApplicant) {
+            reset(demoApplicant)
+          } else {
+            toast({
+              variant: 'destructive',
+              title: 'Not Found',
+              description: 'Applicant not found.',
+            })
+            router.push('/dashboard/applicants')
+            return
           }
         }
       } catch (error) {
@@ -145,15 +141,27 @@ export default function EditApplicantPage({ params }: EditApplicantProps) {
         return
       }
 
-      // For demo purposes, we'll just show success
-      // In production, you'd make a PUT request to update the applicant
-      toast({
-        variant: 'success',
-        title: 'Success!',
-        description: 'Applicant updated successfully.',
+      // Make PUT request to update the applicant
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/applicants/${params.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
       })
-      
-      router.push(`/dashboard/applicants/${params.id}`)
+
+      if (response.ok) {
+        toast({
+          variant: 'success',
+          title: 'Success!',
+          description: 'Applicant updated successfully.',
+        })
+        
+        router.push(`/dashboard/applicants/${params.id}`)
+      } else {
+        throw new Error('Failed to update applicant')
+      }
     } catch (error) {
       console.error('Error updating applicant:', error)
       toast({
