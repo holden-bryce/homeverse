@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Select } from '@/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ActivityDetailModal } from '@/components/ui/activity-modal'
 import { 
   TrendingUp, 
@@ -159,14 +159,18 @@ export default function ActivitiesPage() {
               
               <Select
                 value={selectedType}
-                onChange={(e) => setSelectedType(e.target.value)}
-                className="rounded-full"
+                onValueChange={setSelectedType}
               >
-                {activityTypes.map(type => (
-                  <option key={type.value} value={type.value}>
-                    {type.label}
-                  </option>
-                ))}
+                <SelectTrigger className="rounded-full">
+                  <SelectValue placeholder="All Activities" />
+                </SelectTrigger>
+                <SelectContent>
+                  {activityTypes.map(type => (
+                    <SelectItem key={type.value} value={type.value}>
+                      {type.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
 
               <div className="flex items-center justify-end space-x-2 text-sm text-gray-600">
