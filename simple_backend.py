@@ -20,7 +20,7 @@ DATABASE_PATH = "homeverse_demo.db"
 JWT_SECRET = "your-secret-key-here-for-testing"
 JWT_ALGORITHM = "HS256"
 
-app = FastAPI(title="Homeverse API", version="1.0.0")
+app = FastAPI(title="Homeverse API", version="1.0.1")
 security = HTTPBearer()
 
 # CORS middleware - Updated for production
