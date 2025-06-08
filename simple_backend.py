@@ -566,6 +566,12 @@ async def get_pg_connection():
 # Database setup
 def init_db():
     """Initialize SQLite database with tables"""
+    # Ensure database directory exists
+    db_dir = os.path.dirname(os.path.abspath(DATABASE_PATH))
+    if db_dir and not os.path.exists(db_dir):
+        os.makedirs(db_dir, exist_ok=True)
+        logger.info(f"Created database directory: {db_dir}")
+    
     conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     
@@ -2560,9 +2566,16 @@ async def register(request: RegisterRequest, conn=Depends(get_db)):
 @app.post("/api/v1/auth/login", response_model=LoginResponse)
 async def login(request: LoginRequest, conn=Depends(get_db)):
     """Login user"""
-    user = verify_user_credentials(conn, request.email, request.password)
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+    try:
+        user = verify_user_credentials(conn, request.email, request.password)
+        if not user:
+            logger.warning(f"Failed login attempt for email: {request.email}")
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+    except Exception as e:
+        logger.error(f"Login error for {request.email}: {str(e)}")
+        if "Invalid credentials" in str(e):
+            raise
+        raise HTTPException(status_code=500, detail="Authentication service temporarily unavailable")
     
     # Log login activity
     log_activity(
