@@ -30,10 +30,10 @@ export class APIClient {
       'Content-Type': 'application/json',
     }
     
-    // Initialize from localStorage and cookies if available
+    // Initialize from cookies only (secure storage)
     if (typeof window !== 'undefined') {
-      this.token = localStorage.getItem('auth_token') || this.getCookie('auth_token')
-      this.companyKey = localStorage.getItem('company_key') || this.getCookie('company_key')
+      this.token = this.getCookie('auth_token')
+      this.companyKey = this.getCookie('company_key')
     }
   }
 
@@ -43,23 +43,19 @@ export class APIClient {
     
     if (typeof window !== 'undefined') {
       if (token) {
-        localStorage.setItem('auth_token', token)
-        // Also set as cookie for middleware
-        document.cookie = `auth_token=${token}; path=/; max-age=${24 * 60 * 60}` // 24 hours
+        // Set secure httpOnly-like cookies with proper security flags
+        const secureFlag = window.location.protocol === 'https:' ? 'Secure; ' : ''
+        document.cookie = `auth_token=${token}; path=/; max-age=${24 * 60 * 60}; ${secureFlag}SameSite=Strict`
       } else {
-        localStorage.removeItem('auth_token')
         // Remove cookie
-        document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+        document.cookie = 'auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Strict'
       }
       
       if (companyKey) {
-        localStorage.setItem('company_key', companyKey)
-        // Also set as cookie for middleware
-        document.cookie = `company_key=${companyKey}; path=/; max-age=${24 * 60 * 60}` // 24 hours
+        const secureFlag = window.location.protocol === 'https:' ? 'Secure; ' : ''
+        document.cookie = `company_key=${companyKey}; path=/; max-age=${24 * 60 * 60}; ${secureFlag}SameSite=Strict`
       } else {
-        localStorage.removeItem('company_key')
-        // Remove cookie
-        document.cookie = 'company_key=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+        document.cookie = 'company_key=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Strict'
       }
     }
   }
@@ -108,6 +104,35 @@ export class APIClient {
         ...options,
         headers,
       })
+
+      // Handle token expiration
+      if (response.status === 401 && !endpoint.includes('/auth/')) {
+        // Try to refresh token
+        try {
+          await this.refreshToken()
+          // Retry original request with new token
+          headers.Authorization = `Bearer ${this.token}`
+          const retryResponse = await fetch(url, {
+            ...options,
+            headers,
+          })
+          
+          if (retryResponse.ok) {
+            const contentType = retryResponse.headers.get('content-type')
+            if (contentType && contentType.includes('application/json')) {
+              return await retryResponse.json()
+            }
+            return retryResponse.text() as unknown as T
+          }
+        } catch (refreshError) {
+          // Refresh failed, redirect to login
+          this.setAuth(null, null)
+          if (typeof window !== 'undefined') {
+            window.location.href = '/auth/login'
+          }
+          throw new APIError('Session expired', 401, 'Please log in again')
+        }
+      }
 
       if (!response.ok) {
         const errorText = await response.text()

@@ -54,7 +54,7 @@ export function PropertyCard({ property, variant = 'grid', onFavorite, isFavorit
         return 'bg-green-100 text-green-800'
       case 'coming soon':
       case 'planning':
-        return 'bg-blue-100 text-blue-800'
+        return 'bg-teal-100 text-teal-800'
       case 'waitlist':
         return 'bg-yellow-100 text-yellow-800'
       default:

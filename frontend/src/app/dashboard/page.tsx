@@ -126,16 +126,16 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-gradient-to-br from-sage-50 via-white to-cream-50">
       <div className="p-6 space-y-6">
         {/* Header */}
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
               Welcome back, {user?.email?.split('@')[0] || 'User'}
             </h1>
-            <p className="text-gray-600 mt-1">
+            <p className="text-gray-600 mt-1 text-sm sm:text-base">
               Here's what's happening with your housing portfolio today.
             </p>
           </div>
-          <div className="flex space-x-3">
+          <div className="flex flex-wrap gap-3">
             <Link href="/dashboard/applicants">
               <Button className="bg-sage-600 hover:bg-sage-700 text-white rounded-full px-6">
                 <Plus className="mr-2 h-4 w-4" />
@@ -152,7 +152,7 @@ export default function DashboardPage() {
         </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         {stats.map((stat) => {
           const Icon = stat.icon
           return (
@@ -187,7 +187,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
         {/* Recent Activity & Tasks */}
         <div className="lg:col-span-2">
           <Tabs defaultValue="activity" className="space-y-4">

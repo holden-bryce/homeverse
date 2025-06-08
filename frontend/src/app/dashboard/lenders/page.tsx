@@ -350,7 +350,7 @@ export default function LendersPage() {
               Monitor investment performance and CRA compliance
             </p>
           </div>
-          <div className="flex space-x-3">
+          <div className="flex flex-wrap gap-3">
             <Button variant="outline" className="border-sage-200 text-sage-700 hover:bg-sage-50 rounded-full">
               <Download className="mr-2 h-4 w-4" />
               Export Reports
@@ -363,7 +363,7 @@ export default function LendersPage() {
         </div>
 
         {/* Portfolio Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {portfolioStats.map((stat) => {
             const Icon = stat.icon
             return (
@@ -437,7 +437,7 @@ export default function LendersPage() {
 
         {/* Main Content Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4 bg-sage-100 rounded-full p-1">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 bg-sage-100 rounded-full p-1">
             <TabsTrigger value="overview" className="rounded-full">Portfolio Overview</TabsTrigger>
             <TabsTrigger value="investments" className="rounded-full">Investments</TabsTrigger>
             <TabsTrigger value="cra" className="rounded-full">CRA Compliance</TabsTrigger>
@@ -445,7 +445,7 @@ export default function LendersPage() {
           </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
             {/* Performance Chart */}
             <ChartCard 
               title="Portfolio Performance Trend" 

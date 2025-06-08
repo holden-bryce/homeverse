@@ -173,6 +173,10 @@ class ApplicantCreate(BaseModel):
     phone: Optional[str] = None
     household_size: Optional[int] = None
     income: Optional[float] = None
+    ami_percent: Optional[float] = None
+    location_preference: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
 
 # Utility functions
 def hash_password(password: str) -> str:
@@ -1224,6 +1228,108 @@ async def update_project(project_id: str, project_data: ProjectCreate, credentia
     except Exception as e:
         print(f"Error updating project: {e}")
         raise HTTPException(status_code=500, detail="Failed to update project")
+
+@app.delete("/api/v1/applicants/{applicant_id}")
+async def delete_applicant(applicant_id: str, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Delete existing applicant"""
+    try:
+        # Get user info from token
+        token = credentials.credentials
+        user_data = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        
+        # Get company from user
+        conn = sqlite3.connect(DATABASE_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT company_id FROM users WHERE id = ?", (user_data["sub"],))
+        user = cursor.fetchone()
+        
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        
+        company_id = user["company_id"]
+        
+        # Check if applicant exists and belongs to company
+        cursor.execute("SELECT first_name, last_name FROM applicants WHERE id = ? AND company_id = ?", (applicant_id, company_id))
+        applicant = cursor.fetchone()
+        if not applicant:
+            raise HTTPException(status_code=404, detail="Applicant not found")
+        
+        # Delete applicant from database
+        cursor.execute("DELETE FROM applicants WHERE id = ? AND company_id = ?", (applicant_id, company_id))
+        conn.commit()
+        
+        # Log activity
+        log_activity(
+            conn,
+            user_data["sub"],
+            company_id,
+            "applicant",
+            "Applicant Deleted",
+            f"Deleted applicant: {applicant['first_name']} {applicant['last_name']}",
+            entity_type="applicant",
+            entity_id=applicant_id,
+            metadata={"action": "delete"},
+            status="warning"
+        )
+        
+        conn.close()
+        return {"message": "Applicant deleted successfully"}
+        
+    except Exception as e:
+        print(f"Error deleting applicant: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete applicant")
+
+@app.delete("/api/v1/projects/{project_id}")
+async def delete_project(project_id: str, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Delete existing project"""
+    try:
+        # Get user info from token
+        token = credentials.credentials
+        user_data = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        
+        # Get company from user
+        conn = sqlite3.connect(DATABASE_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT company_id FROM users WHERE id = ?", (user_data["sub"],))
+        user = cursor.fetchone()
+        
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        
+        company_id = user["company_id"]
+        
+        # Check if project exists and belongs to company
+        cursor.execute("SELECT name FROM projects WHERE id = ? AND company_id = ?", (project_id, company_id))
+        project = cursor.fetchone()
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+        
+        # Delete project from database
+        cursor.execute("DELETE FROM projects WHERE id = ? AND company_id = ?", (project_id, company_id))
+        conn.commit()
+        
+        # Log activity
+        log_activity(
+            conn,
+            user_data["sub"],
+            company_id,
+            "project",
+            "Project Deleted",
+            f"Deleted project: {project['name']}",
+            entity_type="project",
+            entity_id=project_id,
+            metadata={"action": "delete"},
+            status="warning"
+        )
+        
+        conn.close()
+        return {"message": "Project deleted successfully"}
+        
+    except Exception as e:
+        print(f"Error deleting project: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete project")
 
 # Activity Endpoints
 @app.get("/api/v1/activities")

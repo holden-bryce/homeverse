@@ -11,6 +11,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from '@/components/ui/toast'
 import { ArrowLeft, Save, Loader2 } from 'lucide-react'
+import { useCreateApplicant } from '@/lib/api/hooks'
+import { sanitizeFormData } from '@/lib/utils/sanitize'
 
 const applicantSchema = z.object({
   first_name: z.string().min(2, 'First name must be at least 2 characters'),
@@ -29,41 +31,33 @@ type ApplicantFormData = z.infer<typeof applicantSchema>
 
 export default function NewApplicantPage() {
   const router = useRouter()
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const createApplicant = useCreateApplicant()
   
   const { register, handleSubmit, formState: { errors } } = useForm<ApplicantFormData>({
     resolver: zodResolver(applicantSchema),
   })
 
   const onSubmit = async (data: ApplicantFormData) => {
-    setIsSubmitting(true)
-    
     try {
-      const token = localStorage.getItem('token') || document.cookie.split('token=')[1]?.split(';')[0]
+      // Sanitize form data before submission
+      const sanitizedData = sanitizeFormData(data)
       
-      if (!token) {
-        toast({
-          variant: 'destructive',
-          title: 'Authentication Error',
-          description: 'Please log in again to continue.',
-        })
-        return
+      // Transform to API format
+      const apiData = {
+        geo_point: [sanitizedData.latitude || 37.7749, sanitizedData.longitude || -122.4194] as [number, number],
+        ami_band: sanitizedData.ami_percent ? `${sanitizedData.ami_percent}%` : '80%',
+        household_size: sanitizedData.household_size || 1,
+        preferences: {
+          first_name: sanitizedData.first_name,
+          last_name: sanitizedData.last_name,
+          email: sanitizedData.email,
+          phone: sanitizedData.phone,
+          income: sanitizedData.income,
+          location_preference: sanitizedData.location_preference,
+        }
       }
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/applicants`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(data),
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to create applicant')
-      }
-
-      const result = await response.json()
+      
+      await createApplicant.mutateAsync(apiData)
       
       toast({
         variant: 'success',
@@ -72,15 +66,13 @@ export default function NewApplicantPage() {
       })
       
       router.push('/dashboard/applicants')
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating applicant:', error)
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to create applicant. Please try again.',
+        description: error.message || 'Failed to create applicant. Please try again.',
       })
-    } finally {
-      setIsSubmitting(false)
     }
   }
 
@@ -101,7 +93,7 @@ export default function NewApplicantPage() {
         </div>
       </div>
 
-      <Card className="max-w-2xl">
+      <Card className="max-w-2xl mx-auto">
         <CardHeader>
           <CardTitle>Applicant Information</CardTitle>
           <CardDescription>
@@ -110,7 +102,7 @@ export default function NewApplicantPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="first_name">First Name *</Label>
                 <Input
@@ -138,7 +130,7 @@ export default function NewApplicantPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="email">Email Address *</Label>
                 <Input
@@ -163,7 +155,7 @@ export default function NewApplicantPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <Label htmlFor="household_size">Household Size</Label>
                 <Input
@@ -209,21 +201,21 @@ export default function NewApplicantPage() {
               />
             </div>
 
-            <div className="flex gap-4 pt-4">
+            <div className="flex flex-col sm:flex-row gap-4 pt-4">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => router.back()}
-                disabled={isSubmitting}
+                disabled={createApplicant.isPending}
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={createApplicant.isPending}
                 className="bg-teal-600 hover:bg-teal-700"
               >
-                {isSubmitting ? (
+                {createApplicant.isPending ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Creating...

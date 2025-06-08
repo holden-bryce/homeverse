@@ -25,6 +25,8 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from '@/components/ui/toast'
+import { useDeleteApplicant } from '@/lib/api/hooks'
+import { useConfirmationModal } from '@/components/ui/confirmation-modal'
 
 const stats = [
   {
@@ -54,6 +56,37 @@ export default function ApplicantsPage() {
   const [amiBandFilter, setAmiBandFilter] = useState('all')
   const [applicants, setApplicants] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  
+  const deleteApplicant = useDeleteApplicant()
+  const { confirm, ConfirmationModal } = useConfirmationModal()
+
+  const handleDeleteApplicant = (applicantId: string, applicantName: string) => {
+    confirm({
+      title: 'Delete Applicant',
+      description: `Are you sure you want to delete ${applicantName}? This action cannot be undone and will permanently remove all their data.`,
+      variant: 'danger',
+      confirmText: 'Delete Applicant',
+      onConfirm: async () => {
+        try {
+          await deleteApplicant.mutateAsync(applicantId)
+          toast({
+            title: 'Applicant Deleted',
+            description: `${applicantName} has been successfully deleted.`,
+            variant: 'success'
+          })
+          // Refresh the data
+          fetchApplicants()
+        } catch (error) {
+          toast({
+            title: 'Error',
+            description: 'Failed to delete applicant. Please try again.',
+            variant: 'destructive'
+          })
+          throw error // Re-throw to keep modal open on error
+        }
+      }
+    })
+  }
 
   useEffect(() => {
     fetchApplicants()
@@ -61,7 +94,7 @@ export default function ApplicantsPage() {
 
   const fetchApplicants = async () => {
     try {
-      const token = localStorage.getItem('token') || document.cookie.split('token=')[1]?.split(';')[0]
+      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0]
       
       if (!token) {
         toast({
@@ -133,7 +166,7 @@ export default function ApplicantsPage() {
               Manage housing applicants and their matching preferences
             </p>
           </div>
-          <div className="flex space-x-3">
+          <div className="flex flex-wrap gap-3">
             <Button variant="outline" className="border-sage-200 text-sage-700 hover:bg-sage-50 rounded-full">
               <Download className="mr-2 h-4 w-4" />
               Export
@@ -149,7 +182,7 @@ export default function ApplicantsPage() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {stats.map((stat) => {
             const Icon = stat.icon
             return (
@@ -216,18 +249,18 @@ export default function ApplicantsPage() {
           </div>
 
           {/* Applicants Table */}
-          <div className="rounded-2xl border border-sage-100 overflow-hidden">
+          <div className="rounded-2xl border border-sage-100 overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="bg-sage-50/50">
-                  <TableHead className="font-semibold text-gray-700">Applicant</TableHead>
-                  <TableHead className="font-semibold text-gray-700">Household Size</TableHead>
-                  <TableHead className="font-semibold text-gray-700">AMI Band</TableHead>
-                  <TableHead className="font-semibold text-gray-700">Status</TableHead>
-                  <TableHead className="font-semibold text-gray-700">Location</TableHead>
-                  <TableHead className="font-semibold text-gray-700">Matches</TableHead>
-                  <TableHead className="font-semibold text-gray-700">Created</TableHead>
-                  <TableHead className="text-right font-semibold text-gray-700">Actions</TableHead>
+                  <TableHead className="font-semibold text-gray-700 min-w-[200px]">Applicant</TableHead>
+                  <TableHead className="font-semibold text-gray-700 hidden sm:table-cell">Household Size</TableHead>
+                  <TableHead className="font-semibold text-gray-700 min-w-[100px]">AMI Band</TableHead>
+                  <TableHead className="font-semibold text-gray-700 min-w-[100px]">Status</TableHead>
+                  <TableHead className="font-semibold text-gray-700 hidden md:table-cell">Location</TableHead>
+                  <TableHead className="font-semibold text-gray-700 hidden lg:table-cell">Matches</TableHead>
+                  <TableHead className="font-semibold text-gray-700 hidden lg:table-cell">Created</TableHead>
+                  <TableHead className="text-right font-semibold text-gray-700 min-w-[120px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -249,7 +282,7 @@ export default function ApplicantsPage() {
                         <div className="text-sm text-gray-500">{applicant.email}</div>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden sm:table-cell">
                       <div className="flex items-center">
                         <Users className="h-4 w-4 text-gray-400 mr-1" />
                         {applicant.household_size || '-'}
@@ -265,18 +298,18 @@ export default function ApplicantsPage() {
                         {applicant.status || 'active'}
                       </Badge>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden md:table-cell">
                       <div className="flex items-center text-sm text-gray-500">
                         <MapPin className="h-4 w-4 mr-1" />
                         {applicant.location_preference || 'Any location'}
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden lg:table-cell">
                       <div className="text-center">
                         <span className="font-medium">{applicant.matches_count || 0}</span>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden lg:table-cell">
                       <div className="text-sm text-gray-500">
                         {applicant.created_at ? new Date(applicant.created_at).toLocaleDateString() : '-'}
                       </div>
@@ -288,6 +321,7 @@ export default function ApplicantsPage() {
                           size="sm" 
                           className="rounded-full h-8 w-8 p-0 hover:bg-sage-100" 
                           onClick={() => router.push(`/dashboard/applicants/${applicant.id}`)}
+                          aria-label={`View details for ${applicant.first_name || 'applicant'} ${applicant.last_name || ''}`}
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
@@ -296,11 +330,22 @@ export default function ApplicantsPage() {
                           size="sm" 
                           className="rounded-full h-8 w-8 p-0 hover:bg-sage-100" 
                           onClick={() => router.push(`/dashboard/applicants/${applicant.id}/edit`)}
+                          aria-label={`Edit ${applicant.first_name || 'applicant'} ${applicant.last_name || ''}`}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="sm" className="rounded-full h-8 w-8 p-0 hover:bg-red-100">
-                          <Trash2 className="h-4 w-4" />
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="rounded-full h-8 w-8 p-0 hover:bg-red-100"
+                          onClick={() => handleDeleteApplicant(
+                            applicant.id, 
+                            `${applicant.first_name || applicant.email?.split('@')[0] || 'Unknown'} ${applicant.last_name || ''}`.trim()
+                          )}
+                          disabled={deleteApplicant.isPending}
+                          aria-label={`Delete ${applicant.first_name || 'applicant'} ${applicant.last_name || ''}`}
+                        >
+                          <Trash2 className="h-4 w-4 text-red-600" />
                         </Button>
                       </div>
                     </TableCell>
@@ -335,6 +380,7 @@ export default function ApplicantsPage() {
           </CardContent>
         </Card>
       </div>
+      {ConfirmationModal}
     </div>
   )
 }

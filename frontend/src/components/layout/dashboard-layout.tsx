@@ -207,7 +207,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </button>
           
           <div className="flex-1 px-4 flex justify-between">
-            <div className="flex-1 flex">
+            <div className="flex-1 flex max-w-md">
               <div className="w-full flex md:ml-0">
                 <div className="relative w-full text-gray-400 focus-within:text-gray-600">
                   <div className="absolute inset-y-0 left-0 flex items-center pointer-events-none">
@@ -215,14 +215,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   </div>
                   <Input
                     className="pl-10 pr-3 py-2 border-transparent bg-gray-50 focus:bg-white focus:border-teal-500"
-                    placeholder="Search projects, applicants..."
+                    placeholder="Search..."
                     type="search"
                   />
                 </div>
               </div>
             </div>
             
-            <div className="ml-4 flex items-center md:ml-6 space-x-4">
+            <div className="ml-4 flex items-center md:ml-6 space-x-2 sm:space-x-4">
               <button className="bg-white p-1 rounded-full text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500">
                 <Bell className="h-6 w-6" />
               </button>
@@ -232,7 +232,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   <div className="h-8 w-8 rounded-full bg-teal-600 flex items-center justify-center">
                     <User className="h-5 w-5 text-white" />
                   </div>
-                  <div className="hidden md:block">
+                  <div className="hidden sm:block">
                     <div className="text-sm font-medium text-gray-900">
                       {currentUser?.email || user?.email}
                     </div>

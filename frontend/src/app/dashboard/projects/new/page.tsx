@@ -2,6 +2,9 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import * as z from 'zod'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -19,106 +22,76 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from '@/components/ui/toast'
+import { useCreateProject } from '@/lib/api/hooks'
+import { sanitizeFormData } from '@/lib/utils/sanitize'
 
-interface ProjectFormData {
-  name: string
-  developer: string
-  location: string
-  address: string
-  latitude: number
-  longitude: number
-  total_units: number
-  affordable_units: number
-  ami_levels: string
-  description: string
-  completion_date: string
-}
+const projectSchema = z.object({
+  name: z.string().min(2, 'Project name must be at least 2 characters'),
+  developer: z.string().min(2, 'Developer name must be at least 2 characters'),
+  location: z.string().optional(),
+  address: z.string().min(5, 'Address must be at least 5 characters'),
+  latitude: z.number().min(-90).max(90).optional(),
+  longitude: z.number().min(-180).max(180).optional(),
+  total_units: z.number().min(1, 'Total units must be at least 1'),
+  affordable_units: z.number().min(0).optional(),
+  ami_levels: z.string().optional(),
+  description: z.string().optional(),
+  completion_date: z.string().optional(),
+})
+
+type ProjectFormData = z.infer<typeof projectSchema>
 
 export default function NewProjectPage() {
   const router = useRouter()
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const createProject = useCreateProject()
   
-  const [formData, setFormData] = useState<ProjectFormData>({
-    name: '',
-    developer: '',
-    location: '',
-    address: '',
-    latitude: 37.7749, // Default to SF
-    longitude: -122.4194,
-    total_units: 0,
-    affordable_units: 0,
-    ami_levels: '',
-    description: '',
-    completion_date: ''
+  const { register, handleSubmit, formState: { errors } } = useForm<ProjectFormData>({
+    resolver: zodResolver(projectSchema),
+    defaultValues: {
+      latitude: 37.7749, // Default to SF
+      longitude: -122.4194,
+      total_units: 1,
+      affordable_units: 0,
+    }
   })
 
-  const [errors, setErrors] = useState<Record<string, string>>({})
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsSubmitting(true)
-    setErrors({})
-
-    // Basic validation
-    const newErrors: Record<string, string> = {}
-    
-    if (!formData.name) newErrors.name = 'Project name is required'
-    if (!formData.developer) newErrors.developer = 'Developer name is required'
-    if (!formData.address) newErrors.address = 'Address is required'
-    if (formData.total_units <= 0) newErrors.total_units = 'Total units must be greater than 0'
-
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors)
-      setIsSubmitting(false)
-      return
-    }
-
+  const onSubmit = async (data: ProjectFormData) => {
     try {
-      const token = localStorage.getItem('token') || document.cookie.split('token=')[1]?.split(';')[0]
+      // Sanitize form data before submission
+      const sanitizedData = sanitizeFormData(data)
       
-      if (!token) {
-        toast({
-          variant: 'destructive',
-          title: 'Authentication Error',
-          description: 'Please log in again to continue.',
-        })
-        return
+      // Transform to API format
+      const apiData = {
+        name: sanitizedData.name,
+        developer_name: sanitizedData.developer,
+        location: [sanitizedData.latitude || 37.7749, sanitizedData.longitude || -122.4194] as [number, number],
+        unit_count: sanitizedData.total_units,
+        ami_min: sanitizedData.ami_levels ? parseInt(sanitizedData.ami_levels.split('-')[0]) || 30 : 30,
+        ami_max: sanitizedData.ami_levels ? parseInt(sanitizedData.ami_levels.split('-')[1]) || 80 : 80,
+        est_delivery: sanitizedData.completion_date,
+        metadata_json: {
+          address: sanitizedData.address,
+          description: sanitizedData.description,
+          affordable_units: sanitizedData.affordable_units,
+          ami_levels: sanitizedData.ami_levels,
+        }
       }
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/projects`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
+      
+      await createProject.mutateAsync(apiData)
+      
+      toast({ 
+        title: 'Success!',
+        description: 'Project created successfully!',
+        variant: 'success' 
       })
-
-      if (response.ok) {
-        toast({ 
-          title: 'Success!',
-          description: 'Project created successfully!',
-          variant: 'success' 
-        })
-        router.push('/dashboard/projects')
-      } else {
-        throw new Error('Failed to create project')
-      }
+      router.push('/dashboard/projects')
     } catch (error: any) {
       toast({ 
         title: 'Error',
         description: error.message || 'Failed to create project',
         variant: 'destructive' 
       })
-      setIsSubmitting(false)
     }
-  }
-
-  const updateFormData = (field: string, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }))
   }
 
   return (
@@ -141,7 +114,7 @@ export default function NewProjectPage() {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           {/* Basic Information */}
           <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
             <CardHeader>
@@ -154,29 +127,27 @@ export default function NewProjectPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="name">Project Name *</Label>
                   <Input
                     id="name"
-                    value={formData.name}
-                    onChange={(e) => updateFormData('name', e.target.value)}
+                    {...register('name')}
                     className={`rounded-lg ${errors.name ? 'border-red-500' : 'border-sage-200'}`}
                     placeholder="e.g., Sunset Gardens"
                   />
-                  {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
+                  {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name.message}</p>}
                 </div>
                 
                 <div>
                   <Label htmlFor="developer">Developer Name *</Label>
                   <Input
                     id="developer"
-                    value={formData.developer}
-                    onChange={(e) => updateFormData('developer', e.target.value)}
+                    {...register('developer')}
                     className={`rounded-lg ${errors.developer ? 'border-red-500' : 'border-sage-200'}`}
                     placeholder="e.g., Green Valley Development"
                   />
-                  {errors.developer && <p className="text-red-500 text-sm mt-1">{errors.developer}</p>}
+                  {errors.developer && <p className="text-red-500 text-sm mt-1">{errors.developer.message}</p>}
                 </div>
               </div>
 
@@ -184,8 +155,7 @@ export default function NewProjectPage() {
                 <Label htmlFor="description">Project Description</Label>
                 <Textarea
                   id="description"
-                  value={formData.description}
-                  onChange={(e) => updateFormData('description', e.target.value)}
+                  {...register('description')}
                   className="rounded-lg border-sage-200"
                   placeholder="Describe the project goals, community impact, and unique features..."
                   rows={3}
@@ -210,34 +180,31 @@ export default function NewProjectPage() {
                 <Label htmlFor="address">Full Address *</Label>
                 <Input
                   id="address"
-                  value={formData.address}
-                  onChange={(e) => updateFormData('address', e.target.value)}
+                  {...register('address')}
                   className={`rounded-lg ${errors.address ? 'border-red-500' : 'border-sage-200'}`}
                   placeholder="e.g., 123 Main Street, San Francisco, CA 94102"
                 />
-                {errors.address && <p className="text-red-500 text-sm mt-1">{errors.address}</p>}
+                {errors.address && <p className="text-red-500 text-sm mt-1">{errors.address.message}</p>}
               </div>
 
               <div>
                 <Label htmlFor="location">Location</Label>
                 <Input
                   id="location"
-                  value={formData.location}
-                  onChange={(e) => updateFormData('location', e.target.value)}
+                  {...register('location')}
                   className="rounded-lg border-sage-200"
                   placeholder="e.g., San Francisco, CA"
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="latitude">Latitude</Label>
                   <Input
                     id="latitude"
                     type="number"
                     step="any"
-                    value={formData.latitude}
-                    onChange={(e) => updateFormData('latitude', parseFloat(e.target.value) || 0)}
+                    {...register('latitude', { valueAsNumber: true })}
                     className="rounded-lg border-sage-200"
                     placeholder="37.7749"
                   />
@@ -249,8 +216,7 @@ export default function NewProjectPage() {
                     id="longitude"
                     type="number"
                     step="any"
-                    value={formData.longitude}
-                    onChange={(e) => updateFormData('longitude', parseFloat(e.target.value) || 0)}
+                    {...register('longitude', { valueAsNumber: true })}
                     className="rounded-lg border-sage-200"
                     placeholder="-122.4194"
                   />
@@ -271,19 +237,18 @@ export default function NewProjectPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <Label htmlFor="total_units">Total Units *</Label>
                   <Input
                     id="total_units"
                     type="number"
                     min="1"
-                    value={formData.total_units || ''}
-                    onChange={(e) => updateFormData('total_units', parseInt(e.target.value) || 0)}
+                    {...register('total_units', { valueAsNumber: true })}
                     className={`rounded-lg ${errors.total_units ? 'border-red-500' : 'border-sage-200'}`}
                     placeholder="120"
                   />
-                  {errors.total_units && <p className="text-red-500 text-sm mt-1">{errors.total_units}</p>}
+                  {errors.total_units && <p className="text-red-500 text-sm mt-1">{errors.total_units.message}</p>}
                 </div>
                 
                 <div>
@@ -292,8 +257,7 @@ export default function NewProjectPage() {
                     id="affordable_units"
                     type="number"
                     min="0"
-                    value={formData.affordable_units || ''}
-                    onChange={(e) => updateFormData('affordable_units', parseInt(e.target.value) || 0)}
+                    {...register('affordable_units', { valueAsNumber: true })}
                     className="rounded-lg border-sage-200"
                     placeholder="96"
                   />
@@ -303,8 +267,7 @@ export default function NewProjectPage() {
                   <Label htmlFor="ami_levels">AMI Levels</Label>
                   <Input
                     id="ami_levels"
-                    value={formData.ami_levels}
-                    onChange={(e) => updateFormData('ami_levels', e.target.value)}
+                    {...register('ami_levels')}
                     className="rounded-lg border-sage-200"
                     placeholder="30-80%"
                   />
@@ -316,8 +279,7 @@ export default function NewProjectPage() {
                 <Input
                   id="completion_date"
                   type="date"
-                  value={formData.completion_date}
-                  onChange={(e) => updateFormData('completion_date', e.target.value)}
+                  {...register('completion_date')}
                   className="rounded-lg border-sage-200"
                 />
               </div>
@@ -326,7 +288,7 @@ export default function NewProjectPage() {
 
 
           {/* Form Actions */}
-          <div className="flex justify-end space-x-4">
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-4">
             <Link href="/dashboard/projects">
               <Button 
                 type="button" 
@@ -338,10 +300,10 @@ export default function NewProjectPage() {
             </Link>
             <Button 
               type="submit" 
-              disabled={isSubmitting}
+              loading={createProject.isPending}
               className="bg-sage-600 hover:bg-sage-700 text-white rounded-full px-8"
             >
-              {isSubmitting ? 'Creating...' : 'Create Project'}
+              {createProject.isPending ? 'Creating...' : 'Create Project'}
             </Button>
           </div>
         </form>

@@ -45,7 +45,7 @@ export default function EditApplicantPage({ params }: EditApplicantProps) {
   useEffect(() => {
     const fetchApplicant = async () => {
       try {
-        const token = localStorage.getItem('token') || document.cookie.split('token=')[1]?.split(';')[0]
+        const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0]
         
         if (!token) {
           toast({
@@ -130,7 +130,7 @@ export default function EditApplicantPage({ params }: EditApplicantProps) {
     setIsSubmitting(true)
     
     try {
-      const token = localStorage.getItem('token') || document.cookie.split('token=')[1]?.split(';')[0]
+      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0]
       
       if (!token) {
         toast({
@@ -199,7 +199,7 @@ export default function EditApplicantPage({ params }: EditApplicantProps) {
         </div>
       </div>
 
-      <Card className="max-w-2xl">
+      <Card className="max-w-2xl mx-auto">
         <CardHeader>
           <CardTitle>Applicant Information</CardTitle>
           <CardDescription>
@@ -208,7 +208,7 @@ export default function EditApplicantPage({ params }: EditApplicantProps) {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="first_name">First Name *</Label>
                 <Input
@@ -236,7 +236,7 @@ export default function EditApplicantPage({ params }: EditApplicantProps) {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="email">Email Address *</Label>
                 <Input
@@ -261,7 +261,7 @@ export default function EditApplicantPage({ params }: EditApplicantProps) {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <Label htmlFor="household_size">Household Size</Label>
                 <Input
@@ -307,7 +307,7 @@ export default function EditApplicantPage({ params }: EditApplicantProps) {
               />
             </div>
 
-            <div className="flex gap-4 pt-4">
+            <div className="flex flex-col sm:flex-row gap-4 pt-4">
               <Button
                 type="button"
                 variant="outline"

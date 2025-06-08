@@ -5,6 +5,7 @@ import { QueryProvider } from '@/providers/query-provider'
 import { AuthProvider } from '@/providers/auth-provider'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ToastProvider, ToastViewport } from '@/components/ui/toast'
+import { ErrorBoundary } from '@/components/ui/error-boundary'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -76,16 +77,18 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <QueryProvider>
-          <AuthProvider>
-            <TooltipProvider>
-              <ToastProvider>
-                {children}
-                <ToastViewport />
-              </ToastProvider>
-            </TooltipProvider>
-          </AuthProvider>
-        </QueryProvider>
+        <ErrorBoundary>
+          <QueryProvider>
+            <AuthProvider>
+              <TooltipProvider>
+                <ToastProvider>
+                  {children}
+                  <ToastViewport />
+                </ToastProvider>
+              </TooltipProvider>
+            </AuthProvider>
+          </QueryProvider>
+        </ErrorBoundary>
       </body>
     </html>
   )

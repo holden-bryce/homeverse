@@ -20,10 +20,13 @@ import {
   Eye,
   Edit,
   MoreHorizontal,
-  TrendingUp
+  TrendingUp,
+  Trash2
 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from '@/components/ui/toast'
+import { useDeleteProject } from '@/lib/api/hooks'
+import { useConfirmationModal } from '@/components/ui/confirmation-modal'
 
 // Type for projects that handles both old and new field names
 interface Project {
@@ -81,6 +84,37 @@ export default function ProjectsPage() {
   const [developerFilter, setDeveloperFilter] = useState('all')
   const [projects, setProjects] = useState<Project[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  
+  const deleteProject = useDeleteProject()
+  const { confirm, ConfirmationModal } = useConfirmationModal()
+
+  const handleDeleteProject = (projectId: string, projectName: string) => {
+    confirm({
+      title: 'Delete Project',
+      description: `Are you sure you want to delete "${projectName}"? This action cannot be undone and will permanently remove all project data including applications and analytics.`,
+      variant: 'danger',
+      confirmText: 'Delete Project',
+      onConfirm: async () => {
+        try {
+          await deleteProject.mutateAsync(projectId)
+          toast({
+            title: 'Project Deleted',
+            description: `${projectName} has been successfully deleted.`,
+            variant: 'success'
+          })
+          // Refresh the data
+          fetchProjects()
+        } catch (error) {
+          toast({
+            title: 'Error',
+            description: 'Failed to delete project. Please try again.',
+            variant: 'destructive'
+          })
+          throw error // Re-throw to keep modal open on error
+        }
+      }
+    })
+  }
 
   useEffect(() => {
     fetchProjects()
@@ -88,7 +122,7 @@ export default function ProjectsPage() {
 
   const fetchProjects = async () => {
     try {
-      const token = localStorage.getItem('token') || document.cookie.split('token=')[1]?.split(';')[0]
+      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0]
       
       if (!token) {
         toast({
@@ -166,7 +200,7 @@ export default function ProjectsPage() {
               Manage housing development projects and track progress
             </p>
           </div>
-          <div className="flex space-x-3">
+          <div className="flex flex-wrap gap-3">
             <Button 
               variant="outline" 
               className="border-sage-200 text-sage-700 hover:bg-sage-50 rounded-full"
@@ -194,7 +228,7 @@ export default function ProjectsPage() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {stats.map((stat) => {
             const Icon = stat.icon
             return (
@@ -260,19 +294,19 @@ export default function ProjectsPage() {
             </Select>
           </div>
 
-          <div className="rounded-2xl border border-sage-100 overflow-hidden">
+          <div className="rounded-2xl border border-sage-100 overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="bg-sage-50/50">
-                  <TableHead className="font-semibold text-gray-700">Project</TableHead>
-                  <TableHead className="font-semibold text-gray-700">Developer</TableHead>
-                  <TableHead className="font-semibold text-gray-700">Location</TableHead>
-                  <TableHead className="font-semibold text-gray-700">Units</TableHead>
-                  <TableHead className="font-semibold text-gray-700">AMI Range</TableHead>
-                  <TableHead className="font-semibold text-gray-700">Status</TableHead>
-                  <TableHead className="font-semibold text-gray-700">Delivery</TableHead>
-                  <TableHead className="font-semibold text-gray-700">Occupancy</TableHead>
-                  <TableHead className="text-right font-semibold text-gray-700">Actions</TableHead>
+                  <TableHead className="font-semibold text-gray-700 min-w-[200px]">Project</TableHead>
+                  <TableHead className="font-semibold text-gray-700 hidden md:table-cell">Developer</TableHead>
+                  <TableHead className="font-semibold text-gray-700 hidden lg:table-cell">Location</TableHead>
+                  <TableHead className="font-semibold text-gray-700 min-w-[80px]">Units</TableHead>
+                  <TableHead className="font-semibold text-gray-700 hidden sm:table-cell min-w-[120px]">AMI Range</TableHead>
+                  <TableHead className="font-semibold text-gray-700 min-w-[100px]">Status</TableHead>
+                  <TableHead className="font-semibold text-gray-700 hidden xl:table-cell">Delivery</TableHead>
+                  <TableHead className="font-semibold text-gray-700 hidden xl:table-cell">Occupancy</TableHead>
+                  <TableHead className="text-right font-semibold text-gray-700 min-w-[120px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -290,10 +324,10 @@ export default function ProjectsPage() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">
                         <div className="text-sm">{project.developer_name}</div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden lg:table-cell">
                         <div className="flex items-center text-sm">
                           <MapPin className="h-4 w-4 text-gray-400 mr-1" />
                           {project.address || (Array.isArray(project.location) ? `${project.location[0].toFixed(2)}, ${project.location[1].toFixed(2)}` : project.location || 'Location TBD')}
@@ -305,7 +339,7 @@ export default function ProjectsPage() {
                           {project.unit_count || project.total_units || 0}
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         <Badge className="bg-cream-100 text-cream-800 border border-cream-200 rounded-full">
                           {project.ami_min}%-{project.ami_max}% AMI
                         </Badge>
@@ -315,7 +349,7 @@ export default function ProjectsPage() {
                           {project.status}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden xl:table-cell">
                         <div className="flex items-center text-sm text-gray-500">
                           <Calendar className="h-4 w-4 mr-1" />
                           {project.est_delivery ? 
@@ -324,7 +358,7 @@ export default function ProjectsPage() {
                           }
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden xl:table-cell">
                         {occupancyRate !== null ? (
                           <div className="flex items-center">
                             <div className="w-full bg-gray-200 rounded-full h-2 mr-2">
@@ -346,6 +380,7 @@ export default function ProjectsPage() {
                             size="sm" 
                             className="rounded-full h-8 w-8 p-0 hover:bg-sage-100" 
                             onClick={() => router.push(`/dashboard/projects/${project.id}`)}
+                            aria-label={`View details for ${project.name}`}
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
@@ -354,8 +389,19 @@ export default function ProjectsPage() {
                             size="sm" 
                             className="rounded-full h-8 w-8 p-0 hover:bg-sage-100" 
                             onClick={() => router.push(`/dashboard/projects/${project.id}/edit`)}
+                            aria-label={`Edit ${project.name}`}
                           >
                             <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="rounded-full h-8 w-8 p-0 hover:bg-red-100"
+                            onClick={() => handleDeleteProject(project.id, project.name)}
+                            disabled={deleteProject.isPending}
+                            aria-label={`Delete ${project.name}`}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-600" />
                           </Button>
                           <Button 
                             variant="ghost" 
@@ -406,6 +452,7 @@ export default function ProjectsPage() {
           </CardContent>
         </Card>
       </div>
+      {ConfirmationModal}
     </div>
   )
 }

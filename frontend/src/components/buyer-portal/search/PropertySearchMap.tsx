@@ -112,7 +112,7 @@ export function PropertySearchMap({ properties, onPropertySelect, onPropertyHove
       // Create fallback map with demo markers
       if (mapContainer.current) {
         mapContainer.current.innerHTML = `
-          <div class="w-full h-full bg-gradient-to-br from-teal-50 to-blue-50 flex items-center justify-center rounded-lg border relative">
+          <div class="w-full h-full bg-gradient-to-br from-teal-50 to-teal-50 flex items-center justify-center rounded-lg border relative">
             <div class="text-center text-gray-600">
               <div class="text-4xl mb-4">🗺️</div>
               <div class="text-lg font-semibold mb-2">Bay Area Properties</div>

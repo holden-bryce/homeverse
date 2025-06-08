@@ -19,8 +19,11 @@ import {
   Clock,
   CheckCircle,
   AlertCircle,
-  Loader2
+  Loader2,
+  Trash2
 } from 'lucide-react'
+import { useDeleteProject } from '@/lib/api/hooks'
+import { useConfirmationModal } from '@/components/ui/confirmation-modal'
 
 interface ProjectDetailProps {
   params: {
@@ -50,11 +53,43 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
   const [project, setProject] = useState<Project | null>(null)
   const [loading, setLoading] = useState(true)
   const [isLoading, setIsLoading] = useState(true)
+  
+  const deleteProject = useDeleteProject()
+  const { confirm, ConfirmationModal } = useConfirmationModal()
+
+  const handleDeleteProject = () => {
+    if (!project) return
+    
+    confirm({
+      title: 'Delete Project',
+      description: `Are you sure you want to delete "${project.name}"? This action cannot be undone and will permanently remove all project data including applications, analytics, and matching history.`,
+      variant: 'danger',
+      confirmText: 'Delete Project',
+      onConfirm: async () => {
+        try {
+          await deleteProject.mutateAsync(project.id)
+          toast({
+            title: 'Project Deleted',
+            description: `${project.name} has been successfully deleted.`,
+            variant: 'success'
+          })
+          router.push('/dashboard/projects')
+        } catch (error) {
+          toast({
+            title: 'Error',
+            description: 'Failed to delete project. Please try again.',
+            variant: 'destructive'
+          })
+          throw error // Re-throw to keep modal open on error
+        }
+      }
+    })
+  }
 
   useEffect(() => {
     const fetchProject = async () => {
       try {
-        const token = localStorage.getItem('token') || document.cookie.split('token=')[1]?.split(';')[0]
+        const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0]
         
         if (!token) {
           toast({
@@ -240,6 +275,15 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
               <Edit className="h-4 w-4 mr-2" />
               Edit Project
             </Button>
+            <Button
+              variant="outline"
+              onClick={handleDeleteProject}
+              className="border-red-500 text-red-600 hover:bg-red-50"
+              disabled={deleteProject.isPending}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete Project
+            </Button>
           </div>
         </div>
 
@@ -399,6 +443,7 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
         </div>
 
       </div>
+      {ConfirmationModal}
     </div>
   )
 }

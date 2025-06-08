@@ -58,7 +58,7 @@ export default function ProjectEditPage() {
   useEffect(() => {
     const fetchProject = async () => {
       try {
-        const token = localStorage.getItem('token') || document.cookie.split('token=')[1]?.split(';')[0]
+        const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0]
         
         if (!token) {
           toast({
@@ -219,7 +219,7 @@ export default function ProjectEditPage() {
     setIsSaving(true)
     
     try {
-      const token = localStorage.getItem('token') || document.cookie.split('token=')[1]?.split(';')[0]
+      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0]
       
       if (!token) {
         toast({

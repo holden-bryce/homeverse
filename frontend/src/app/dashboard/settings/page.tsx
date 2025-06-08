@@ -416,7 +416,7 @@ export default function SettingsPage() {
                     <div className="mt-1 flex items-center space-x-3">
                       <Badge className={`${
                         companySettings.plan === 'enterprise' ? 'bg-purple-100 text-purple-800' :
-                        companySettings.plan === 'professional' ? 'bg-blue-100 text-blue-800' :
+                        companySettings.plan === 'professional' ? 'bg-teal-100 text-teal-800' :
                         'bg-green-100 text-green-800'
                       } rounded-full`}>
                         {companySettings.plan.toUpperCase()}
