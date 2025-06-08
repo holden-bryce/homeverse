@@ -2560,6 +2560,162 @@ async def health():
     """Health check endpoint"""
     return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
 
+# Database initialization endpoint (temporary for production setup)
+@app.post("/api/init-db-2024-temp")
+async def init_database_temp(secret: str = None):
+    """Initialize database with test users (temporary endpoint)"""
+    # Simple security check
+    if secret != "homeverse-init-2024":
+        raise HTTPException(status_code=403, detail="Invalid secret")
+    
+    try:
+        if USE_POSTGRESQL:
+            # PostgreSQL initialization
+            import psycopg2
+            conn = psycopg2.connect(DATABASE_URL)
+            cursor = conn.cursor()
+            
+            # Create companies table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS companies (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    company_key TEXT UNIQUE NOT NULL,
+                    plan TEXT DEFAULT 'trial',
+                    max_users INTEGER DEFAULT 5,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    settings TEXT DEFAULT '{}'
+                )
+            """)
+            
+            # Create users table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    id TEXT PRIMARY KEY,
+                    email TEXT UNIQUE NOT NULL,
+                    password_hash TEXT NOT NULL,
+                    full_name TEXT NOT NULL,
+                    role TEXT NOT NULL,
+                    company_id TEXT,
+                    is_active BOOLEAN DEFAULT true,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    last_login TIMESTAMP,
+                    profile TEXT DEFAULT '{}'
+                )
+            """)
+            
+            # Create other required tables
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS applicants (
+                    id TEXT PRIMARY KEY,
+                    company_id TEXT,
+                    full_name TEXT NOT NULL,
+                    email TEXT,
+                    phone TEXT,
+                    income NUMERIC,
+                    household_size INTEGER,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS projects (
+                    id TEXT PRIMARY KEY,
+                    company_id TEXT,
+                    name TEXT NOT NULL,
+                    description TEXT,
+                    total_units INTEGER,
+                    available_units INTEGER,
+                    ami_percentage INTEGER,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS activities (
+                    id TEXT PRIMARY KEY,
+                    company_id TEXT,
+                    user_id TEXT,
+                    action TEXT NOT NULL,
+                    resource_type TEXT,
+                    resource_id TEXT,
+                    details TEXT DEFAULT '{}',
+                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS contact_submissions (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    email TEXT NOT NULL,
+                    subject TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            
+            # Insert test company
+            company_id = "demo-company-" + str(uuid.uuid4())[:8]
+            cursor.execute("""
+                INSERT INTO companies (id, name, company_key, plan, max_users)
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (company_key) DO NOTHING
+            """, (company_id, "Demo Company", "demo-company-2024", "premium", 50))
+            
+            # Get the company ID (in case it already existed)
+            cursor.execute("SELECT id FROM companies WHERE company_key = %s", ("demo-company-2024",))
+            result = cursor.fetchone()
+            if result:
+                company_id = result[0]
+            
+            # Test users data
+            test_users = [
+                ("developer@test.com", "password123", "Dev Thompson", "developer"),
+                ("lender@test.com", "password123", "Lenny Banks", "lender"),
+                ("buyer@test.com", "password123", "Bailey Buyer", "buyer"),
+                ("applicant@test.com", "password123", "Alex Applicant", "applicant"),
+                ("admin@test.com", "password123", "Admin User", "admin")
+            ]
+            
+            # Insert test users
+            for email, password, full_name, role in test_users:
+                user_id = str(uuid.uuid4())
+                password_hash = hashlib.sha256(password.encode()).hexdigest()
+                
+                cursor.execute("""
+                    INSERT INTO users (id, email, password_hash, full_name, role, company_id)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (email) DO UPDATE
+                    SET password_hash = EXCLUDED.password_hash,
+                        full_name = EXCLUDED.full_name,
+                        role = EXCLUDED.role
+                """, (user_id, email, password_hash, full_name, role, company_id))
+            
+            conn.commit()
+            cursor.close()
+            conn.close()
+            
+            return {
+                "message": "PostgreSQL database initialized successfully",
+                "company_id": company_id,
+                "users_created": len(test_users)
+            }
+            
+        else:
+            # SQLite is already initialized
+            return {
+                "message": "SQLite database already initialized",
+                "note": "Using SQLite with existing test data"
+            }
+            
+    except Exception as e:
+        logger.error(f"Database initialization error: {e}")
+        raise HTTPException(status_code=500, detail=f"Initialization failed: {str(e)}")
+
 @app.options("/api/v1/{path:path}")
 async def handle_options():
     """Handle CORS preflight for all API routes"""
