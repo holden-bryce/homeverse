@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Simplified backend for testing the frontend"""
+"""HomeVerse Production-Ready Backend with SQLite/PostgreSQL Support"""
 import os
+import logging
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Union
 import sqlite3
 import hashlib
 import json
@@ -15,23 +16,158 @@ from pydantic import BaseModel, EmailStr
 import uvicorn
 import jwt
 
-# Configuration
-DATABASE_PATH = "homeverse_demo.db"
-JWT_SECRET = "your-secret-key-here-for-testing"
+# Production Configuration
+DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_PATH = os.getenv("DATABASE_PATH", "homeverse_demo.db")
+JWT_SECRET = os.getenv("JWT_SECRET_KEY", "your-secret-key-here-for-testing")
 JWT_ALGORITHM = "HS256"
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 
-app = FastAPI(title="Homeverse API", version="1.0.1")
+# Logging setup
+logging.basicConfig(
+    level=getattr(logging, os.getenv("LOG_LEVEL", "INFO")),
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
+
+# Database type detection
+USE_POSTGRESQL = bool(DATABASE_URL and DATABASE_URL.startswith("postgresql"))
+
+if USE_POSTGRESQL:
+    try:
+        import asyncpg
+        import asyncio
+        logger.info("🐘 PostgreSQL mode enabled")
+    except ImportError:
+        logger.warning("PostgreSQL dependencies not found, falling back to SQLite")
+        USE_POSTGRESQL = False
+else:
+    logger.info("🗃️ SQLite mode enabled")
+
+app = FastAPI(
+    title="HomeVerse Production API", 
+    version="2.0.0",
+    description="Production-Ready Affordable Housing Management Platform"
+)
 security = HTTPBearer()
 
-# CORS middleware - Updated for production
+# CORS middleware - Production configuration
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
     expose_headers=["*"]
 )
+
+# Global PostgreSQL connection pool
+pg_pool = None
+
+async def init_postgresql():
+    """Initialize PostgreSQL connection pool"""
+    global pg_pool
+    try:
+        pg_pool = await asyncpg.create_pool(
+            DATABASE_URL,
+            min_size=1,
+            max_size=20,
+            command_timeout=60
+        )
+        logger.info("✅ PostgreSQL connection pool initialized")
+        
+        # Create tables if they don't exist
+        async with pg_pool.acquire() as conn:
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS companies (
+                    id TEXT PRIMARY KEY,
+                    key TEXT UNIQUE NOT NULL,
+                    name TEXT NOT NULL,
+                    plan TEXT DEFAULT 'basic',
+                    seats INTEGER DEFAULT 10,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    id TEXT PRIMARY KEY,
+                    company_id TEXT REFERENCES companies(id),
+                    email TEXT UNIQUE NOT NULL,
+                    password_hash TEXT NOT NULL,
+                    role TEXT DEFAULT 'user',
+                    active BOOLEAN DEFAULT true,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS projects (
+                    id TEXT PRIMARY KEY,
+                    company_id TEXT REFERENCES companies(id),
+                    name TEXT NOT NULL,
+                    developer TEXT,
+                    location TEXT,
+                    address TEXT,
+                    latitude FLOAT,
+                    longitude FLOAT,
+                    total_units INTEGER,
+                    affordable_units INTEGER,
+                    ami_levels TEXT,
+                    description TEXT,
+                    completion_date TEXT,
+                    status TEXT DEFAULT 'active',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS applicants (
+                    id TEXT PRIMARY KEY,
+                    company_id TEXT REFERENCES companies(id),
+                    first_name TEXT NOT NULL,
+                    last_name TEXT NOT NULL,
+                    email TEXT NOT NULL,
+                    phone TEXT,
+                    household_size INTEGER,
+                    income FLOAT,
+                    ami_percent FLOAT,
+                    location_preference TEXT,
+                    latitude FLOAT,
+                    longitude FLOAT,
+                    status TEXT DEFAULT 'active',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS activity_logs (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT REFERENCES users(id),
+                    company_id TEXT REFERENCES companies(id),
+                    activity_type TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    description TEXT,
+                    entity_type TEXT,
+                    entity_id TEXT,
+                    metadata JSONB,
+                    status TEXT DEFAULT 'info',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            
+        logger.info("✅ PostgreSQL tables initialized")
+        
+    except Exception as e:
+        logger.error(f"❌ PostgreSQL initialization failed: {e}")
+        raise
+
+async def get_pg_connection():
+    """Get PostgreSQL connection from pool"""
+    if not pg_pool:
+        raise HTTPException(status_code=500, detail="Database not initialized")
+    return await pg_pool.acquire()
 
 # Database setup
 def init_db():
@@ -1625,12 +1761,70 @@ async def send_contact_email(contact_data: dict):
         print("=" * 50)
 
 
-# Create test users on startup
+# Application startup
 @app.on_event("startup")
-async def create_test_users():
-    """Create test users for demo"""
-    init_db()
+async def startup_event():
+    """Initialize database and create test users"""
+    logger.info(f"🚀 Starting HomeVerse API v2.0.0 ({ENVIRONMENT} mode)")
     
+    if USE_POSTGRESQL:
+        await init_postgresql()
+        await create_test_users_pg()
+    else:
+        init_db()
+        create_test_users_sqlite()
+    
+    logger.info("✅ Application startup completed")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on application shutdown"""
+    logger.info("🛑 Shutting down HomeVerse API...")
+    if USE_POSTGRESQL and pg_pool:
+        await pg_pool.close()
+        logger.info("✅ PostgreSQL connection pool closed")
+    logger.info("✅ Application shutdown completed")
+
+async def create_test_users_pg():
+    """Create test users for PostgreSQL demo"""
+    try:
+        async with pg_pool.acquire() as conn:
+            # Create test company
+            company_id = str(uuid.uuid4())
+            company_key = "test-company"
+            
+            await conn.execute("""
+                INSERT INTO companies (id, key, name, plan, seats) 
+                VALUES ($1, $2, $3, $4, $5) 
+                ON CONFLICT (key) DO NOTHING
+            """, company_id, company_key, f"Company {company_key}", "basic", 10)
+            
+            # Test users
+            test_users = [
+                {"email": "developer@test.com", "password": "password123", "role": "developer"},
+                {"email": "lender@test.com", "password": "password123", "role": "lender"},
+                {"email": "buyer@test.com", "password": "password123", "role": "buyer"},
+                {"email": "applicant@test.com", "password": "password123", "role": "applicant"},
+                {"email": "admin@test.com", "password": "password123", "role": "admin"},
+            ]
+            
+            for user_data in test_users:
+                user_id = str(uuid.uuid4())
+                password_hash = hash_password(user_data["password"])
+                
+                await conn.execute("""
+                    INSERT INTO users (id, company_id, email, password_hash, role) 
+                    VALUES ($1, $2, $3, $4, $5) 
+                    ON CONFLICT (email) DO NOTHING
+                """, user_id, company_id, user_data["email"], password_hash, user_data["role"])
+                
+                logger.info(f"✅ Created/verified test user: {user_data['email']} ({user_data['role']})")
+                
+    except Exception as e:
+        logger.error(f"Failed to create PostgreSQL test users: {e}")
+
+def create_test_users_sqlite():
+    """Create test users for SQLite demo"""
     conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     
@@ -1703,6 +1897,57 @@ async def create_test_users():
     finally:
         conn.close()
 
+# Enhanced health check endpoint
+@app.get("/health")
+async def health_check():
+    """Enhanced health check endpoint"""
+    db_status = "healthy"
+    
+    try:
+        if USE_POSTGRESQL:
+            async with pg_pool.acquire() as conn:
+                await conn.fetchval("SELECT 1")
+        else:
+            conn = sqlite3.connect(DATABASE_PATH)
+            conn.execute("SELECT 1")
+            conn.close()
+    except Exception as e:
+        db_status = f"unhealthy: {str(e)}"
+        logger.error(f"Database health check failed: {e}")
+    
+    return {
+        "status": "healthy" if db_status == "healthy" else "degraded",
+        "database": db_status,
+        "environment": ENVIRONMENT,
+        "version": "2.0.0",
+        "database_type": "postgresql" if USE_POSTGRESQL else "sqlite",
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+# Root endpoint
+@app.get("/")
+async def root():
+    """API root endpoint with system information"""
+    return {
+        "message": "HomeVerse Production API v2.0.0",
+        "description": "Affordable Housing Management Platform",
+        "environment": ENVIRONMENT,
+        "database": "postgresql" if USE_POSTGRESQL else "sqlite",
+        "documentation": "/docs",
+        "health": "/health",
+        "version": "2.0.0"
+    }
+
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run("simple_backend:app", host="0.0.0.0", port=port, reload=False)
+    port = int(os.getenv("PORT", 8000))
+    host = os.getenv("HOST", "0.0.0.0")
+    
+    logger.info(f"🚀 Starting server on {host}:{port}")
+    uvicorn.run(
+        "simple_backend:app", 
+        host=host, 
+        port=port,
+        log_level=os.getenv("LOG_LEVEL", "info").lower(),
+        access_log=True,
+        reload=False
+    )
