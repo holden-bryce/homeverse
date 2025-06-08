@@ -2575,16 +2575,15 @@ async def init_database_temp(secret: str = None):
             conn = psycopg2.connect(DATABASE_URL)
             cursor = conn.cursor()
             
-            # Create companies table
+            # Create companies table (matching existing schema)
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS companies (
                     id TEXT PRIMARY KEY,
+                    key TEXT UNIQUE NOT NULL,
                     name TEXT NOT NULL,
-                    company_key TEXT UNIQUE NOT NULL,
-                    plan TEXT DEFAULT 'trial',
-                    max_users INTEGER DEFAULT 5,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    settings TEXT DEFAULT '{}'
+                    plan TEXT DEFAULT 'basic',
+                    seats INTEGER DEFAULT 10,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
             
@@ -2658,16 +2657,16 @@ async def init_database_temp(secret: str = None):
                 )
             """)
             
-            # Insert test company
+            # Insert test company (matching existing schema)
             company_id = "demo-company-" + str(uuid.uuid4())[:8]
             cursor.execute("""
-                INSERT INTO companies (id, name, company_key, plan, max_users)
+                INSERT INTO companies (id, name, key, plan, seats)
                 VALUES (%s, %s, %s, %s, %s)
-                ON CONFLICT (company_key) DO NOTHING
+                ON CONFLICT (key) DO NOTHING
             """, (company_id, "Demo Company", "demo-company-2024", "premium", 50))
             
             # Get the company ID (in case it already existed)
-            cursor.execute("SELECT id FROM companies WHERE company_key = %s", ("demo-company-2024",))
+            cursor.execute("SELECT id FROM companies WHERE key = %s", ("demo-company-2024",))
             result = cursor.fetchone()
             if result:
                 company_id = result[0]
