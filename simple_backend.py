@@ -16,12 +16,31 @@ from pydantic import BaseModel, EmailStr
 import uvicorn
 import jwt
 
+# AI/ML imports
+try:
+    import openai
+    from openai import OpenAI
+    OPENAI_AVAILABLE = True
+    logger.info("🤖 OpenAI integration available")
+except ImportError:
+    OPENAI_AVAILABLE = False
+    logger.warning("⚠️ OpenAI not installed - matching will use fallback algorithm")
+
 # Production Configuration
 DATABASE_URL = os.getenv("DATABASE_URL")
 DATABASE_PATH = os.getenv("DATABASE_PATH", "homeverse_demo.db")
 JWT_SECRET = os.getenv("JWT_SECRET_KEY", "your-secret-key-here-for-testing")
 JWT_ALGORITHM = "HS256"
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+
+# AI Configuration
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+if OPENAI_AVAILABLE and OPENAI_API_KEY:
+    openai_client = OpenAI(api_key=OPENAI_API_KEY)
+    logger.info("🤖 OpenAI client initialized")
+else:
+    openai_client = None
+    logger.warning("⚠️ OpenAI client not available - using fallback matching")
 
 # Logging setup
 logging.basicConfig(
@@ -193,6 +212,42 @@ async def init_postgresql():
                 );
             """)
             
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS project_embeddings (
+                    id TEXT PRIMARY KEY,
+                    project_id TEXT REFERENCES projects(id),
+                    embedding_vector JSONB NOT NULL,
+                    description_text TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS applicant_embeddings (
+                    id TEXT PRIMARY KEY,
+                    applicant_id TEXT REFERENCES applicants(id),
+                    embedding_vector JSONB NOT NULL,
+                    preferences_text TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS matches (
+                    id TEXT PRIMARY KEY,
+                    applicant_id TEXT REFERENCES applicants(id),
+                    project_id TEXT REFERENCES projects(id),
+                    company_id TEXT REFERENCES companies(id),
+                    similarity_score DECIMAL(5,4) NOT NULL,
+                    match_reasons JSONB,
+                    status TEXT DEFAULT 'pending',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            
         logger.info("✅ PostgreSQL tables initialized")
         
     except Exception as e:
@@ -342,6 +397,50 @@ def init_db():
         )
     """)
     
+    # Project embeddings table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS project_embeddings (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL,
+            embedding_vector TEXT NOT NULL,
+            description_text TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (project_id) REFERENCES projects (id)
+        )
+    """)
+    
+    # Applicant embeddings table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS applicant_embeddings (
+            id TEXT PRIMARY KEY,
+            applicant_id TEXT NOT NULL,
+            embedding_vector TEXT NOT NULL,
+            preferences_text TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (applicant_id) REFERENCES applicants (id)
+        )
+    """)
+    
+    # Matches table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS matches (
+            id TEXT PRIMARY KEY,
+            applicant_id TEXT NOT NULL,
+            project_id TEXT NOT NULL,
+            company_id TEXT NOT NULL,
+            similarity_score REAL NOT NULL,
+            match_reasons TEXT,
+            status TEXT DEFAULT 'pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (applicant_id) REFERENCES applicants (id),
+            FOREIGN KEY (project_id) REFERENCES projects (id),
+            FOREIGN KEY (company_id) REFERENCES companies (id)
+        )
+    """)
+    
     conn.commit()
     conn.close()
 
@@ -424,6 +523,20 @@ class InvestmentValuation(BaseModel):
     valuation_date: str  # ISO date string
     valuation_method: Optional[str] = None
     notes: Optional[str] = None
+
+class MatchingRequest(BaseModel):
+    applicant_id: Optional[str] = None
+    project_id: Optional[str] = None
+    limit: Optional[int] = 10
+
+class MatchResult(BaseModel):
+    match_id: str
+    applicant_id: str
+    project_id: str
+    similarity_score: float
+    match_reasons: dict
+    applicant_info: dict
+    project_info: dict
 
 # Utility functions
 def hash_password(password: str) -> str:
@@ -732,6 +845,301 @@ def calculate_portfolio_stats(conn, company_id: str, user_id: str = None):
     stats['compliance_rate'] = round(stats.get('avg_ami_compliance', 0) or 0, 1)
     
     return stats
+
+# AI Matching Functions
+def create_embedding(text: str) -> list:
+    """Create OpenAI embedding for text"""
+    if not openai_client:
+        # Fallback: Simple hash-based embedding simulation
+        import hashlib
+        hash_obj = hashlib.md5(text.encode())
+        # Create a simple numeric vector from hash
+        hash_hex = hash_obj.hexdigest()
+        embedding = [int(hash_hex[i:i+2], 16) / 255.0 for i in range(0, min(32, len(hash_hex)), 2)]
+        # Pad to 16 dimensions
+        while len(embedding) < 16:
+            embedding.append(0.0)
+        return embedding[:16]
+    
+    try:
+        response = openai_client.embeddings.create(
+            model="text-embedding-3-small",
+            input=text
+        )
+        return response.data[0].embedding
+    except Exception as e:
+        logger.error(f"Error creating embedding: {e}")
+        # Fallback to simple embedding
+        return [0.0] * 1536  # text-embedding-3-small dimension
+
+def cosine_similarity(vec1: list, vec2: list) -> float:
+    """Calculate cosine similarity between two vectors"""
+    import math
+    
+    # Ensure vectors are same length
+    min_len = min(len(vec1), len(vec2))
+    vec1 = vec1[:min_len]
+    vec2 = vec2[:min_len]
+    
+    dot_product = sum(a * b for a, b in zip(vec1, vec2))
+    magnitude1 = math.sqrt(sum(a * a for a in vec1))
+    magnitude2 = math.sqrt(sum(a * a for a in vec2))
+    
+    if magnitude1 == 0 or magnitude2 == 0:
+        return 0.0
+    
+    return dot_product / (magnitude1 * magnitude2)
+
+def create_project_description(project: dict) -> str:
+    """Create searchable description for project embedding"""
+    description_parts = []
+    
+    if project.get('name'):
+        description_parts.append(f"Project: {project['name']}")
+    if project.get('location'):
+        description_parts.append(f"Location: {project['location']}")
+    if project.get('developer'):
+        description_parts.append(f"Developer: {project['developer']}")
+    if project.get('total_units'):
+        description_parts.append(f"Total units: {project['total_units']}")
+    if project.get('affordable_units'):
+        description_parts.append(f"Affordable units: {project['affordable_units']}")
+    if project.get('ami_levels'):
+        description_parts.append(f"AMI levels: {project['ami_levels']}")
+    if project.get('description'):
+        description_parts.append(f"Description: {project['description']}")
+    
+    return " | ".join(description_parts)
+
+def create_applicant_preferences(applicant: dict) -> str:
+    """Create searchable preferences for applicant embedding"""
+    preferences_parts = []
+    
+    if applicant.get('location_preference'):
+        preferences_parts.append(f"Preferred location: {applicant['location_preference']}")
+    if applicant.get('household_size'):
+        preferences_parts.append(f"Household size: {applicant['household_size']}")
+    if applicant.get('income'):
+        preferences_parts.append(f"Annual income: ${applicant['income']}")
+    if applicant.get('ami_percent'):
+        preferences_parts.append(f"AMI percentage: {applicant['ami_percent']}%")
+    
+    # Add preference context
+    preferences_parts.append("Looking for affordable housing opportunities")
+    
+    return " | ".join(preferences_parts)
+
+def get_or_create_project_embedding(conn, project: dict):
+    """Get or create embedding for project"""
+    cursor = conn.cursor()
+    project_id = project['id']
+    
+    # Check if embedding exists
+    cursor.execute("SELECT embedding_vector FROM project_embeddings WHERE project_id = ?", (project_id,))
+    result = cursor.fetchone()
+    
+    if result:
+        # Return existing embedding
+        embedding_data = json.loads(result[0]) if isinstance(result[0], str) else result[0]
+        return embedding_data
+    
+    # Create new embedding
+    description = create_project_description(project)
+    embedding = create_embedding(description)
+    
+    # Store embedding
+    embedding_id = str(uuid.uuid4())
+    cursor.execute("""
+        INSERT INTO project_embeddings (id, project_id, embedding_vector, description_text)
+        VALUES (?, ?, ?, ?)
+    """, (embedding_id, project_id, json.dumps(embedding), description))
+    
+    conn.commit()
+    return embedding
+
+def get_or_create_applicant_embedding(conn, applicant: dict):
+    """Get or create embedding for applicant"""
+    cursor = conn.cursor()
+    applicant_id = applicant['id']
+    
+    # Check if embedding exists
+    cursor.execute("SELECT embedding_vector FROM applicant_embeddings WHERE applicant_id = ?", (applicant_id,))
+    result = cursor.fetchone()
+    
+    if result:
+        # Return existing embedding
+        embedding_data = json.loads(result[0]) if isinstance(result[0], str) else result[0]
+        return embedding_data
+    
+    # Create new embedding
+    preferences = create_applicant_preferences(applicant)
+    embedding = create_embedding(preferences)
+    
+    # Store embedding
+    embedding_id = str(uuid.uuid4())
+    cursor.execute("""
+        INSERT INTO applicant_embeddings (id, applicant_id, embedding_vector, preferences_text)
+        VALUES (?, ?, ?, ?)
+    """, (embedding_id, applicant_id, json.dumps(embedding), preferences))
+    
+    conn.commit()
+    return embedding
+
+def calculate_match_reasons(applicant: dict, project: dict, similarity_score: float) -> dict:
+    """Calculate specific reasons for the match"""
+    reasons = {
+        "overall_compatibility": f"{similarity_score * 100:.1f}% match",
+        "factors": []
+    }
+    
+    # Location match
+    if (applicant.get('location_preference') and project.get('location') and 
+        applicant['location_preference'].lower() in project['location'].lower()):
+        reasons["factors"].append("Preferred location match")
+    
+    # AMI compatibility
+    if applicant.get('ami_percent') and project.get('ami_levels'):
+        reasons["factors"].append("AMI level compatibility")
+    
+    # Unit size (rough estimate based on household size)
+    if applicant.get('household_size'):
+        if applicant['household_size'] <= 2:
+            reasons["factors"].append("Suitable for small household")
+        elif applicant['household_size'] <= 4:
+            reasons["factors"].append("Suitable for medium household")
+        else:
+            reasons["factors"].append("Suitable for large household")
+    
+    # Income compatibility
+    if applicant.get('income'):
+        if applicant['income'] < 50000:
+            reasons["factors"].append("Low-income housing eligible")
+        elif applicant['income'] < 80000:
+            reasons["factors"].append("Moderate-income housing eligible")
+        else:
+            reasons["factors"].append("Market-rate housing eligible")
+    
+    if not reasons["factors"]:
+        reasons["factors"].append("General housing compatibility")
+    
+    return reasons
+
+def find_matches_for_applicant(conn, applicant_id: str, company_id: str, limit: int = 10):
+    """Find best project matches for an applicant using AI embeddings"""
+    cursor = conn.cursor()
+    
+    # Get applicant info
+    cursor.execute("SELECT * FROM applicants WHERE id = ? AND company_id = ?", (applicant_id, company_id))
+    applicant = cursor.fetchone()
+    if not applicant:
+        return []
+    
+    applicant = dict(applicant)
+    applicant_embedding = get_or_create_applicant_embedding(conn, applicant)
+    
+    # Get all projects for company
+    cursor.execute("SELECT * FROM projects WHERE company_id = ? AND status = 'active'", (company_id,))
+    projects = [dict(row) for row in cursor.fetchall()]
+    
+    matches = []
+    for project in projects:
+        project_embedding = get_or_create_project_embedding(conn, project)
+        similarity = cosine_similarity(applicant_embedding, project_embedding)
+        
+        if similarity > 0.1:  # Minimum threshold
+            match_reasons = calculate_match_reasons(applicant, project, similarity)
+            
+            matches.append({
+                "applicant_id": applicant_id,
+                "project_id": project['id'],
+                "similarity_score": similarity,
+                "match_reasons": match_reasons,
+                "applicant_info": {
+                    "name": f"{applicant['first_name']} {applicant['last_name']}",
+                    "location_preference": applicant.get('location_preference'),
+                    "household_size": applicant.get('household_size'),
+                    "ami_percent": applicant.get('ami_percent')
+                },
+                "project_info": {
+                    "name": project['name'],
+                    "location": project.get('location'),
+                    "developer": project.get('developer'),
+                    "total_units": project.get('total_units'),
+                    "affordable_units": project.get('affordable_units')
+                }
+            })
+    
+    # Sort by similarity score
+    matches.sort(key=lambda x: x['similarity_score'], reverse=True)
+    return matches[:limit]
+
+def find_matches_for_project(conn, project_id: str, company_id: str, limit: int = 10):
+    """Find best applicant matches for a project using AI embeddings"""
+    cursor = conn.cursor()
+    
+    # Get project info
+    cursor.execute("SELECT * FROM projects WHERE id = ? AND company_id = ?", (project_id, company_id))
+    project = cursor.fetchone()
+    if not project:
+        return []
+    
+    project = dict(project)
+    project_embedding = get_or_create_project_embedding(conn, project)
+    
+    # Get all applicants for company
+    cursor.execute("SELECT * FROM applicants WHERE company_id = ? AND status = 'active'", (company_id,))
+    applicants = [dict(row) for row in cursor.fetchall()]
+    
+    matches = []
+    for applicant in applicants:
+        applicant_embedding = get_or_create_applicant_embedding(conn, applicant)
+        similarity = cosine_similarity(project_embedding, applicant_embedding)
+        
+        if similarity > 0.1:  # Minimum threshold
+            match_reasons = calculate_match_reasons(applicant, project, similarity)
+            
+            matches.append({
+                "applicant_id": applicant['id'],
+                "project_id": project_id,
+                "similarity_score": similarity,
+                "match_reasons": match_reasons,
+                "applicant_info": {
+                    "name": f"{applicant['first_name']} {applicant['last_name']}",
+                    "location_preference": applicant.get('location_preference'),
+                    "household_size": applicant.get('household_size'),
+                    "ami_percent": applicant.get('ami_percent')
+                },
+                "project_info": {
+                    "name": project['name'],
+                    "location": project.get('location'),
+                    "developer": project.get('developer'),
+                    "total_units": project.get('total_units'),
+                    "affordable_units": project.get('affordable_units')
+                }
+            })
+    
+    # Sort by similarity score
+    matches.sort(key=lambda x: x['similarity_score'], reverse=True)
+    return matches[:limit]
+
+def store_matches(conn, matches: list, company_id: str):
+    """Store matches in database for tracking"""
+    cursor = conn.cursor()
+    
+    for match in matches:
+        match_id = str(uuid.uuid4())
+        cursor.execute("""
+            INSERT OR REPLACE INTO matches 
+            (id, applicant_id, project_id, company_id, similarity_score, match_reasons, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (
+            match_id, match['applicant_id'], match['project_id'], company_id,
+            match['similarity_score'], json.dumps(match['match_reasons']), 'pending'
+        ))
+        match['match_id'] = match_id
+    
+    conn.commit()
+    return matches
 
 # API Routes
 @app.get("/health")
@@ -1227,6 +1635,290 @@ async def add_valuation_endpoint(investment_id: str, valuation_data: InvestmentV
     except Exception as e:
         logger.error(f"Error adding valuation: {e}")
         raise HTTPException(status_code=500, detail="Failed to add valuation")
+
+# AI Matching Endpoints
+@app.post("/api/v1/matching/find")
+async def find_matches(request: MatchingRequest, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Find AI-powered matches between applicants and projects"""
+    try:
+        # Get user info from token
+        token = credentials.credentials
+        user_data = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        
+        if USE_POSTGRESQL:
+            # PostgreSQL version - placeholder for now
+            raise HTTPException(status_code=501, detail="PostgreSQL matching not yet implemented")
+        else:
+            # SQLite version with AI matching
+            conn = sqlite3.connect(DATABASE_PATH)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT company_id FROM users WHERE id = ?", (user_data["sub"],))
+            user = cursor.fetchone()
+            
+            if not user:
+                raise HTTPException(status_code=401, detail="User not found")
+            
+            company_id = user["company_id"]
+            
+            matches = []
+            
+            if request.applicant_id:
+                # Find projects for specific applicant
+                matches = find_matches_for_applicant(conn, request.applicant_id, company_id, request.limit)
+            elif request.project_id:
+                # Find applicants for specific project
+                matches = find_matches_for_project(conn, request.project_id, company_id, request.limit)
+            else:
+                # Find all matches for company
+                cursor.execute("SELECT id FROM applicants WHERE company_id = ? AND status = 'active' LIMIT 5", (company_id,))
+                applicant_ids = [row[0] for row in cursor.fetchall()]
+                
+                for applicant_id in applicant_ids:
+                    applicant_matches = find_matches_for_applicant(conn, applicant_id, company_id, 3)
+                    matches.extend(applicant_matches)
+                
+                # Sort all matches by similarity
+                matches.sort(key=lambda x: x['similarity_score'], reverse=True)
+                matches = matches[:request.limit]
+            
+            # Store matches in database for tracking
+            matches = store_matches(conn, matches, company_id)
+            
+            # Log activity
+            log_activity(
+                conn,
+                user_data["sub"],
+                company_id,
+                "matching",
+                "AI Matching Performed",
+                f"Generated {len(matches)} AI-powered matches",
+                metadata={
+                    "matches_found": len(matches),
+                    "applicant_id": request.applicant_id,
+                    "project_id": request.project_id
+                },
+                status="info"
+            )
+            
+            conn.close()
+            
+            return {
+                "matches": matches,
+                "total_found": len(matches),
+                "ai_powered": OPENAI_AVAILABLE,
+                "method": "OpenAI embeddings" if OPENAI_AVAILABLE else "Fallback algorithm"
+            }
+            
+    except Exception as e:
+        logger.error(f"Error finding matches: {e}")
+        raise HTTPException(status_code=500, detail="Failed to find matches")
+
+@app.get("/api/v1/matching/applicants/{applicant_id}/projects")
+async def get_recommended_projects(applicant_id: str, limit: int = 10, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Get AI-recommended projects for specific applicant"""
+    try:
+        # Get user info from token
+        token = credentials.credentials
+        user_data = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        
+        if USE_POSTGRESQL:
+            raise HTTPException(status_code=501, detail="PostgreSQL matching not yet implemented")
+        else:
+            conn = sqlite3.connect(DATABASE_PATH)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT company_id FROM users WHERE id = ?", (user_data["sub"],))
+            user = cursor.fetchone()
+            
+            if not user:
+                raise HTTPException(status_code=401, detail="User not found")
+            
+            company_id = user["company_id"]
+            
+            # Find matches for the applicant
+            matches = find_matches_for_applicant(conn, applicant_id, company_id, limit)
+            
+            if matches:
+                store_matches(conn, matches, company_id)
+            
+            conn.close()
+            
+            return {
+                "applicant_id": applicant_id,
+                "recommended_projects": matches,
+                "total_recommendations": len(matches)
+            }
+            
+    except Exception as e:
+        logger.error(f"Error getting project recommendations: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get recommendations")
+
+@app.get("/api/v1/matching/projects/{project_id}/applicants")
+async def get_recommended_applicants(project_id: str, limit: int = 10, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Get AI-recommended applicants for specific project"""
+    try:
+        # Get user info from token
+        token = credentials.credentials
+        user_data = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        
+        if USE_POSTGRESQL:
+            raise HTTPException(status_code=501, detail="PostgreSQL matching not yet implemented")
+        else:
+            conn = sqlite3.connect(DATABASE_PATH)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT company_id FROM users WHERE id = ?", (user_data["sub"],))
+            user = cursor.fetchone()
+            
+            if not user:
+                raise HTTPException(status_code=401, detail="User not found")
+            
+            company_id = user["company_id"]
+            
+            # Find matches for the project
+            matches = find_matches_for_project(conn, project_id, company_id, limit)
+            
+            if matches:
+                store_matches(conn, matches, company_id)
+            
+            conn.close()
+            
+            return {
+                "project_id": project_id,
+                "recommended_applicants": matches,
+                "total_recommendations": len(matches)
+            }
+            
+    except Exception as e:
+        logger.error(f"Error getting applicant recommendations: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get recommendations")
+
+@app.get("/api/v1/matching/matches")
+async def get_stored_matches(limit: int = 50, status: str = None, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Get stored matches with optional filtering"""
+    try:
+        # Get user info from token
+        token = credentials.credentials
+        user_data = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        
+        if USE_POSTGRESQL:
+            raise HTTPException(status_code=501, detail="PostgreSQL matching not yet implemented")
+        else:
+            conn = sqlite3.connect(DATABASE_PATH)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT company_id FROM users WHERE id = ?", (user_data["sub"],))
+            user = cursor.fetchone()
+            
+            if not user:
+                raise HTTPException(status_code=401, detail="User not found")
+            
+            company_id = user["company_id"]
+            
+            # Build query with optional status filter
+            if status:
+                cursor.execute("""
+                    SELECT m.*, 
+                           a.first_name, a.last_name, a.location_preference,
+                           p.name as project_name, p.location as project_location
+                    FROM matches m
+                    JOIN applicants a ON m.applicant_id = a.id
+                    JOIN projects p ON m.project_id = p.id
+                    WHERE m.company_id = ? AND m.status = ?
+                    ORDER BY m.similarity_score DESC, m.created_at DESC
+                    LIMIT ?
+                """, (company_id, status, limit))
+            else:
+                cursor.execute("""
+                    SELECT m.*, 
+                           a.first_name, a.last_name, a.location_preference,
+                           p.name as project_name, p.location as project_location
+                    FROM matches m
+                    JOIN applicants a ON m.applicant_id = a.id
+                    JOIN projects p ON m.project_id = p.id
+                    WHERE m.company_id = ?
+                    ORDER BY m.similarity_score DESC, m.created_at DESC
+                    LIMIT ?
+                """, (company_id, limit))
+            
+            matches = []
+            for row in cursor.fetchall():
+                match = dict(row)
+                if match.get('match_reasons'):
+                    match['match_reasons'] = json.loads(match['match_reasons'])
+                matches.append(match)
+            
+            conn.close()
+            
+            return {
+                "matches": matches,
+                "total_matches": len(matches),
+                "filtered_by_status": status
+            }
+            
+    except Exception as e:
+        logger.error(f"Error getting stored matches: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get matches")
+
+@app.put("/api/v1/matching/matches/{match_id}/status")
+async def update_match_status(match_id: str, status: str, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Update the status of a match (e.g., approved, rejected, contacted)"""
+    try:
+        # Get user info from token
+        token = credentials.credentials
+        user_data = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        
+        valid_statuses = ['pending', 'approved', 'rejected', 'contacted', 'applied']
+        if status not in valid_statuses:
+            raise HTTPException(status_code=400, detail=f"Status must be one of: {', '.join(valid_statuses)}")
+        
+        if USE_POSTGRESQL:
+            raise HTTPException(status_code=501, detail="PostgreSQL matching not yet implemented")
+        else:
+            conn = sqlite3.connect(DATABASE_PATH)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT company_id FROM users WHERE id = ?", (user_data["sub"],))
+            user = cursor.fetchone()
+            
+            if not user:
+                raise HTTPException(status_code=401, detail="User not found")
+            
+            company_id = user["company_id"]
+            
+            # Update match status
+            cursor.execute("""
+                UPDATE matches 
+                SET status = ?, updated_at = ?
+                WHERE id = ? AND company_id = ?
+            """, (status, datetime.utcnow().isoformat(), match_id, company_id))
+            
+            if cursor.rowcount == 0:
+                raise HTTPException(status_code=404, detail="Match not found")
+            
+            # Log activity
+            log_activity(
+                conn,
+                user_data["sub"],
+                company_id,
+                "matching",
+                "Match Status Updated",
+                f"Updated match {match_id} status to {status}",
+                entity_type="match",
+                entity_id=match_id,
+                metadata={"new_status": status},
+                status="info"
+            )
+            
+            conn.commit()
+            conn.close()
+            
+            return {"message": "Match status updated successfully", "new_status": status}
+            
+    except Exception as e:
+        logger.error(f"Error updating match status: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update match status")
 
 @app.get("/api/v1/lenders/portfolio/performance")
 async def get_portfolio_performance(timeframe: str = "1Y", credentials: HTTPAuthorizationCredentials = Depends(security)):
