@@ -1,0 +1,62 @@
+{
+  "timestamp": "2025-06-08T14:54:38.898570",
+  "tests_passed": 9,
+  "tests_failed": 2,
+  "details": [
+    {
+      "test": "Backend Health",
+      "status": "\u2705 PASS",
+      "details": "Service is healthy"
+    },
+    {
+      "test": "API: Root endpoint",
+      "status": "\u2705 PASS",
+      "details": "Status: 200"
+    },
+    {
+      "test": "API: API documentation",
+      "status": "\u2705 PASS",
+      "details": "Status: 200"
+    },
+    {
+      "test": "API: Auth endpoint",
+      "status": "\u2705 PASS",
+      "details": "Status: 405"
+    },
+    {
+      "test": "Authentication",
+      "status": "\u274c FAIL",
+      "details": "Status: 500"
+    },
+    {
+      "test": "Protected Endpoints",
+      "status": "\u274c FAIL",
+      "details": "No auth token available"
+    },
+    {
+      "test": "Frontend",
+      "status": "\u2705 PASS",
+      "details": "Page loaded successfully"
+    },
+    {
+      "test": "CORS Configuration",
+      "status": "\u2705 PASS",
+      "details": "Allow-Origin: https://homeverse-frontend.onrender.com"
+    },
+    {
+      "test": "Email Endpoint",
+      "status": "\u2705 PASS",
+      "details": "Status: 200"
+    },
+    {
+      "test": "Performance: Backend Health",
+      "status": "\u2705 PASS",
+      "details": "559ms"
+    },
+    {
+      "test": "Performance: Frontend Load",
+      "status": "\u2705 PASS",
+      "details": "354ms"
+    }
+  ]
+}

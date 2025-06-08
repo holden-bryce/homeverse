@@ -1,0 +1,92 @@
+{
+  "timestamp": "2025-06-08T14:59:00.878324",
+  "passed": 9,
+  "failed": 5,
+  "warnings": 0,
+  "details": [
+    {
+      "category": "Infrastructure",
+      "test": "Backend API Health",
+      "status": "\u2705 PASS",
+      "details": "Service is healthy"
+    },
+    {
+      "category": "Infrastructure",
+      "test": "Frontend Availability",
+      "status": "\u2705 PASS",
+      "details": "Frontend is accessible"
+    },
+    {
+      "category": "Infrastructure",
+      "test": "API Documentation",
+      "status": "\u2705 PASS",
+      "details": "Swagger docs available"
+    },
+    {
+      "category": "Authentication",
+      "test": "Login - developer",
+      "status": "\u274c FAIL",
+      "details": "Server error - DB not initialized"
+    },
+    {
+      "category": "Authentication",
+      "test": "Login - lender",
+      "status": "\u274c FAIL",
+      "details": "Server error - DB not initialized"
+    },
+    {
+      "category": "Authentication",
+      "test": "Login - admin",
+      "status": "\u274c FAIL",
+      "details": "Server error - DB not initialized"
+    },
+    {
+      "category": "API Endpoints",
+      "test": "List Applicants",
+      "status": "\u274c FAIL",
+      "details": "Status: 403"
+    },
+    {
+      "category": "API Endpoints",
+      "test": "List Projects",
+      "status": "\u274c FAIL",
+      "details": "Status: 403"
+    },
+    {
+      "category": "API Endpoints",
+      "test": "Contact Form",
+      "status": "\u2705 PASS",
+      "details": "Status: 200"
+    },
+    {
+      "category": "Security",
+      "test": "HTTPS - Backend",
+      "status": "\u2705 PASS",
+      "details": "Using HTTPS"
+    },
+    {
+      "category": "Security",
+      "test": "HTTPS - Frontend",
+      "status": "\u2705 PASS",
+      "details": "Using HTTPS"
+    },
+    {
+      "category": "Security",
+      "test": "CORS Configuration",
+      "status": "\u2705 PASS",
+      "details": "Allow-Origin: *"
+    },
+    {
+      "category": "Performance",
+      "test": "Backend Response Time",
+      "status": "\u2705 PASS",
+      "details": "360ms"
+    },
+    {
+      "category": "Performance",
+      "test": "Frontend Load Time",
+      "status": "\u2705 PASS",
+      "details": "664ms"
+    }
+  ]
+}

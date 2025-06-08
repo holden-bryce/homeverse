@@ -284,6 +284,218 @@ export const useCRAMetrics = () => {
   })
 }
 
+export const useCRAReport = () => {
+  return useMutation({
+    mutationFn: (): Promise<any> => apiClient.get('/api/v1/lenders/cra/report'),
+  })
+}
+
+export const useCRAAssessmentAreas = () => {
+  return useQuery({
+    queryKey: ['cra-assessment-areas'],
+    queryFn: (): Promise<any> => apiClient.get('/api/v1/lenders/cra/assessment-areas'),
+  })
+}
+
+export const useCreateCRAAssessmentArea = () => {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: (data: any): Promise<any> =>
+      apiClient.post('/api/v1/lenders/cra/assessment-areas', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cra-assessment-areas'] })
+      queryClient.invalidateQueries({ queryKey: ['cra-metrics'] })
+    },
+  })
+}
+
+// Document/File Upload Hooks
+export const useUploadDocument = () => {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: (data: FormData): Promise<any> =>
+      apiClient.post('/api/v1/documents/upload', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['documents'] })
+      queryClient.invalidateQueries({ queryKey: ['activities'] })
+    },
+  })
+}
+
+export const useDocuments = (params?: {
+  entity_type?: string
+  entity_id?: string
+  document_category?: string
+  skip?: number
+  limit?: number
+}) => {
+  const searchParams = new URLSearchParams()
+  if (params?.entity_type) searchParams.append('entity_type', params.entity_type)
+  if (params?.entity_id) searchParams.append('entity_id', params.entity_id)
+  if (params?.document_category) searchParams.append('document_category', params.document_category)
+  if (params?.skip) searchParams.append('skip', params.skip.toString())
+  if (params?.limit) searchParams.append('limit', params.limit.toString())
+
+  return useQuery({
+    queryKey: ['documents', params],
+    queryFn: (): Promise<any[]> =>
+      apiClient.get(`/api/v1/documents?${searchParams.toString()}`),
+  })
+}
+
+export const useDownloadDocument = () => {
+  return useMutation({
+    mutationFn: (documentId: string): Promise<Blob> =>
+      apiClient.get(`/api/v1/documents/${documentId}/download`),
+  })
+}
+
+export const useDeleteDocument = () => {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: (documentId: string): Promise<{ message: string }> =>
+      apiClient.delete(`/api/v1/documents/${documentId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['documents'] })
+      queryClient.invalidateQueries({ queryKey: ['activities'] })
+    },
+  })
+}
+
+// AMI and Eligibility Validation Hooks
+export const useAMIByLocation = (location: string, household_size: number = 4, year: number = 2024) => {
+  return useQuery({
+    queryKey: ['ami', location, household_size, year],
+    queryFn: (): Promise<any> => 
+      apiClient.get(`/api/v1/ami/location/${location}?household_size=${household_size}&year=${year}`),
+    enabled: !!location,
+  })
+}
+
+export const useValidateEligibility = () => {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: (data: { applicant_id: string; project_id: string }): Promise<any> =>
+      apiClient.post('/api/v1/eligibility/validate', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['activities'] })
+    },
+  })
+}
+
+export const useIncomeAnalysis = () => {
+  return useMutation({
+    mutationFn: (data: { 
+      annual_income: number; 
+      household_size?: number; 
+      location?: string 
+    }): Promise<any> =>
+      apiClient.post('/api/v1/eligibility/income-analysis', data),
+  })
+}
+
+export const useEligibleProjects = (applicant_id: string, max_results: number = 10) => {
+  return useQuery({
+    queryKey: ['eligible-projects', applicant_id, max_results],
+    queryFn: (): Promise<any> =>
+      apiClient.get(`/api/v1/eligibility/projects/${applicant_id}?max_results=${max_results}`),
+    enabled: !!applicant_id,
+  })
+}
+
+// Notification System Hooks
+export const useNotifications = (params?: {
+  status?: string
+  type?: string
+  priority?: string
+  skip?: number
+  limit?: number
+}) => {
+  const searchParams = new URLSearchParams()
+  if (params?.status) searchParams.append('status', params.status)
+  if (params?.type) searchParams.append('type', params.type)
+  if (params?.priority) searchParams.append('priority', params.priority)
+  if (params?.skip) searchParams.append('skip', params.skip.toString())
+  if (params?.limit) searchParams.append('limit', params.limit.toString())
+
+  return useQuery({
+    queryKey: ['notifications', params],
+    queryFn: (): Promise<{
+      notifications: any[]
+      unread_count: number
+      total: number
+    }> => apiClient.get(`/api/v1/notifications?${searchParams.toString()}`),
+    refetchInterval: 30000, // Refetch every 30 seconds
+  })
+}
+
+export const useMarkNotificationRead = () => {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: (notificationId: string): Promise<{ message: string }> =>
+      apiClient.post(`/api/v1/notifications/${notificationId}/read`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+    },
+  })
+}
+
+export const useMarkAllNotificationsRead = () => {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: (): Promise<{ message: string; updated_count: number }> =>
+      apiClient.post('/api/v1/notifications/mark-all-read'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+    },
+  })
+}
+
+export const useNotificationPreferences = () => {
+  return useQuery({
+    queryKey: ['notification-preferences'],
+    queryFn: (): Promise<any> => apiClient.get('/api/v1/notifications/preferences'),
+  })
+}
+
+export const useUpdateNotificationPreferences = () => {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: (preferences: {
+      email_enabled: boolean
+      sms_enabled: boolean
+      push_enabled: boolean
+      notification_types?: string[]
+      email_frequency: string
+      quiet_hours_start?: string
+      quiet_hours_end?: string
+    }): Promise<{ message: string }> =>
+      apiClient.post('/api/v1/notifications/preferences', preferences),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notification-preferences'] })
+    },
+  })
+}
+
+export const useSendTestNotification = () => {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: (): Promise<{ message: string; notification_id: string }> =>
+      apiClient.post('/api/v1/notifications/test'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+    },
+  })
+}
+
 // Heatmap Hooks
 export const useHeatmap = (bounds?: {
   north: number
@@ -446,6 +658,95 @@ export const useActivityDetail = (id: string) => {
       user_email: string
     }> => apiClient.get(`/api/v1/activities/${id}`),
     enabled: !!id,
+  })
+}
+
+// Geospatial Search Hooks
+export const useSearchProjects = (params: {
+  lat: number
+  lon: number
+  radius_miles?: number
+  min_units?: number
+  max_units?: number
+  ami_min?: number
+  ami_max?: number
+  status?: string
+  limit?: number
+}) => {
+  const searchParams = new URLSearchParams()
+  searchParams.append('lat', params.lat.toString())
+  searchParams.append('lon', params.lon.toString())
+  if (params.radius_miles) searchParams.append('radius_miles', params.radius_miles.toString())
+  if (params.min_units) searchParams.append('min_units', params.min_units.toString())
+  if (params.max_units) searchParams.append('max_units', params.max_units.toString())
+  if (params.ami_min) searchParams.append('ami_min', params.ami_min.toString())
+  if (params.ami_max) searchParams.append('ami_max', params.ami_max.toString())
+  if (params.status) searchParams.append('status', params.status)
+  if (params.limit) searchParams.append('limit', params.limit.toString())
+
+  return useQuery({
+    queryKey: ['search-projects', params],
+    queryFn: (): Promise<{
+      center: { lat: number; lon: number }
+      radius_miles: number
+      total_results: number
+      projects: Project[]
+    }> => apiClient.get(`/api/v1/search/projects?${searchParams.toString()}`),
+    enabled: !!params.lat && !!params.lon,
+  })
+}
+
+export const useSearchApplicants = (params: {
+  project_id?: string
+  lat?: number
+  lon?: number
+  radius_miles?: number
+  income_min?: number
+  income_max?: number
+  household_size_min?: number
+  household_size_max?: number
+  limit?: number
+}) => {
+  const searchParams = new URLSearchParams()
+  if (params.project_id) searchParams.append('project_id', params.project_id)
+  if (params.lat) searchParams.append('lat', params.lat.toString())
+  if (params.lon) searchParams.append('lon', params.lon.toString())
+  if (params.radius_miles) searchParams.append('radius_miles', params.radius_miles.toString())
+  if (params.income_min) searchParams.append('income_min', params.income_min.toString())
+  if (params.income_max) searchParams.append('income_max', params.income_max.toString())
+  if (params.household_size_min) searchParams.append('household_size_min', params.household_size_min.toString())
+  if (params.household_size_max) searchParams.append('household_size_max', params.household_size_max.toString())
+  if (params.limit) searchParams.append('limit', params.limit.toString())
+
+  return useQuery({
+    queryKey: ['search-applicants', params],
+    queryFn: (): Promise<{
+      center: { lat: number; lon: number }
+      radius_miles: number
+      total_results: number
+      applicants: Applicant[]
+    }> => apiClient.get(`/api/v1/search/applicants?${searchParams.toString()}`),
+    enabled: !!params.project_id || (!!params.lat && !!params.lon),
+  })
+}
+
+export const useSearchAmenities = () => {
+  return useMutation({
+    mutationFn: (data: {
+      lat: number
+      lon: number
+      amenity_types?: string[]
+      radius_miles?: number
+    }): Promise<{
+      location: { lat: number; lon: number }
+      radius_miles: number
+      amenities: Record<string, any[]>
+      scores: {
+        walkability: number
+        transit: number
+        overall_livability: number
+      }
+    }> => apiClient.post('/api/v1/search/amenities', data),
   })
 }
 

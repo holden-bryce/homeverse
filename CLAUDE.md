@@ -2,164 +2,123 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 🚨 IMPORTANT: Current Architecture
+
+**The production backend uses `simple_backend.py` (5000+ lines monolithic file)**
+- ✅ This is the ONLY backend file currently in use
+- ❌ Do NOT use files in `app/` directory - they are legacy/future refactoring
+- ❌ Do NOT use `simple_main.py`, `app/main.py`, etc. - they are not active
+
 ## Development Commands
 
 ### Prerequisites
 ```bash
-# On Ubuntu/Debian systems, install required packages:
-sudo apt update
-sudo apt install python3.12-venv python3-pip postgresql-client redis-tools
+# Install Python dependencies
+pip install -r requirements.txt
 
-# Create and activate virtual environment:
-python3 -m venv venv
-source venv/bin/activate
+# For frontend
+cd frontend && npm install
 ```
 
-### Local Development
+### Local Development (ONLY METHOD)
 
-#### ✅ Current Working Setup (Simplified Backend)
 ```bash
-# Start backend (simplified for development)
+# Terminal 1: Start backend
 python3 simple_backend.py                    # Runs on http://localhost:8000
 
-# Start frontend (separate terminal)
+# Terminal 2: Start frontend
 cd frontend && npm run dev                    # Runs on http://localhost:3000
 
-# Test authentication
-# Use any credentials from TEST_LOGINS.md
+# Access:
+# - Frontend: http://localhost:3000
+# - Backend API: http://localhost:8000
+# - API Docs: http://localhost:8000/docs
 ```
 
-#### Full Production Setup (When Ready)
-```bash
-# First time setup:
-source venv/bin/activate     # Activate virtual environment
-make install                 # Install dependencies
+### Testing & Validation
 
-# Daily development:
-source venv/bin/activate     # Always activate venv first
-make dev                     # Start API server (http://localhost:8000)
-make worker                  # Start Celery worker (separate terminal)
-make beat                    # Start Celery scheduler (separate terminal)
-make flower                  # Start Celery monitoring (http://localhost:5555)
+```bash
+# Run production readiness check
+python3 production_ready_checklist.py
+
+# Monitor deployment
+python3 monitor_deployment.py
+
+# Basic tests
+pytest                     # If tests are set up
 ```
 
-### Docker Development
-```bash
-make docker-up       # Start all services (API, worker, beat, postgres, redis)
-make docker-down     # Stop all services
-make docker-logs     # View logs
-make docker-test     # Run tests in Docker
-```
+### Deployment
 
-### Testing
 ```bash
-make test            # Run all tests
-make test-unit       # Run unit tests only
-make test-integration # Run integration tests only
-make test-cov        # Run tests with coverage report
-```
+# Deploy to production
+git add .
+git commit -m "Your change description"
+git push origin main
 
-### Code Quality
-```bash
-make lint            # Ruff linting
-make lint-fix        # Fix linting issues automatically
-make format          # Black code formatting
-make type-check      # MyPy type checking
-make qa              # Run lint + type-check + test
-```
-
-### Database Management
-```bash
-make db-upgrade      # Apply migrations
-make db-downgrade    # Rollback one migration
-make db-migration MSG="description" # Generate new migration
-make db-reset        # Reset database (WARNING: destroys data)
+# Deployment happens automatically via Render
 ```
 
 ## Architecture Overview
 
-### Multi-Tenant Design
-- **Row-Level Security (RLS)**: All data is isolated by `company_id` at the database level
-- **Company Key Header**: All API requests must include `x-company-key` header
-- **Middleware**: `CompanyKeyMiddleware` enforces tenant isolation
-- **Context Setting**: `set_rls_context()` sets PostgreSQL session variables for RLS
+### 🚨 CURRENT PRODUCTION ARCHITECTURE
 
-### Core Components
+**Backend**: `simple_backend.py` (monolithic FastAPI application)
+- Contains ALL endpoints, models, and business logic in one file
+- Supports both SQLite (local) and PostgreSQL (production)
+- JWT authentication with 5 user roles
+- Multi-tenant isolation via company_id
+- File upload handling
+- Email integration via SendGrid
 
-**FastAPI Application** (`app/main.py`)
-- Main entry point with middleware setup
-- Router registration for API v1 endpoints
-- Global exception handling and health checks
+**Frontend**: Next.js 14 with TypeScript (`frontend/` directory)
+- App Router structure
+- Role-based dashboards
+- Tailwind CSS styling
+- Real-time features ready (WebSocket support)
 
-**Database Layer** (`app/db/`)
-- `models.py`: SQLModel classes with multi-tenant support
-- `crud.py`: Database operations with RLS enforcement
-- `tenant_context.py`: Multi-tenant middleware and context management
-- `database.py`: Database connection and session management
+**Database**: 
+- Local: SQLite (`homeverse_demo.db`)
+- Production: PostgreSQL (pending initialization)
 
-**API Layer** (`app/api/v1/`)
-- Modular routers: auth, applicants, projects, lenders, reports, admin
-- JWT authentication with company-based access control
-- Pydantic models for request/response validation
+### Note on Legacy Code Structure
 
-**Services Layer** (`app/services/`)
-- `matching.py`: AI-powered applicant-project matching using OpenAI embeddings
-- `cra.py`: Community Reinvestment Act compliance reporting
-- `heatmap.py`: Geospatial analytics and visualization
-- `doc_ingest.py`: Document processing with Unstructured.io
-- `notif.py`: Real-time notifications
+The `app/` directory contains a modular architecture that is NOT currently in use:
+- `app/main.py`, `app/api/`, `app/db/` - Future refactoring target
+- `app/services/` - Advanced features (AI matching, etc.) not yet integrated
+- `app/workers/` - Celery tasks not active
 
-**Background Workers** (`app/workers/`)
-- Celery-based async processing
-- Task queues: reports, analytics, documents, notifications
-- Scheduled tasks for nightly stats refresh and cleanup
-
-### Key Technologies
-- **Database**: PostgreSQL 15+ with PostGIS extension for geospatial data
-- **Cache/Queue**: Redis for Celery broker and caching
-- **AI/ML**: OpenAI embeddings for semantic matching
-- **Authentication**: JWT tokens with optional Supabase/Clerk integration
-- **Async**: Full async/await with SQLModel and AsyncPG
+These files exist for future migration but should be IGNORED for current development.
 
 ## Development Patterns
 
-### Adding New API Endpoints
-1. Define Pydantic models in the appropriate router file
-2. Add SQLModel database model in `app/db/models.py` with `company_id` field
-3. Create CRUD operations in `app/db/crud.py` with RLS support
-4. Implement router endpoints with proper authentication decorators
-5. Add comprehensive tests in `app/tests/`
+### Adding New Features to `simple_backend.py`
 
-### Multi-Tenant Considerations
-- **Always include `company_id`** in database models for RLS
-- **Use `with_company_key` decorator** for functions requiring tenant context
-- **Test with multiple tenants** to ensure proper data isolation
-- **Set RLS context** in database sessions using `set_rls_context()`
+1. **Add New Endpoint**:
+   ```python
+   @app.post("/api/your-endpoint")
+   async def your_endpoint(data: YourModel, user=Depends(get_current_user)):
+       # Implementation
+   ```
 
-### Background Tasks
-- Add new Celery tasks in `app/workers/tasks.py`
-- Configure task routing in `app/workers/celery_app.py`
-- Use appropriate queues: reports, analytics, documents, notifications
-- Handle errors gracefully with retries and dead letter queues
+2. **Add Database Model** (if needed):
+   - Add table creation in the initialization section
+   - Add corresponding Pydantic models
 
-### Testing Strategy
-- **Unit tests**: Test individual functions/classes in isolation
-- **Integration tests**: Test API endpoints with real database
-- **Fixtures**: Use pytest fixtures for test data setup
-- **Multi-tenant testing**: Verify data isolation between companies
-- **Database setup**: Tests use separate test database with auto-cleanup
+3. **Test Locally**:
+   - Restart backend
+   - Test via frontend or API docs
 
-### Geospatial Data
-- **Storage**: Use PostGIS `Geography` type for lat/lon coordinates
-- **Format**: Store as WKT strings, convert to/from lat/lon tuples in code
-- **Queries**: Use PostGIS functions for distance calculations and bounds queries
-- **SRID**: Always use SRID 4326 (WGS84) for consistency
+### Authentication Pattern
+All protected endpoints use:
+```python
+user = Depends(get_current_user)
+```
 
 ### Error Handling
-- **Global handler**: Catches unhandled exceptions in `app/main.py`
-- **Structured logging**: Use `app/utils/logging.py` for consistent log format
-- **HTTP exceptions**: Raise FastAPI HTTPException for API errors
-- **Validation**: Rely on Pydantic for request validation
+```python
+raise HTTPException(status_code=400, detail="Error message")
+```
 
 ## Configuration
 

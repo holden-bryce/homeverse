@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Logo } from '@/components/ui/logo'
+import { NotificationBell } from '@/components/ui/notification-bell'
 import { useAuthStore } from '@/lib/stores/auth'
 import { useLogout, useCurrentUser, useCurrentCompany } from '@/lib/api/hooks'
 
@@ -223,9 +224,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             </div>
             
             <div className="ml-4 flex items-center md:ml-6 space-x-2 sm:space-x-4">
-              <button className="bg-white p-1 rounded-full text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500">
-                <Bell className="h-6 w-6" />
-              </button>
+              <NotificationBell />
               
               <div className="flex items-center space-x-3">
                 <div className="flex items-center space-x-2">

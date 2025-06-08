@@ -583,6 +583,7 @@ def init_db():
             name TEXT NOT NULL,
             plan TEXT DEFAULT 'basic',
             seats INTEGER DEFAULT 10,
+            settings TEXT DEFAULT '{}',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
@@ -593,9 +594,21 @@ def init_db():
             id TEXT PRIMARY KEY,
             company_id TEXT NOT NULL,
             email TEXT UNIQUE NOT NULL,
-            hashed_password TEXT NOT NULL,
+            password_hash TEXT NOT NULL,
             role TEXT DEFAULT 'user',
             is_active INTEGER DEFAULT 1,
+            full_name TEXT,
+            phone TEXT,
+            timezone TEXT DEFAULT 'UTC',
+            language TEXT DEFAULT 'en',
+            notification_preferences TEXT DEFAULT '{}',
+            settings TEXT DEFAULT '{}',
+            reset_token TEXT,
+            reset_token_expires TIMESTAMP,
+            invite_token TEXT,
+            invite_expires TIMESTAMP,
+            last_login TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (company_id) REFERENCES companies (id)
         )
@@ -2654,6 +2667,347 @@ async def get_current_company(credentials: HTTPAuthorizationCredentials = Depend
         "plan": company['plan'],
         "seats": company['seats']
     }
+
+# User Profile Management Endpoints
+@app.put("/api/v1/auth/profile")
+async def update_user_profile(
+    request: dict,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    conn=Depends(get_db)
+):
+    """Update user profile information"""
+    try:
+        payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        user_id = payload.get("sub")
+        
+        cursor = conn.cursor()
+        
+        # Update allowed fields
+        allowed_fields = ['full_name', 'phone', 'timezone', 'language', 'notification_preferences']
+        update_fields = []
+        values = []
+        
+        for field in allowed_fields:
+            if field in request:
+                if field == 'notification_preferences':
+                    update_fields.append(f"{field} = ?")
+                    values.append(json.dumps(request[field]))
+                else:
+                    update_fields.append(f"{field} = ?")
+                    values.append(request[field])
+        
+        if update_fields:
+            values.append(user_id)
+            query = f"UPDATE users SET {', '.join(update_fields)}, updated_at = ? WHERE id = ?"
+            values.insert(len(values) - 1, datetime.utcnow().isoformat())
+            cursor.execute(query, values)
+            conn.commit()
+        
+        # Get updated user info
+        cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+        user = cursor.fetchone()
+        
+        return {
+            "id": user['id'],
+            "email": user['email'],
+            "role": user['role'],
+            "full_name": user.get('full_name'),
+            "phone": user.get('phone'),
+            "timezone": user.get('timezone', 'UTC'),
+            "language": user.get('language', 'en'),
+            "notification_preferences": json.loads(user.get('notification_preferences', '{}'))
+        }
+        
+    except Exception as e:
+        logger.error(f"Error updating user profile: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update profile")
+
+@app.post("/api/v1/auth/change-password")
+async def change_password(
+    request: dict,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    conn=Depends(get_db)
+):
+    """Change user password"""
+    try:
+        payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        user_id = payload.get("sub")
+        
+        current_password = request.get("current_password")
+        new_password = request.get("new_password")
+        
+        if not current_password or not new_password:
+            raise HTTPException(status_code=400, detail="Both current and new passwords required")
+        
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+        user = cursor.fetchone()
+        
+        # Verify current password
+        if not hashlib.sha256(current_password.encode()).hexdigest() == user['password_hash']:
+            raise HTTPException(status_code=401, detail="Current password is incorrect")
+        
+        # Update password
+        new_password_hash = hashlib.sha256(new_password.encode()).hexdigest()
+        cursor.execute(
+            "UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?",
+            (new_password_hash, datetime.utcnow().isoformat(), user_id)
+        )
+        conn.commit()
+        
+        # Log activity
+        log_activity(
+            conn, user_id, user['company_id'],
+            "security", "Password Changed",
+            "User changed their password"
+        )
+        
+        return {"message": "Password changed successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error changing password: {e}")
+        raise HTTPException(status_code=500, detail="Failed to change password")
+
+@app.post("/api/v1/auth/reset-password-request")
+async def request_password_reset(request: dict, conn=Depends(get_db)):
+    """Request password reset token"""
+    email = request.get("email")
+    if not email:
+        raise HTTPException(status_code=400, detail="Email required")
+    
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
+    user = cursor.fetchone()
+    
+    if user:
+        # Generate reset token
+        reset_token = str(uuid.uuid4())
+        expires_at = datetime.utcnow() + timedelta(hours=1)
+        
+        # Store reset token (in production, use a separate table)
+        cursor.execute(
+            "UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE id = ?",
+            (reset_token, expires_at.isoformat(), user['id'])
+        )
+        conn.commit()
+        
+        # Send email (implement email service)
+        logger.info(f"Password reset requested for {email}, token: {reset_token}")
+        
+        # Create notification
+        create_notification(
+            conn, user['company_id'], user['id'],
+            "security", "Password Reset Requested",
+            "A password reset was requested for your account. If this wasn't you, please contact support.",
+            priority="high"
+        )
+    
+    # Always return success to prevent email enumeration
+    return {"message": "If the email exists, a reset link has been sent"}
+
+@app.put("/api/v1/auth/settings")
+async def update_user_settings(
+    request: dict,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    conn=Depends(get_db)
+):
+    """Update user settings and preferences"""
+    try:
+        payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        user_id = payload.get("sub")
+        
+        cursor = conn.cursor()
+        
+        # Update settings as JSON
+        settings = request.get("settings", {})
+        cursor.execute(
+            "UPDATE users SET settings = ?, updated_at = ? WHERE id = ?",
+            (json.dumps(settings), datetime.utcnow().isoformat(), user_id)
+        )
+        conn.commit()
+        
+        return {"message": "Settings updated successfully", "settings": settings}
+        
+    except Exception as e:
+        logger.error(f"Error updating settings: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update settings")
+
+# Company Management Endpoints
+@app.put("/api/v1/company")
+async def update_company(
+    request: dict,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    conn=Depends(get_db)
+):
+    """Update company information (admin only)"""
+    try:
+        payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        
+        # Get user and verify admin
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM users WHERE id = ?", (payload.get("sub"),))
+        user = cursor.fetchone()
+        
+        if user['role'] != 'admin':
+            raise HTTPException(status_code=403, detail="Admin access required")
+        
+        company_id = user['company_id']
+        
+        # Update allowed fields
+        allowed_fields = ['name', 'plan', 'seats', 'settings']
+        update_fields = []
+        values = []
+        
+        for field in allowed_fields:
+            if field in request:
+                if field == 'settings':
+                    update_fields.append(f"{field} = ?")
+                    values.append(json.dumps(request[field]))
+                else:
+                    update_fields.append(f"{field} = ?")
+                    values.append(request[field])
+        
+        if update_fields:
+            values.append(company_id)
+            query = f"UPDATE companies SET {', '.join(update_fields)} WHERE id = ?"
+            cursor.execute(query, values)
+            conn.commit()
+            
+            # Log activity
+            log_activity(
+                conn, user['id'], company_id,
+                "admin", "Company Updated",
+                f"Company settings updated by {user['email']}"
+            )
+        
+        # Get updated company
+        cursor.execute("SELECT * FROM companies WHERE id = ?", (company_id,))
+        company = cursor.fetchone()
+        
+        return {
+            "id": company['id'],
+            "key": company['key'],
+            "name": company['name'],
+            "plan": company['plan'],
+            "seats": company['seats'],
+            "settings": json.loads(company.get('settings', '{}'))
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating company: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update company")
+
+@app.post("/api/v1/company/invite")
+async def invite_user(
+    request: dict,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    conn=Depends(get_db)
+):
+    """Invite new user to company (admin only)"""
+    try:
+        payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        
+        # Get user and verify admin
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM users WHERE id = ?", (payload.get("sub"),))
+        user = cursor.fetchone()
+        
+        if user['role'] != 'admin':
+            raise HTTPException(status_code=403, detail="Admin access required")
+        
+        company_id = user['company_id']
+        email = request.get("email")
+        role = request.get("role", "buyer")
+        
+        if not email:
+            raise HTTPException(status_code=400, detail="Email required")
+        
+        # Check if user already exists
+        cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
+        existing_user = cursor.fetchone()
+        
+        if existing_user:
+            raise HTTPException(status_code=400, detail="User already exists")
+        
+        # Create invitation token
+        invite_token = str(uuid.uuid4())
+        expires_at = datetime.utcnow() + timedelta(days=7)
+        
+        # Store invitation (in production, use separate invitations table)
+        cursor.execute("""
+            INSERT INTO users (id, email, password_hash, company_id, role, invite_token, invite_expires, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            str(uuid.uuid4()), email, '', company_id, role,
+            invite_token, expires_at.isoformat(), datetime.utcnow().isoformat()
+        ))
+        conn.commit()
+        
+        # Send invitation email (implement email service)
+        logger.info(f"User invited: {email}, token: {invite_token}")
+        
+        # Log activity
+        log_activity(
+            conn, user['id'], company_id,
+            "admin", "User Invited",
+            f"{email} invited as {role} by {user['email']}"
+        )
+        
+        return {"message": "Invitation sent successfully", "invite_token": invite_token}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error inviting user: {e}")
+        raise HTTPException(status_code=500, detail="Failed to invite user")
+
+@app.get("/api/v1/company/users")
+async def get_company_users(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    conn=Depends(get_db)
+):
+    """Get all users in company (admin only)"""
+    try:
+        payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        
+        # Get user
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM users WHERE id = ?", (payload.get("sub"),))
+        user = cursor.fetchone()
+        
+        if user['role'] != 'admin':
+            raise HTTPException(status_code=403, detail="Admin access required")
+        
+        # Get all company users
+        cursor.execute("""
+            SELECT id, email, role, full_name, created_at, last_login
+            FROM users 
+            WHERE company_id = ?
+            ORDER BY created_at DESC
+        """, (user['company_id'],))
+        
+        users = []
+        for row in cursor.fetchall():
+            users.append({
+                "id": row['id'],
+                "email": row['email'],
+                "role": row['role'],
+                "full_name": row.get('full_name'),
+                "created_at": row['created_at'],
+                "last_login": row.get('last_login')
+            })
+        
+        return users
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting company users: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get users")
 
 # Lender Portal Endpoints
 @app.get("/api/v1/lenders/portfolio/stats")
