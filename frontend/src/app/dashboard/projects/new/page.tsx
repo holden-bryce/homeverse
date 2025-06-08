@@ -60,24 +60,8 @@ export default function NewProjectPage() {
       // Sanitize form data before submission
       const sanitizedData = sanitizeFormData(data)
       
-      // Transform to API format
-      const apiData = {
-        name: sanitizedData.name,
-        developer_name: sanitizedData.developer,
-        location: [sanitizedData.latitude || 37.7749, sanitizedData.longitude || -122.4194] as [number, number],
-        unit_count: sanitizedData.total_units,
-        ami_min: sanitizedData.ami_levels ? parseInt(sanitizedData.ami_levels.split('-')[0]) || 30 : 30,
-        ami_max: sanitizedData.ami_levels ? parseInt(sanitizedData.ami_levels.split('-')[1]) || 80 : 80,
-        est_delivery: sanitizedData.completion_date,
-        metadata_json: {
-          address: sanitizedData.address,
-          description: sanitizedData.description,
-          affordable_units: sanitizedData.affordable_units,
-          ami_levels: sanitizedData.ami_levels,
-        }
-      }
-      
-      await createProject.mutateAsync(apiData)
+      // Send data in format backend expects
+      await createProject.mutateAsync(sanitizedData as any)
       
       toast({ 
         title: 'Success!',

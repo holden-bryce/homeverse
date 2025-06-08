@@ -42,22 +42,8 @@ export default function NewApplicantPage() {
       // Sanitize form data before submission
       const sanitizedData = sanitizeFormData(data)
       
-      // Transform to API format
-      const apiData = {
-        geo_point: [sanitizedData.latitude || 37.7749, sanitizedData.longitude || -122.4194] as [number, number],
-        ami_band: sanitizedData.ami_percent ? `${sanitizedData.ami_percent}%` : '80%',
-        household_size: sanitizedData.household_size || 1,
-        preferences: {
-          first_name: sanitizedData.first_name,
-          last_name: sanitizedData.last_name,
-          email: sanitizedData.email,
-          phone: sanitizedData.phone,
-          income: sanitizedData.income,
-          location_preference: sanitizedData.location_preference,
-        }
-      }
-      
-      await createApplicant.mutateAsync(apiData)
+      // Send data in format backend expects
+      await createApplicant.mutateAsync(sanitizedData as any)
       
       toast({
         variant: 'success',
