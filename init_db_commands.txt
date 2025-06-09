@@ -1,0 +1,126 @@
+# Copy and paste these commands into the Render Shell:
+
+cat > init_db.py << 'SCRIPT'
+import psycopg2
+import os
+import hashlib
+import uuid
+
+# Connect to database
+conn = psycopg2.connect(os.getenv('DATABASE_URL'))
+cursor = conn.cursor()
+print("Connected to database")
+
+# Create tables
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS companies (
+    id TEXT PRIMARY KEY,
+    key TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    plan TEXT DEFAULT 'trial',
+    seats INTEGER DEFAULT 5,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+''')
+
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    company_id TEXT,
+    email TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    role TEXT DEFAULT 'user',
+    active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+''')
+
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS applicants (
+    id TEXT PRIMARY KEY,
+    company_id TEXT,
+    full_name TEXT NOT NULL,
+    email TEXT,
+    phone TEXT,
+    income NUMERIC,
+    household_size INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+''')
+
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS projects (
+    id TEXT PRIMARY KEY,
+    company_id TEXT,
+    name TEXT NOT NULL,
+    description TEXT,
+    total_units INTEGER,
+    available_units INTEGER,
+    ami_percentage INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+''')
+
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS activities (
+    id TEXT PRIMARY KEY,
+    company_id TEXT,
+    user_id TEXT,
+    action TEXT NOT NULL,
+    resource_type TEXT,
+    resource_id TEXT,
+    details TEXT DEFAULT '{}',
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+''')
+
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS contact_submissions (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    message TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+''')
+
+# Create test company
+company_id = str(uuid.uuid4())
+cursor.execute('''
+INSERT INTO companies (id, key, name) 
+VALUES (%s, 'demo-company-2024', 'Demo Company')
+ON CONFLICT (key) DO UPDATE SET id = EXCLUDED.id
+RETURNING id
+''', (company_id,))
+company_id = cursor.fetchone()[0]
+
+# Create test users
+password_hash = hashlib.sha256('password123'.encode()).hexdigest()
+users = [
+    ('developer@test.com', 'developer'),
+    ('lender@test.com', 'lender'),
+    ('buyer@test.com', 'buyer'),
+    ('applicant@test.com', 'applicant'),
+    ('admin@test.com', 'admin')
+]
+
+for email, role in users:
+    user_id = str(uuid.uuid4())
+    cursor.execute('''
+    INSERT INTO users (id, email, password_hash, role, company_id)
+    VALUES (%s, %s, %s, %s, %s)
+    ON CONFLICT (email) DO UPDATE 
+    SET password_hash = EXCLUDED.password_hash,
+        role = EXCLUDED.role,
+        company_id = EXCLUDED.company_id
+    ''', (user_id, email, password_hash, role, company_id))
+    print(f"Created user: {email} ({role})")
+
+conn.commit()
+print("Database initialized successfully\!")
+cursor.close()
+conn.close()
+SCRIPT
+
+python init_db.py

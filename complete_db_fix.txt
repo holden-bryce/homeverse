@@ -1,0 +1,84 @@
+# Complete Database Fix - Run in Render Shell
+
+cat > complete_db_fix.py << 'SCRIPT'
+import psycopg2
+import os
+
+print("🔧 Starting complete database fix...")
+
+try:
+    conn = psycopg2.connect(os.getenv('DATABASE_URL'))
+    cursor = conn.cursor()
+    print("✅ Connected to database")
+
+    # 1. Create activity_logs table (missing)
+    print("\n1. Creating activity_logs table...")
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS activity_logs (
+        id TEXT PRIMARY KEY,
+        company_id TEXT,
+        user_id TEXT,
+        type TEXT,
+        title TEXT,
+        description TEXT,
+        entity_type TEXT,
+        entity_id TEXT,
+        metadata TEXT,
+        status TEXT DEFAULT 'info',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    ''')
+    print("✅ activity_logs table created")
+
+    # 2. Verify users table has correct columns
+    print("\n2. Checking users table columns...")
+    cursor.execute("""
+    SELECT column_name 
+    FROM information_schema.columns 
+    WHERE table_name = 'users'
+    """)
+    columns = [row[0] for row in cursor.fetchall()]
+    print(f"Current columns: {columns}")
+    
+    # 3. Add missing columns if needed
+    if 'full_name' not in columns:
+        print("Adding full_name column...")
+        cursor.execute("ALTER TABLE users ADD COLUMN full_name TEXT")
+        cursor.execute("UPDATE users SET full_name = email WHERE full_name IS NULL")
+    
+    if 'hashed_password' not in columns and 'password_hash' in columns:
+        print("Adding hashed_password as alias to password_hash...")
+        cursor.execute("ALTER TABLE users ADD COLUMN hashed_password TEXT")
+        cursor.execute("UPDATE users SET hashed_password = password_hash")
+    
+    # 4. Verify test users exist
+    print("\n3. Verifying test users...")
+    cursor.execute("SELECT email, role FROM users ORDER BY email")
+    users = cursor.fetchall()
+    print("Current users:")
+    for user in users:
+        print(f"  - {user[0]} ({user[1]})")
+    
+    # 5. Test a user password
+    print("\n4. Testing password verification...")
+    cursor.execute("SELECT password_hash FROM users WHERE email = 'developer@test.com'")
+    result = cursor.fetchone()
+    if result:
+        print(f"✅ developer@test.com has password hash: {result[0][:20]}...")
+    
+    conn.commit()
+    print("\n✅ Database fix complete!")
+    print("\n🎉 Authentication should now work!")
+    
+except Exception as e:
+    print(f"\n❌ Error: {e}")
+    import traceback
+    traceback.print_exc()
+finally:
+    if 'cursor' in locals():
+        cursor.close()
+    if 'conn' in locals():
+        conn.close()
+SCRIPT
+
+python complete_db_fix.py

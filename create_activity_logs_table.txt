@@ -1,0 +1,34 @@
+# Run this in Render Shell to create the missing activity_logs table:
+
+cat > create_activity_logs.py << 'SCRIPT'
+import psycopg2
+import os
+
+conn = psycopg2.connect(os.getenv('DATABASE_URL'))
+cursor = conn.cursor()
+
+# Create activity_logs table
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS activity_logs (
+    id TEXT PRIMARY KEY,
+    company_id TEXT,
+    user_id TEXT,
+    type TEXT,
+    title TEXT,
+    description TEXT,
+    entity_type TEXT,
+    entity_id TEXT,
+    metadata TEXT,
+    status TEXT DEFAULT 'info',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+''')
+
+conn.commit()
+print("✅ Created activity_logs table successfully!")
+
+cursor.close()
+conn.close()
+SCRIPT
+
+python create_activity_logs.py

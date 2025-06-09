@@ -1860,10 +1860,6 @@ def verify_user_credentials(conn, email: str, password: str):
     if password_hash and verify_password(password, password_hash):
         return user
     return None
-    
-    if verify_password(password, user['hashed_password']):
-        return user
-    return None
 
 def log_activity(conn, user_id: str, company_id: str, activity_type: str, title: str, 
                 description: str, entity_type: str = None, entity_id: str = None, 
@@ -2959,16 +2955,27 @@ async def register(request: RegisterRequest, conn=Depends(get_db)):
 @app.post("/api/v1/auth/login", response_model=LoginResponse)
 async def login(request: LoginRequest, conn=Depends(get_db)):
     """Login user"""
+    logger.info(f"Login attempt for: {request.email}")
+    
     try:
+        # Debug: Check if we're using PostgreSQL
+        logger.info(f"USE_POSTGRESQL: {USE_POSTGRESQL}")
+        logger.info(f"pg_pool exists: {pg_pool is not None}")
+        
         user = verify_user_credentials(conn, request.email, request.password)
         if not user:
             logger.warning(f"Failed login attempt for email: {request.email}")
             raise HTTPException(status_code=401, detail="Invalid credentials")
+            
+        logger.info(f"User authenticated successfully: {user.get('email')}")
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Login error for {request.email}: {str(e)}")
-        if "Invalid credentials" in str(e):
-            raise
-        raise HTTPException(status_code=500, detail="Authentication service temporarily unavailable")
+        logger.error(f"Error type: {type(e).__name__}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Authentication failed: {str(e)}")
     
     # Log login activity - TEMPORARILY DISABLED FOR POSTGRESQL COMPATIBILITY
     # TODO: Fix log_activity to use PostgreSQL placeholders

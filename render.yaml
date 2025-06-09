@@ -1,66 +1,27 @@
 services:
-  # Backend API service
   - type: web
     name: homeverse-api
     runtime: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: python simple_backend.py
-    # Force redeploy to use correct backend file
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python simple_backend.py"
     envVars:
       - key: DATABASE_URL
         fromDatabase:
           name: homeverse-db
           property: connectionString
-      - key: REDIS_URL
-        fromService:
-          name: homeverse-redis
-          type: redis
-          property: connectionString
       - key: JWT_SECRET_KEY
         generateValue: true
-      - key: OPENAI_API_KEY
-        sync: false
-      - key: SENDGRID_API_KEY
-        value: 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
-      - key: UNSTRUCTURED_API_KEY
-        sync: false
+      - key: REDIS_URL
+        value: redis://localhost:6379
+      - key: USE_POSTGRESQL
+        value: "true"
       - key: CORS_ORIGINS
         value: "*"
-      - key: COMPANY_KEY
-        value: "default-company-key"
-      - key: DATABASE_TYPE
-        value: "postgresql"
-      - key: DATABASE_POOL_SIZE
-        value: "20"
-      - key: DATABASE_MAX_OVERFLOW
-        value: "30"
-      - key: DATABASE_POOL_TIMEOUT
-        value: "30"
-      - key: ENVIRONMENT
-        value: "production"
-      - key: LOG_LEVEL
-        value: "INFO"
-
-  # Frontend Next.js service
-  - type: web
-    name: homeverse-frontend
-    runtime: node
-    buildCommand: cd frontend && npm install && npm run build
-    startCommand: cd frontend && npm start
-    envVars:
-      - key: NEXT_PUBLIC_API_URL
-        value: https://homeverse-api.onrender.com
-      - key: NEXT_PUBLIC_MAPBOX_TOKEN
-        value: pk.eyJ1IjoiaG9sZGVuYnJ5Y2UiLCJhIjoiY21iaml2MmpiMGZzbDJqcHZ3ZjYzY25lMiJ9.AxpeDrJxeVfemXWSfLHQqw
-
-  # Redis service
-  - type: redis
-    name: homeverse-redis
-    ipAllowList: []
-    maxmemoryPolicy: allkeys-lru
+      - key: SENDGRID_API_KEY
+        sync: false
 
 databases:
   - name: homeverse-db
-    databaseName: homeverse
-    user: homeverse
-    postgresMajorVersion: 15
+    plan: starter
+    databaseName: homeverse_db
+    user: homeverse_user
