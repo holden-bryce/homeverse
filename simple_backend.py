@@ -3239,35 +3239,73 @@ async def register(request: Request, form_data: RegisterRequest, conn=Depends(ge
     }
 
 @app.post("/api/v1/auth/login", response_model=LoginResponse)
-@limiter.limit("5/minute")
-async def login(request: Request, login_data: LoginRequest, conn=Depends(get_db)):
+async def login(request: LoginRequest, conn=Depends(get_db)):
     """Login user"""
-    logger.info(f"Login attempt for: {login_data.email}")
-    
     try:
-        # Debug: Check if we're using PostgreSQL
-        logger.info(f"USE_POSTGRESQL: {USE_POSTGRESQL}")
-        logger.info(f"pg_pool exists: {pg_pool is not None}")
+        # Get user by email
+        cursor = conn.cursor()
         
-        user = verify_user_credentials(conn, login_data.email, login_data.password)
+        if USE_POSTGRESQL and pg_pool:
+            cursor.execute("SELECT * FROM users WHERE email = %s", (request.email,))
+            user_row = cursor.fetchone()
+            if user_row:
+                columns = [desc[0] for desc in cursor.description]
+                user = dict(zip(columns, user_row))
+            else:
+                user = None
+        else:
+            cursor.execute("SELECT * FROM users WHERE email = ?", (request.email,))
+            user_row = cursor.fetchone()
+            user = dict(user_row) if user_row else None
+        
         if not user:
-            logger.warning(f"Failed login attempt for email: {login_data.email}")
             raise HTTPException(status_code=401, detail="Invalid credentials")
         
-        # Check if email is verified
-        email_verified = user.get('email_verified', True)  # Default to True for existing users
-        if not email_verified:
-            raise HTTPException(status_code=403, detail="Please verify your email before logging in")
-            
-        logger.info(f"User authenticated successfully: {user.get('email')}")
+        # Check password
+        password_hash = user.get('hashed_password') or user.get('password_hash')
+        if not password_hash or not verify_password(request.password, password_hash):
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+        
+        # Create token
+        token_data = {
+            "sub": user['id'], 
+            "email": user['email'], 
+            "role": user.get('role', 'user')
+        }
+        access_token = create_access_token(token_data)
+        
+        # Return response with CORS headers
+        return LoginResponse(
+            access_token=access_token,
+            token_type="bearer",
+            user={
+                "id": user['id'],
+                "email": user['email'],
+                "role": user.get('role', 'user'),
+                "company_id": user.get('company_id', '')
+            }
+        )
+        
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Login error for {login_data.email}: {str(e)}")
-        logger.error(f"Error type: {type(e).__name__}")
+        logger.error(f"Login error: {str(e)}")
         import traceback
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=f"Authentication failed: {str(e)}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Login failed: {str(e)}")
+
+@app.options("/api/v1/auth/login")
+async def login_options():
+    """Handle CORS preflight for login"""
+    return JSONResponse(
+        content={"message": "OK"},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "content-type, authorization",
+            "Access-Control-Allow-Credentials": "true"
+        }
+    )
     
     # Log login activity - TEMPORARILY DISABLED FOR POSTGRESQL COMPATIBILITY
     # TODO: Fix log_activity to use PostgreSQL placeholders
