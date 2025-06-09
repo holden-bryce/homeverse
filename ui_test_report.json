@@ -1,0 +1,30 @@
+{
+  "timestamp": "2025-06-08T15:44:07.554086",
+  "success_rate": 57.14285714285714,
+  "total_tests": 21,
+  "passed": 12,
+  "failed": 9,
+  "categories": {
+    "Infrastructure": {
+      "passed": 4,
+      "total": 4
+    },
+    "Public Pages": {
+      "passed": 7,
+      "total": 7
+    },
+    "Authentication": {
+      "passed": 0,
+      "total": 5
+    },
+    "API Endpoints": {
+      "passed": 1,
+      "total": 1
+    },
+    "UI Workflows": {
+      "passed": 0,
+      "total": 4
+    }
+  },
+  "production_ready": false
+}
