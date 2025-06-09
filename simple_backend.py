@@ -99,7 +99,7 @@ else:
     logger.warning("⚠️ OpenAI client not available - using fallback matching")
 
 # Database type detection
-USE_POSTGRESQL = bool(DATABASE_URL and DATABASE_URL.startswith("postgresql"))
+USE_POSTGRESQL = False  # Temporarily forced to SQLite for debugging
 
 if USE_POSTGRESQL:
     try:
