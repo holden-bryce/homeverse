@@ -381,210 +381,9 @@ async def validation_error_handler(request, exc):
 # Global PostgreSQL connection pool
 pg_pool = None
 
-async def init_postgresql():
-    """Initialize PostgreSQL connection pool"""
-    global pg_pool
-    try:
-        pg_pool = await asyncpg.create_pool(
-            DATABASE_URL,
-            min_size=1,
-            max_size=20,
-            command_timeout=60
-        )
-        logger.info("✅ PostgreSQL connection pool initialized")
-        
-        # Create tables if they don't exist
-        async with pg_pool.acquire() as conn:
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS companies (
-                    id TEXT PRIMARY KEY,
-                    key TEXT UNIQUE NOT NULL,
-                    name TEXT NOT NULL,
-                    plan TEXT DEFAULT 'basic',
-                    seats INTEGER DEFAULT 10,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                );
-            """)
-            
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS users (
-                    id TEXT PRIMARY KEY,
-                    company_id TEXT REFERENCES companies(id),
-                    email TEXT UNIQUE NOT NULL,
-                    password_hash TEXT NOT NULL,
-                    role TEXT DEFAULT 'user',
-                    active BOOLEAN DEFAULT true,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                );
-            """)
-            
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS projects (
-                    id TEXT PRIMARY KEY,
-                    company_id TEXT REFERENCES companies(id),
-                    name TEXT NOT NULL,
-                    developer TEXT,
-                    location TEXT,
-                    address TEXT,
-                    latitude FLOAT,
-                    longitude FLOAT,
-                    total_units INTEGER,
-                    affordable_units INTEGER,
-                    ami_levels TEXT,
-                    description TEXT,
-                    completion_date TEXT,
-                    status TEXT DEFAULT 'active',
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                );
-            """)
-            
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS applicants (
-                    id TEXT PRIMARY KEY,
-                    company_id TEXT REFERENCES companies(id),
-                    first_name TEXT NOT NULL,
-                    last_name TEXT NOT NULL,
-                    email TEXT NOT NULL,
-                    phone TEXT,
-                    household_size INTEGER,
-                    income FLOAT,
-                    ami_percent FLOAT,
-                    location_preference TEXT,
-                    latitude FLOAT,
-                    longitude FLOAT,
-                    status TEXT DEFAULT 'active',
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                );
-            """)
-            
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS activity_logs (
-                    id TEXT PRIMARY KEY,
-                    user_id TEXT REFERENCES users(id),
-                    company_id TEXT REFERENCES companies(id),
-                    activity_type TEXT NOT NULL,
-                    title TEXT NOT NULL,
-                    description TEXT,
-                    entity_type TEXT,
-                    entity_id TEXT,
-                    metadata JSONB,
-                    status TEXT DEFAULT 'info',
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                );
-            """)
-            
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS investments (
-                    id TEXT PRIMARY KEY,
-                    company_id TEXT REFERENCES companies(id),
-                    user_id TEXT REFERENCES users(id),
-                    project_id TEXT REFERENCES projects(id),
-                    project_name TEXT NOT NULL,
-                    developer TEXT,
-                    location TEXT,
-                    investment_amount DECIMAL(15,2) NOT NULL,
-                    current_value DECIMAL(15,2),
-                    date_invested DATE NOT NULL,
-                    expected_completion_date DATE,
-                    actual_completion_date DATE,
-                    status TEXT DEFAULT 'active',
-                    ami_compliance DECIMAL(5,2),
-                    units_funded INTEGER,
-                    risk_level TEXT DEFAULT 'medium',
-                    notes TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                );
-            """)
-            
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS investment_valuations (
-                    id TEXT PRIMARY KEY,
-                    investment_id TEXT REFERENCES investments(id),
-                    valuation_date DATE NOT NULL,
-                    value DECIMAL(15,2) NOT NULL,
-                    valuation_method TEXT,
-                    notes TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                );
-            """)
-            
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS project_embeddings (
-                    id TEXT PRIMARY KEY,
-                    project_id TEXT REFERENCES projects(id),
-                    embedding_vector JSONB NOT NULL,
-                    description_text TEXT NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                );
-            """)
-            
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS applicant_embeddings (
-                    id TEXT PRIMARY KEY,
-                    applicant_id TEXT REFERENCES applicants(id),
-                    embedding_vector JSONB NOT NULL,
-                    preferences_text TEXT NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                );
-            """)
-            
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS matches (
-                    id TEXT PRIMARY KEY,
-                    applicant_id TEXT REFERENCES applicants(id),
-                    project_id TEXT REFERENCES projects(id),
-                    company_id TEXT REFERENCES companies(id),
-                    similarity_score DECIMAL(5,4) NOT NULL,
-                    match_reasons JSONB,
-                    status TEXT DEFAULT 'pending',
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                );
-            """)
-            
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS cra_assessments (
-                    id TEXT PRIMARY KEY,
-                    company_id TEXT REFERENCES companies(id),
-                    assessment_area TEXT NOT NULL,
-                    income_level TEXT NOT NULL,
-                    median_family_income DECIMAL(12,2),
-                    low_income_threshold DECIMAL(12,2),
-                    moderate_income_threshold DECIMAL(12,2),
-                    middle_income_threshold DECIMAL(12,2),
-                    upper_income_threshold DECIMAL(12,2),
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                );
-            """)
-            
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS cra_performance (
-                    id TEXT PRIMARY KEY,
-                    company_id TEXT REFERENCES companies(id),
-                    assessment_period TEXT NOT NULL,
-                    assessment_year INTEGER NOT NULL,
-                    assessment_quarter INTEGER,
-                    low_income_lending_amount DECIMAL(15,2) DEFAULT 0,
-                    moderate_income_lending_amount DECIMAL(15,2) DEFAULT 0,
-                    middle_income_lending_amount DECIMAL(15,2) DEFAULT 0,
-                    upper_income_lending_amount DECIMAL(15,2) DEFAULT 0,
-                    community_development_amount DECIMAL(15,2) DEFAULT 0,
-                    small_business_lending_amount DECIMAL(15,2) DEFAULT 0,
-                    total_lending_amount DECIMAL(15,2) DEFAULT 0,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                );
-            """)
-            
-        logger.info("✅ PostgreSQL tables initialized")
-        
-    except Exception as e:
-        logger.error(f"❌ PostgreSQL initialization failed: {e}")
-        raise
+
+
+
 
 async def get_pg_connection():
     """Get PostgreSQL connection from pool"""
@@ -6977,10 +6776,8 @@ async def startup_event():
     """Initialize database and create test users"""
     logger.info(f"🚀 Starting HomeVerse API v2.0.5 ({ENVIRONMENT} mode)")
     
-    if USE_POSTGRESQL:
-        await init_postgresql()
-        await create_test_users_pg()
-    else:
+    # PostgreSQL pool is already initialized at module level
+    if not USE_POSTGRESQL:
         init_db()
         create_test_users_sqlite()
     
@@ -6991,47 +6788,11 @@ async def shutdown_event():
     """Cleanup on application shutdown"""
     logger.info("🛑 Shutting down HomeVerse API...")
     if USE_POSTGRESQL and pg_pool:
-        await pg_pool.close()
-        logger.info("✅ PostgreSQL connection pool closed")
+        pg_pool.closeall()
+        logger.info("🐘 PostgreSQL connection pool closed")
     logger.info("✅ Application shutdown completed")
 
-async def create_test_users_pg():
-    """Create test users for PostgreSQL demo"""
-    try:
-        async with pg_pool.acquire() as conn:
-            # Create test company
-            company_id = str(uuid.uuid4())
-            company_key = "test-company"
-            
-            await conn.execute("""
-                INSERT INTO companies (id, key, name, plan, seats) 
-                VALUES ($1, $2, $3, $4, $5) 
-                ON CONFLICT (key) DO NOTHING
-            """, company_id, company_key, f"Company {company_key}", "basic", 10)
-            
-            # Test users
-            test_users = [
-                {"email": "developer@test.com", "password": "password123", "role": "developer"},
-                {"email": "lender@test.com", "password": "password123", "role": "lender"},
-                {"email": "buyer@test.com", "password": "password123", "role": "buyer"},
-                {"email": "applicant@test.com", "password": "password123", "role": "applicant"},
-                {"email": "admin@test.com", "password": "password123", "role": "admin"},
-            ]
-            
-            for user_data in test_users:
-                user_id = str(uuid.uuid4())
-                password_hash = hash_password(user_data["password"])
-                
-                await conn.execute("""
-                    INSERT INTO users (id, company_id, email, password_hash, role) 
-                    VALUES ($1, $2, $3, $4, $5) 
-                    ON CONFLICT (email) DO NOTHING
-                """, user_id, company_id, user_data["email"], password_hash, user_data["role"])
-                
-                logger.info(f"✅ Created/verified test user: {user_data['email']} ({user_data['role']})")
-                
-    except Exception as e:
-        logger.error(f"Failed to create PostgreSQL test users: {e}")
+
 
 def create_test_users_sqlite():
     """Create test users for SQLite demo"""
