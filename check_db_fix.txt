@@ -1,0 +1,47 @@
+# Run this in Render Shell to check database state
+
+cat > check_db.py << 'SCRIPT'
+import psycopg2
+import os
+
+try:
+    conn = psycopg2.connect(os.getenv('DATABASE_URL'))
+    cursor = conn.cursor()
+    
+    # Check users table columns
+    cursor.execute("""
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'users'
+        ORDER BY column_name
+    """)
+    
+    print("Users table columns:")
+    columns = [row[0] for row in cursor.fetchall()]
+    for col in columns:
+        print(f"  - {col}")
+    
+    # Check if test users exist
+    cursor.execute("SELECT email, role, password_hash FROM users WHERE email LIKE '%@test.com' ORDER BY email")
+    users = cursor.fetchall()
+    
+    print("\nTest users:")
+    for user in users:
+        email, role, pwd_hash = user
+        print(f"  - {email} ({role}) - hash: {pwd_hash[:20] if pwd_hash else 'NO HASH'}...")
+    
+    # Test password hash
+    import hashlib
+    test_hash = hashlib.sha256('password123'.encode()).hexdigest()
+    print(f"\nExpected hash for 'password123': {test_hash[:20]}...")
+    
+    cursor.close()
+    conn.close()
+    
+except Exception as e:
+    print(f"Error: {e}")
+    import traceback
+    traceback.print_exc()
+SCRIPT
+
+python check_db.py

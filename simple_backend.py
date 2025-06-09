@@ -206,19 +206,8 @@ manager = ConnectionManager()
 
 # CORS middleware - Production configuration
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*").split(",")
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=CORS_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
-    expose_headers=["*"]
-)
 
-# Initialize rate limiter
-limiter = Limiter(key_func=get_remote_address)
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 
 
 # Custom exception classes for better error handling
@@ -2853,35 +2842,34 @@ async def init_database_temp(secret: str = None):
                 )
             """)
 
-    # Add email_verified column if it doesn't exist
-    try:
-        if USE_POSTGRESQL and pg_pool:
-            cursor.execute("ALTER TABLE users ADD COLUMN email_verified BOOLEAN DEFAULT FALSE")
-        else:
-            # SQLite doesn't support ALTER TABLE ADD COLUMN with constraints
-            cursor.execute("PRAGMA table_info(users)")
-            columns = [column[1] for column in cursor.fetchall()]
-            if 'email_verified' not in columns:
-                # Create new table with email_verified column
-                cursor.execute("""
-                    CREATE TABLE users_new (
-                        id TEXT PRIMARY KEY,
-                        company_id TEXT,
-                        email TEXT UNIQUE NOT NULL,
-                        password_hash TEXT,
-                        hashed_password TEXT,
-                        role TEXT DEFAULT 'user',
-                        active BOOLEAN DEFAULT true,
-                        email_verified BOOLEAN DEFAULT FALSE,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    )
-                """)
-                cursor.execute("INSERT INTO users_new SELECT *, FALSE FROM users")
-                cursor.execute("DROP TABLE users")
-                cursor.execute("ALTER TABLE users_new RENAME TO users")
-    except:
-        pass  # Column might already exist
-
+            # Add email_verified column if it doesn't exist
+            try:
+                if USE_POSTGRESQL and pg_pool:
+                    cursor.execute("ALTER TABLE users ADD COLUMN email_verified BOOLEAN DEFAULT FALSE")
+                else:
+                    # SQLite doesn't support ALTER TABLE ADD COLUMN with constraints
+                    cursor.execute("PRAGMA table_info(users)")
+                    columns = [column[1] for column in cursor.fetchall()]
+                    if 'email_verified' not in columns:
+                        # Create new table with email_verified column
+                        cursor.execute("""
+                            CREATE TABLE users_new (
+                                id TEXT PRIMARY KEY,
+                                company_id TEXT,
+                                email TEXT UNIQUE NOT NULL,
+                                password_hash TEXT,
+                                hashed_password TEXT,
+                                role TEXT DEFAULT 'user',
+                                active BOOLEAN DEFAULT true,
+                                email_verified BOOLEAN DEFAULT FALSE,
+                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                            )
+                        """)
+                        cursor.execute("INSERT INTO users_new SELECT *, FALSE FROM users")
+                        cursor.execute("DROP TABLE users")
+                        cursor.execute("ALTER TABLE users_new RENAME TO users")
+            except:
+                pass  # Column might already exist
             
             # Create other required tables
             cursor.execute("""
@@ -3036,34 +3024,34 @@ async def init_database_simple(data: dict = Body(...)):
                     )
                 """)
 
-    # Add email_verified column if it doesn't exist
-    try:
-        if USE_POSTGRESQL and pg_pool:
-            cursor.execute("ALTER TABLE users ADD COLUMN email_verified BOOLEAN DEFAULT FALSE")
-        else:
-            # SQLite doesn't support ALTER TABLE ADD COLUMN with constraints
-            cursor.execute("PRAGMA table_info(users)")
-            columns = [column[1] for column in cursor.fetchall()]
-            if 'email_verified' not in columns:
-                # Create new table with email_verified column
-                cursor.execute("""
-                    CREATE TABLE users_new (
-                        id TEXT PRIMARY KEY,
-                        company_id TEXT,
-                        email TEXT UNIQUE NOT NULL,
-                        password_hash TEXT,
-                        hashed_password TEXT,
-                        role TEXT DEFAULT 'user',
-                        active BOOLEAN DEFAULT true,
-                        email_verified BOOLEAN DEFAULT FALSE,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    )
-                """)
-                cursor.execute("INSERT INTO users_new SELECT *, FALSE FROM users")
-                cursor.execute("DROP TABLE users")
-                cursor.execute("ALTER TABLE users_new RENAME TO users")
-    except:
-        pass  # Column might already exist
+            # Add email_verified column if it doesn't exist
+            try:
+                if USE_POSTGRESQL and pg_pool:
+                    cursor.execute("ALTER TABLE users ADD COLUMN email_verified BOOLEAN DEFAULT FALSE")
+                else:
+                    # SQLite doesn't support ALTER TABLE ADD COLUMN with constraints
+                    cursor.execute("PRAGMA table_info(users)")
+                    columns = [column[1] for column in cursor.fetchall()]
+                    if 'email_verified' not in columns:
+                        # Create new table with email_verified column
+                        cursor.execute("""
+                            CREATE TABLE users_new (
+                                id TEXT PRIMARY KEY,
+                                company_id TEXT,
+                                email TEXT UNIQUE NOT NULL,
+                                password_hash TEXT,
+                                hashed_password TEXT,
+                                role TEXT DEFAULT 'user',
+                                active BOOLEAN DEFAULT true,
+                                email_verified BOOLEAN DEFAULT FALSE,
+                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                            )
+                        """)
+                        cursor.execute("INSERT INTO users_new SELECT *, FALSE FROM users")
+                        cursor.execute("DROP TABLE users")
+                    cursor.execute("ALTER TABLE users ADD COLUMN email_verified BOOLEAN DEFAULT FALSE")
+            except:
+                pass  # Column might already exist
 
                 
                 cursor.execute("""
