@@ -2597,6 +2597,50 @@ async def health():
     """Health check endpoint"""
     return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
 
+@app.get("/db-check")
+async def db_check():
+    """Check database connection and tables"""
+    try:
+        conn = next(get_db())
+        cursor = conn.cursor()
+        
+        # Check which database we're using
+        db_type = "PostgreSQL" if USE_POSTGRESQL else "SQLite"
+        
+        # Check if users table exists
+        if USE_POSTGRESQL:
+            cursor.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_name = 'users'
+                )
+            """)
+            users_exists = cursor.fetchone()[0]
+        else:
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")
+            users_exists = cursor.fetchone() is not None
+        
+        # Count users if table exists
+        user_count = 0
+        if users_exists:
+            cursor.execute("SELECT COUNT(*) FROM users")
+            user_count = cursor.fetchone()[0]
+        
+        return {
+            "database_type": db_type,
+            "use_postgresql": USE_POSTGRESQL,
+            "database_url_set": bool(DATABASE_URL),
+            "users_table_exists": users_exists,
+            "user_count": user_count,
+            "pg_pool_exists": pg_pool is not None
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "database_type": "PostgreSQL" if USE_POSTGRESQL else "SQLite",
+            "use_postgresql": USE_POSTGRESQL
+        }
+
 # Database initialization endpoint (temporary for production setup)
 @app.post("/api/init-db-2024-temp")
 async def init_database_temp(secret: str = None):
