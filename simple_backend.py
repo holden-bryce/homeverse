@@ -6307,7 +6307,7 @@ async def send_contact_email(contact_data: dict):
 @app.on_event("startup")
 async def startup_event():
     """Initialize database and create test users"""
-    logger.info(f"🚀 Starting HomeVerse API v2.0.0 ({ENVIRONMENT} mode)")
+    logger.info(f"🚀 Starting HomeVerse API v2.0.1 ({ENVIRONMENT} mode)")
     
     if USE_POSTGRESQL:
         await init_postgresql()
