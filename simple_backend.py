@@ -9,7 +9,7 @@ import hashlib
 import json
 import uuid
 
-from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, Form, WebSocket, WebSocketDisconnect, Body
+from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, Form, WebSocket, WebSocketDisconnect, Body, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import FileResponse, JSONResponse
@@ -20,6 +20,12 @@ import asyncio
 from collections import defaultdict
 import traceback
 import math
+import secrets
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from email_validator import validate_email, EmailNotValidError
+
 
 # Logging setup (must be first)
 logging.basicConfig(
@@ -123,6 +129,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Initialize rate limiter
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
 # WebSocket Connection Manager
 class ConnectionManager:
     def __init__(self):
@@ -190,6 +202,12 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["*"]
 )
+
+# Initialize rate limiter
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 
 # Custom exception classes for better error handling
 class ValidationError(HTTPException):
@@ -623,6 +641,36 @@ def init_db():
             FOREIGN KEY (company_id) REFERENCES companies (id)
         )
     """)
+
+    # Add email_verified column if it doesn't exist
+    try:
+        if USE_POSTGRESQL and pg_pool:
+            cursor.execute("ALTER TABLE users ADD COLUMN email_verified BOOLEAN DEFAULT FALSE")
+        else:
+            # SQLite doesn't support ALTER TABLE ADD COLUMN with constraints
+            cursor.execute("PRAGMA table_info(users)")
+            columns = [column[1] for column in cursor.fetchall()]
+            if 'email_verified' not in columns:
+                # Create new table with email_verified column
+                cursor.execute("""
+                    CREATE TABLE users_new (
+                        id TEXT PRIMARY KEY,
+                        company_id TEXT,
+                        email TEXT UNIQUE NOT NULL,
+                        password_hash TEXT,
+                        hashed_password TEXT,
+                        role TEXT DEFAULT 'user',
+                        active BOOLEAN DEFAULT true,
+                        email_verified BOOLEAN DEFAULT FALSE,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                cursor.execute("INSERT INTO users_new SELECT *, FALSE FROM users")
+                cursor.execute("DROP TABLE users")
+                cursor.execute("ALTER TABLE users_new RENAME TO users")
+    except:
+        pass  # Column might already exist
+
     
     # Projects table
     cursor.execute("""
@@ -686,6 +734,33 @@ def init_db():
             FOREIGN KEY (user_id) REFERENCES users (id)
         )
     """)
+
+    # Email verification tokens table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS email_verifications (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            token TEXT UNIQUE NOT NULL,
+            expires_at TIMESTAMP NOT NULL,
+            verified_at TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    """)
+    
+    # Password reset tokens table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS password_resets (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            token TEXT UNIQUE NOT NULL,
+            expires_at TIMESTAMP NOT NULL,
+            used_at TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    """)
+
     
     # Investments table
     cursor.execute("""
@@ -1044,8 +1119,10 @@ class LoginResponse(BaseModel):
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
-    company_key: str
+    company_key: Optional[str] = None
+    company_name: Optional[str] = "Default Company"
     role: str = "user"
+    full_name: Optional[str] = None
 
 class UserCreate(BaseModel):
     email: str
@@ -2645,6 +2722,76 @@ def generate_cra_report_data(conn, company_id: str, assessment_year: int = None)
     }
 
 # API Routes
+
+# Email sending functions
+def send_verification_email(email: str, full_name: str, verification_url: str):
+    """Send email verification"""
+    if not SENDGRID_API_KEY:
+        logger.warning("SendGrid not configured - skipping email verification")
+        return
+    
+    try:
+        import sendgrid
+        from sendgrid.helpers.mail import Mail, Email, To, Content
+        
+        sg = sendgrid.SendGridAPIClient(api_key=SENDGRID_API_KEY)
+        
+        from_email = Email("noreply@homeverse.com", "HomeVerse")
+        to_email = To(email)
+        subject = "Verify your HomeVerse account"
+        
+        html_content = f"""
+        <h2>Welcome to HomeVerse, {full_name}!</h2>
+        <p>Please verify your email address to complete your registration.</p>
+        <p><a href="{verification_url}" style="background-color: #14b8a6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Verify Email</a></p>
+        <p>Or copy this link: {verification_url}</p>
+        <p>This link will expire in 24 hours.</p>
+        <p>Best regards,<br>The HomeVerse Team</p>
+        """
+        
+        content = Content("text/html", html_content)
+        mail = Mail(from_email, to_email, subject, content)
+        
+        response = sg.client.mail.send.post(request_body=mail.get())
+        logger.info(f"Verification email sent to {email}")
+    except Exception as e:
+        logger.error(f"Failed to send verification email: {e}")
+
+def send_password_reset_email(email: str, full_name: str, reset_url: str):
+    """Send password reset email"""
+    if not SENDGRID_API_KEY:
+        logger.warning("SendGrid not configured - skipping password reset email")
+        return
+    
+    try:
+        import sendgrid
+        from sendgrid.helpers.mail import Mail, Email, To, Content
+        
+        sg = sendgrid.SendGridAPIClient(api_key=SENDGRID_API_KEY)
+        
+        from_email = Email("noreply@homeverse.com", "HomeVerse")
+        to_email = To(email)
+        subject = "Reset your HomeVerse password"
+        
+        html_content = f"""
+        <h2>Hi {full_name},</h2>
+        <p>We received a request to reset your password.</p>
+        <p><a href="{reset_url}" style="background-color: #14b8a6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Reset Password</a></p>
+        <p>Or copy this link: {reset_url}</p>
+        <p>This link will expire in 1 hour.</p>
+        <p>If you didn't request this, please ignore this email.</p>
+        <p>Best regards,<br>The HomeVerse Team</p>
+        """
+        
+        content = Content("text/html", html_content)
+        mail = Mail(from_email, to_email, subject, content)
+        
+        response = sg.client.mail.send.post(request_body=mail.get())
+        logger.info(f"Password reset email sent to {email}")
+    except Exception as e:
+        logger.error(f"Failed to send password reset email: {e}")
+
+
 @app.get("/health")
 async def health():
     """Health check endpoint"""
@@ -2693,6 +2840,36 @@ async def init_database_temp(secret: str = None):
                     profile TEXT DEFAULT '{}'
                 )
             """)
+
+    # Add email_verified column if it doesn't exist
+    try:
+        if USE_POSTGRESQL and pg_pool:
+            cursor.execute("ALTER TABLE users ADD COLUMN email_verified BOOLEAN DEFAULT FALSE")
+        else:
+            # SQLite doesn't support ALTER TABLE ADD COLUMN with constraints
+            cursor.execute("PRAGMA table_info(users)")
+            columns = [column[1] for column in cursor.fetchall()]
+            if 'email_verified' not in columns:
+                # Create new table with email_verified column
+                cursor.execute("""
+                    CREATE TABLE users_new (
+                        id TEXT PRIMARY KEY,
+                        company_id TEXT,
+                        email TEXT UNIQUE NOT NULL,
+                        password_hash TEXT,
+                        hashed_password TEXT,
+                        role TEXT DEFAULT 'user',
+                        active BOOLEAN DEFAULT true,
+                        email_verified BOOLEAN DEFAULT FALSE,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                cursor.execute("INSERT INTO users_new SELECT *, FALSE FROM users")
+                cursor.execute("DROP TABLE users")
+                cursor.execute("ALTER TABLE users_new RENAME TO users")
+    except:
+        pass  # Column might already exist
+
             
             # Create other required tables
             cursor.execute("""
@@ -2846,6 +3023,36 @@ async def init_database_simple(data: dict = Body(...)):
                         role TEXT DEFAULT 'user'
                     )
                 """)
+
+    # Add email_verified column if it doesn't exist
+    try:
+        if USE_POSTGRESQL and pg_pool:
+            cursor.execute("ALTER TABLE users ADD COLUMN email_verified BOOLEAN DEFAULT FALSE")
+        else:
+            # SQLite doesn't support ALTER TABLE ADD COLUMN with constraints
+            cursor.execute("PRAGMA table_info(users)")
+            columns = [column[1] for column in cursor.fetchall()]
+            if 'email_verified' not in columns:
+                # Create new table with email_verified column
+                cursor.execute("""
+                    CREATE TABLE users_new (
+                        id TEXT PRIMARY KEY,
+                        company_id TEXT,
+                        email TEXT UNIQUE NOT NULL,
+                        password_hash TEXT,
+                        hashed_password TEXT,
+                        role TEXT DEFAULT 'user',
+                        active BOOLEAN DEFAULT true,
+                        email_verified BOOLEAN DEFAULT FALSE,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                cursor.execute("INSERT INTO users_new SELECT *, FALSE FROM users")
+                cursor.execute("DROP TABLE users")
+                cursor.execute("ALTER TABLE users_new RENAME TO users")
+    except:
+        pass  # Column might already exist
+
                 
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS applicants (
@@ -2952,36 +3159,111 @@ async def handle_options():
     return {"message": "OK"}
 
 @app.post("/api/v1/auth/register")
-async def register(request: RegisterRequest, conn=Depends(get_db)):
-    """Register new user"""
+@limiter.limit("3/hour")
+async def register(request: Request, form_data: RegisterRequest, conn=Depends(get_db)):
+    """Register new user with email verification"""
+    try:
+        # Validate email
+        validation = validate_email(form_data.email)
+        email = validation.email
+    except EmailNotValidError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+    # Validate password strength
+    if len(form_data.password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    if not any(c.isdigit() for c in form_data.password):
+        raise HTTPException(status_code=400, detail="Password must contain at least one number")
+    if not any(c.isalpha() for c in form_data.password):
+        raise HTTPException(status_code=400, detail="Password must contain at least one letter")
+    
+    cursor = conn.cursor()
+    
+    # Check if user already exists
+    if USE_POSTGRESQL and pg_pool:
+        cursor.execute("SELECT id FROM users WHERE email = %s", (email,))
+    else:
+        cursor.execute("SELECT id FROM users WHERE email = ?", (email,))
+    
+    if cursor.fetchone():
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    # Generate company key
+    company_key = form_data.company_key or f"{form_data.company_name.lower().replace(' ', '-')}-{secrets.token_hex(4)}"
+    
     # Get or create company
-    company = get_or_create_company(conn, request.company_key)
+    company = get_or_create_company(conn, company_key)
     
-    # Create user
-    user = create_user(conn, request.email, request.password, company['id'], request.role)
+    # Create user (but not verified)
+    user_id = str(uuid.uuid4())
+    password_hash = hash_password(form_data.password)
     
-    return {"message": "User created successfully", "user_id": user['id']}
+    if USE_POSTGRESQL and pg_pool:
+        cursor.execute("""
+            INSERT INTO users (id, company_id, email, password_hash, role, email_verified, active)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """, (user_id, company['id'], email, password_hash, form_data.role, False, True))
+    else:
+        cursor.execute("""
+            INSERT INTO users (id, company_id, email, hashed_password, role, email_verified, active)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (user_id, company['id'], email, password_hash, form_data.role, False, True))
+    
+    # Create verification token
+    token = secrets.token_urlsafe(32)
+    expires_at = datetime.utcnow() + timedelta(hours=24)
+    verification_id = str(uuid.uuid4())
+    
+    if USE_POSTGRESQL and pg_pool:
+        cursor.execute("""
+            INSERT INTO email_verifications (id, user_id, token, expires_at)
+            VALUES (%s, %s, %s, %s)
+        """, (verification_id, user_id, token, expires_at))
+    else:
+        cursor.execute("""
+            INSERT INTO email_verifications (id, user_id, token, expires_at)
+            VALUES (?, ?, ?, ?)
+        """, (verification_id, user_id, token, expires_at))
+    
+    conn.commit()
+    
+    # Send verification email
+    verification_url = f"https://homeverse-frontend.onrender.com/auth/verify?token={token}"
+    send_verification_email(email, form_data.full_name or email, verification_url)
+    
+    logger.info(f"New user registered: {email}")
+    
+    return {
+        "message": "Registration successful. Please check your email to verify your account.",
+        "user_id": user_id
+    }
 
 @app.post("/api/v1/auth/login", response_model=LoginResponse)
-async def login(request: LoginRequest, conn=Depends(get_db)):
+@limiter.limit("5/minute")
+async def login(request: Request, login_data: LoginRequest, conn=Depends(get_db)):
     """Login user"""
-    logger.info(f"Login attempt for: {request.email}")
+    logger.info(f"Login attempt for: {login_data.email}")
     
     try:
         # Debug: Check if we're using PostgreSQL
         logger.info(f"USE_POSTGRESQL: {USE_POSTGRESQL}")
         logger.info(f"pg_pool exists: {pg_pool is not None}")
         
-        user = verify_user_credentials(conn, request.email, request.password)
+        user = verify_user_credentials(conn, login_data.email, login_data.password)
         if not user:
-            logger.warning(f"Failed login attempt for email: {request.email}")
+            logger.warning(f"Failed login attempt for email: {login_data.email}")
             raise HTTPException(status_code=401, detail="Invalid credentials")
+        
+        # Check if email is verified
+        email_verified = user.get('email_verified', True)  # Default to True for existing users
+        if not email_verified:
+            raise HTTPException(status_code=403, detail="Please verify your email before logging in")
             
         logger.info(f"User authenticated successfully: {user.get('email')}")
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Login error for {request.email}: {str(e)}")
+        logger.error(f"Login error for {login_data.email}: {str(e)}")
         logger.error(f"Error type: {type(e).__name__}")
         import traceback
         logger.error(f"Traceback: {traceback.format_exc()}")
@@ -3013,6 +3295,252 @@ async def login(request: LoginRequest, conn=Depends(get_db)):
             "company_id": user['company_id']
         }
     )
+
+@app.get("/api/v1/auth/verify-email")
+async def verify_email(token: str, conn=Depends(get_db)):
+    """Verify email with token"""
+    cursor = conn.cursor()
+    
+    # Check token
+    if USE_POSTGRESQL and pg_pool:
+        cursor.execute("""
+            SELECT ev.user_id, ev.expires_at, u.email
+            FROM email_verifications ev
+            JOIN users u ON ev.user_id = u.id
+            WHERE ev.token = %s AND ev.verified_at IS NULL
+        """, (token,))
+    else:
+        cursor.execute("""
+            SELECT ev.user_id, ev.expires_at, u.email
+            FROM email_verifications ev
+            JOIN users u ON ev.user_id = u.id
+            WHERE ev.token = ? AND ev.verified_at IS NULL
+        """, (token,))
+    
+    result = cursor.fetchone()
+    if not result:
+        raise HTTPException(status_code=400, detail="Invalid or expired verification token")
+    
+    if USE_POSTGRESQL and pg_pool:
+        user_id, expires_at, email = result
+    else:
+        user_id = result['user_id']
+        expires_at = result['expires_at']
+        email = result['email']
+    
+    # Check expiration
+    if isinstance(expires_at, str):
+        expires_at = datetime.fromisoformat(expires_at)
+    
+    if expires_at < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="Verification token has expired")
+    
+    # Update verification status
+    if USE_POSTGRESQL and pg_pool:
+        cursor.execute("""
+            UPDATE email_verifications 
+            SET verified_at = CURRENT_TIMESTAMP 
+            WHERE token = %s
+        """, (token,))
+        
+        cursor.execute("""
+            UPDATE users 
+            SET email_verified = TRUE 
+            WHERE id = %s
+        """, (user_id,))
+    else:
+        cursor.execute("""
+            UPDATE email_verifications 
+            SET verified_at = CURRENT_TIMESTAMP 
+            WHERE token = ?
+        """, (token,))
+        
+        cursor.execute("""
+            UPDATE users 
+            SET email_verified = 1
+            WHERE id = ?
+        """, (user_id,))
+    
+    conn.commit()
+    
+    logger.info(f"Email verified for user: {email}")
+    
+    return {"message": "Email verified successfully. You can now log in."}
+
+@app.post("/api/v1/auth/resend-verification")
+@limiter.limit("3/hour")
+async def resend_verification(request: Request, email: EmailStr, conn=Depends(get_db)):
+    """Resend verification email"""
+    cursor = conn.cursor()
+    
+    # Get user
+    if USE_POSTGRESQL and pg_pool:
+        cursor.execute("""
+            SELECT id, email_verified 
+            FROM users 
+            WHERE email = %s
+        """, (email,))
+    else:
+        cursor.execute("""
+            SELECT id, email_verified 
+            FROM users 
+            WHERE email = ?
+        """, (email,))
+    
+    user = cursor.fetchone()
+    if not user:
+        # Don't reveal if email exists
+        return {"message": "If the email exists, a new verification link has been sent."}
+    
+    if USE_POSTGRESQL and pg_pool:
+        user_id, email_verified = user
+    else:
+        user_id = user['id']
+        email_verified = user['email_verified']
+    
+    if email_verified:
+        raise HTTPException(status_code=400, detail="Email already verified")
+    
+    # Create new verification token
+    token = secrets.token_urlsafe(32)
+    expires_at = datetime.utcnow() + timedelta(hours=24)
+    verification_id = str(uuid.uuid4())
+    
+    if USE_POSTGRESQL and pg_pool:
+        cursor.execute("""
+            INSERT INTO email_verifications (id, user_id, token, expires_at)
+            VALUES (%s, %s, %s, %s)
+        """, (verification_id, user_id, token, expires_at))
+    else:
+        cursor.execute("""
+            INSERT INTO email_verifications (id, user_id, token, expires_at)
+            VALUES (?, ?, ?, ?)
+        """, (verification_id, user_id, token, expires_at))
+    
+    conn.commit()
+    
+    # Send verification email
+    verification_url = f"https://homeverse-frontend.onrender.com/auth/verify?token={token}"
+    send_verification_email(email, email, verification_url)
+    
+    return {"message": "Verification email sent. Please check your inbox."}
+
+@app.post("/api/v1/auth/forgot-password")
+@limiter.limit("3/hour")
+async def forgot_password(request: Request, email: EmailStr, conn=Depends(get_db)):
+    """Request password reset"""
+    cursor = conn.cursor()
+    
+    # Check if user exists
+    if USE_POSTGRESQL and pg_pool:
+        cursor.execute("SELECT id, email FROM users WHERE email = %s", (email,))
+    else:
+        cursor.execute("SELECT id, email FROM users WHERE email = ?", (email,))
+    
+    user = cursor.fetchone()
+    
+    if user:
+        if USE_POSTGRESQL and pg_pool:
+            user_id = user[0]
+            user_email = user[1]
+        else:
+            user_id = user['id']
+            user_email = user['email']
+        
+        # Create reset token
+        token = secrets.token_urlsafe(32)
+        expires_at = datetime.utcnow() + timedelta(hours=1)
+        reset_id = str(uuid.uuid4())
+        
+        if USE_POSTGRESQL and pg_pool:
+            cursor.execute("""
+                INSERT INTO password_resets (id, user_id, token, expires_at)
+                VALUES (%s, %s, %s, %s)
+            """, (reset_id, user_id, token, expires_at))
+        else:
+            cursor.execute("""
+                INSERT INTO password_resets (id, user_id, token, expires_at)
+                VALUES (?, ?, ?, ?)
+            """, (reset_id, user_id, token, expires_at))
+        
+        conn.commit()
+        
+        # Send reset email
+        reset_url = f"https://homeverse-frontend.onrender.com/auth/reset-password?token={token}"
+        send_password_reset_email(user_email, user_email, reset_url)
+        
+        logger.info(f"Password reset requested for: {email}")
+    
+    # Always return success to prevent email enumeration
+    return {"message": "If the email exists, a password reset link has been sent."}
+
+@app.post("/api/v1/auth/reset-password")
+async def reset_password(token: str = Form(...), password: str = Form(...), conn=Depends(get_db)):
+    """Reset password with token"""
+    # Validate password strength
+    if len(password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    if not any(c.isdigit() for c in password):
+        raise HTTPException(status_code=400, detail="Password must contain at least one number")
+    
+    cursor = conn.cursor()
+    
+    # Validate token
+    if USE_POSTGRESQL and pg_pool:
+        cursor.execute("""
+            SELECT pr.user_id, pr.expires_at
+            FROM password_resets pr
+            WHERE pr.token = %s AND pr.used_at IS NULL
+        """, (token,))
+    else:
+        cursor.execute("""
+            SELECT pr.user_id, pr.expires_at
+            FROM password_resets pr
+            WHERE pr.token = ? AND pr.used_at IS NULL
+        """, (token,))
+    
+    result = cursor.fetchone()
+    if not result:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+    
+    if USE_POSTGRESQL and pg_pool:
+        user_id, expires_at = result
+    else:
+        user_id = result['user_id']
+        expires_at = result['expires_at']
+    
+    if isinstance(expires_at, str):
+        expires_at = datetime.fromisoformat(expires_at)
+    
+    if expires_at < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="Reset token has expired")
+    
+    # Update password
+    password_hash = hash_password(password)
+    
+    if USE_POSTGRESQL and pg_pool:
+        cursor.execute("""
+            UPDATE users SET password_hash = %s WHERE id = %s
+        """, (password_hash, user_id))
+        
+        # Mark token as used
+        cursor.execute("""
+            UPDATE password_resets SET used_at = CURRENT_TIMESTAMP WHERE token = %s
+        """, (token,))
+    else:
+        cursor.execute("""
+            UPDATE users SET hashed_password = ? WHERE id = ?
+        """, (password_hash, user_id))
+        
+        cursor.execute("""
+            UPDATE password_resets SET used_at = CURRENT_TIMESTAMP WHERE token = ?
+        """, (token,))
+    
+    conn.commit()
+    
+    logger.info(f"Password reset successfully for user: {user_id}")
+    
+    return {"message": "Password reset successfully. You can now log in with your new password."}
 
 @app.get("/api/v1/auth/me")
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), conn=Depends(get_db)):
@@ -6542,6 +7070,76 @@ def create_test_users_sqlite():
         conn.close()
 
 # Enhanced health check endpoint
+
+# Email sending functions
+def send_verification_email(email: str, full_name: str, verification_url: str):
+    """Send email verification"""
+    if not SENDGRID_API_KEY:
+        logger.warning("SendGrid not configured - skipping email verification")
+        return
+    
+    try:
+        import sendgrid
+        from sendgrid.helpers.mail import Mail, Email, To, Content
+        
+        sg = sendgrid.SendGridAPIClient(api_key=SENDGRID_API_KEY)
+        
+        from_email = Email("noreply@homeverse.com", "HomeVerse")
+        to_email = To(email)
+        subject = "Verify your HomeVerse account"
+        
+        html_content = f"""
+        <h2>Welcome to HomeVerse, {full_name}!</h2>
+        <p>Please verify your email address to complete your registration.</p>
+        <p><a href="{verification_url}" style="background-color: #14b8a6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Verify Email</a></p>
+        <p>Or copy this link: {verification_url}</p>
+        <p>This link will expire in 24 hours.</p>
+        <p>Best regards,<br>The HomeVerse Team</p>
+        """
+        
+        content = Content("text/html", html_content)
+        mail = Mail(from_email, to_email, subject, content)
+        
+        response = sg.client.mail.send.post(request_body=mail.get())
+        logger.info(f"Verification email sent to {email}")
+    except Exception as e:
+        logger.error(f"Failed to send verification email: {e}")
+
+def send_password_reset_email(email: str, full_name: str, reset_url: str):
+    """Send password reset email"""
+    if not SENDGRID_API_KEY:
+        logger.warning("SendGrid not configured - skipping password reset email")
+        return
+    
+    try:
+        import sendgrid
+        from sendgrid.helpers.mail import Mail, Email, To, Content
+        
+        sg = sendgrid.SendGridAPIClient(api_key=SENDGRID_API_KEY)
+        
+        from_email = Email("noreply@homeverse.com", "HomeVerse")
+        to_email = To(email)
+        subject = "Reset your HomeVerse password"
+        
+        html_content = f"""
+        <h2>Hi {full_name},</h2>
+        <p>We received a request to reset your password.</p>
+        <p><a href="{reset_url}" style="background-color: #14b8a6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Reset Password</a></p>
+        <p>Or copy this link: {reset_url}</p>
+        <p>This link will expire in 1 hour.</p>
+        <p>If you didn't request this, please ignore this email.</p>
+        <p>Best regards,<br>The HomeVerse Team</p>
+        """
+        
+        content = Content("text/html", html_content)
+        mail = Mail(from_email, to_email, subject, content)
+        
+        response = sg.client.mail.send.post(request_body=mail.get())
+        logger.info(f"Password reset email sent to {email}")
+    except Exception as e:
+        logger.error(f"Failed to send password reset email: {e}")
+
+
 @app.get("/health")
 async def health_check():
     """Enhanced health check endpoint"""
