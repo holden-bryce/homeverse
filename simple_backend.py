@@ -1210,12 +1210,19 @@ def create_access_token(data: dict) -> str:
 
 def get_db():
     """Get database connection"""
-    conn = sqlite3.connect(DATABASE_PATH, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    try:
-        yield conn
-    finally:
-        conn.close()
+    if USE_POSTGRESQL and pg_pool:
+        conn = pg_pool.getconn()
+        try:
+            yield conn
+        finally:
+            pg_pool.putconn(conn)
+    else:
+        conn = sqlite3.connect(DATABASE_PATH, check_same_thread=False)
+        conn.row_factory = sqlite3.Row
+        try:
+            yield conn
+        finally:
+            conn.close()
 
 # File upload utility functions
 def validate_file_extension(filename: str, file_category: str = 'documents') -> bool:
@@ -1754,39 +1761,72 @@ def get_or_create_company(conn, company_key: str):
     cursor = conn.cursor()
     
     # Try to get existing company
-    cursor.execute("SELECT * FROM companies WHERE key = ?", (company_key,))
-    company = cursor.fetchone()
+    if USE_POSTGRESQL and pg_pool:
+        cursor.execute("SELECT * FROM companies WHERE key = %s", (company_key,))
+        company = cursor.fetchone()
+        if company:
+            columns = [desc[0] for desc in cursor.description]
+            company = dict(zip(columns, company))
+    else:
+        cursor.execute("SELECT * FROM companies WHERE key = ?", (company_key,))
+        company = cursor.fetchone()
+        if company:
+            company = dict(company)
     
     if not company:
         # Create new company
         company_id = str(uuid.uuid4())
-        cursor.execute("""
-            INSERT INTO companies (id, key, name, plan, seats) 
-            VALUES (?, ?, ?, ?, ?)
-        """, (company_id, company_key, f"Company {company_key}", "basic", 10))
+        if USE_POSTGRESQL and pg_pool:
+            cursor.execute("""
+                INSERT INTO companies (id, key, name, plan, seats) 
+                VALUES (%s, %s, %s, %s, %s)
+            """, (company_id, company_key, f"Company {company_key}", "basic", 10))
+        else:
+            cursor.execute("""
+                INSERT INTO companies (id, key, name, plan, seats) 
+                VALUES (?, ?, ?, ?, ?)
+            """, (company_id, company_key, f"Company {company_key}", "basic", 10))
         conn.commit()
         
-        cursor.execute("SELECT * FROM companies WHERE id = ?", (company_id,))
-        company = cursor.fetchone()
+        # Fetch the created company
+        if USE_POSTGRESQL and pg_pool:
+            cursor.execute("SELECT * FROM companies WHERE id = %s", (company_id,))
+            company = cursor.fetchone()
+            columns = [desc[0] for desc in cursor.description]
+            company = dict(zip(columns, company))
+        else:
+            cursor.execute("SELECT * FROM companies WHERE id = ?", (company_id,))
+            company = cursor.fetchone()
+            company = dict(company)
     
-    return dict(company)
+    return company
 
 def create_user(conn, email: str, password: str, company_id: str, role: str = "user"):
     """Create new user"""
     cursor = conn.cursor()
     
     # Check if user exists
-    cursor.execute("SELECT id FROM users WHERE email = ?", (email,))
+    if USE_POSTGRESQL and pg_pool:
+        cursor.execute("SELECT id FROM users WHERE email = %s", (email,))
+    else:
+        cursor.execute("SELECT id FROM users WHERE email = ?", (email,))
+    
     if cursor.fetchone():
         raise ValidationError("User with this email already exists", field="email")
     
     user_id = str(uuid.uuid4())
     hashed_pw = hash_password(password)
     
-    cursor.execute("""
-        INSERT INTO users (id, company_id, email, hashed_password, role)
-        VALUES (?, ?, ?, ?, ?)
-    """, (user_id, company_id, email, hashed_pw, role))
+    if USE_POSTGRESQL and pg_pool:
+        cursor.execute("""
+            INSERT INTO users (id, company_id, email, password_hash, role)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (user_id, company_id, email, hashed_pw, role))
+    else:
+        cursor.execute("""
+            INSERT INTO users (id, company_id, email, hashed_password, role)
+            VALUES (?, ?, ?, ?, ?)
+        """, (user_id, company_id, email, hashed_pw, role))
     
     conn.commit()
     return {"id": user_id, "email": email, "role": role, "company_id": company_id}
@@ -1794,15 +1834,32 @@ def create_user(conn, email: str, password: str, company_id: str, role: str = "u
 def get_user_by_email(conn, email: str):
     """Get user by email"""
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
-    user = cursor.fetchone()
-    return dict(user) if user else None
+    
+    if USE_POSTGRESQL and pg_pool:
+        cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
+        user = cursor.fetchone()
+        if user:
+            # Convert to dict for PostgreSQL
+            columns = [desc[0] for desc in cursor.description]
+            return dict(zip(columns, user))
+    else:
+        cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
+        user = cursor.fetchone()
+        return dict(user) if user else None
+    
+    return None
 
 def verify_user_credentials(conn, email: str, password: str):
     """Verify user login credentials"""
     user = get_user_by_email(conn, email)
     if not user:
         return None
+    
+    # Handle both column names for compatibility
+    password_hash = user.get('hashed_password') or user.get('password_hash')
+    if password_hash and verify_password(password, password_hash):
+        return user
+    return None
     
     if verify_password(password, user['hashed_password']):
         return user
