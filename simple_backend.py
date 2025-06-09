@@ -9,7 +9,7 @@ import hashlib
 import json
 import uuid
 
-from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, Form, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, Form, WebSocket, WebSocketDisconnect, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import FileResponse, JSONResponse
@@ -2713,6 +2713,147 @@ async def init_database_temp(secret: str = None):
             
     except Exception as e:
         logger.error(f"Database initialization error: {e}")
+        raise HTTPException(status_code=500, detail=f"Initialization failed: {str(e)}")
+
+@app.post("/api/init-db-simple")
+async def init_database_simple(data: dict = Body(...)):
+    """Simple database initialization endpoint"""
+    # Simple security check
+    if data.get("secret") != "homeverse-2024":
+        raise HTTPException(status_code=403, detail="Invalid secret")
+    
+    try:
+        if USE_POSTGRESQL:
+            import psycopg2
+            conn = psycopg2.connect(DATABASE_URL)
+            cursor = conn.cursor()
+            
+            # Check if tables exist
+            cursor.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_name = 'users'
+                )
+            """)
+            users_exists = cursor.fetchone()[0]
+            
+            if not users_exists:
+                # Create minimal schema
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS companies (
+                        id TEXT PRIMARY KEY,
+                        key TEXT UNIQUE NOT NULL,
+                        name TEXT NOT NULL
+                    )
+                """)
+                
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS users (
+                        id TEXT PRIMARY KEY,
+                        company_id TEXT,
+                        email TEXT UNIQUE NOT NULL,
+                        password_hash TEXT NOT NULL,
+                        role TEXT DEFAULT 'user'
+                    )
+                """)
+                
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS applicants (
+                        id TEXT PRIMARY KEY,
+                        company_id TEXT,
+                        full_name TEXT NOT NULL,
+                        email TEXT,
+                        phone TEXT,
+                        income NUMERIC,
+                        household_size INTEGER,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS projects (
+                        id TEXT PRIMARY KEY,
+                        company_id TEXT,
+                        name TEXT NOT NULL,
+                        description TEXT,
+                        total_units INTEGER,
+                        available_units INTEGER,
+                        ami_percentage INTEGER,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS activities (
+                        id TEXT PRIMARY KEY,
+                        company_id TEXT,
+                        user_id TEXT,
+                        action TEXT NOT NULL,
+                        resource_type TEXT,
+                        resource_id TEXT,
+                        details TEXT DEFAULT '{}',
+                        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS contact_submissions (
+                        id TEXT PRIMARY KEY,
+                        name TEXT NOT NULL,
+                        email TEXT NOT NULL,
+                        subject TEXT NOT NULL,
+                        message TEXT NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+            
+            # Insert test company
+            company_id = str(uuid.uuid4())
+            cursor.execute("""
+                INSERT INTO companies (id, key, name) 
+                VALUES (%s, 'demo-company-2024', 'Demo Company')
+                ON CONFLICT (key) DO UPDATE SET id = EXCLUDED.id
+                RETURNING id
+            """, (company_id,))
+            company_id = cursor.fetchone()[0]
+            
+            # Insert test users
+            users_created = 0
+            for user_data in data.get("users", []):
+                user_id = str(uuid.uuid4())
+                email = user_data["email"]
+                password = user_data["password"]
+                role = user_data["role"]
+                
+                # Hash password
+                password_hash = hashlib.sha256(password.encode()).hexdigest()
+                
+                cursor.execute("""
+                    INSERT INTO users (id, email, password_hash, role, company_id)
+                    VALUES (%s, %s, %s, %s, %s)
+                    ON CONFLICT (email) DO UPDATE 
+                    SET password_hash = EXCLUDED.password_hash,
+                        role = EXCLUDED.role
+                """, (user_id, email, password_hash, role, company_id))
+                users_created += 1
+            
+            conn.commit()
+            cursor.close()
+            conn.close()
+            
+            return {
+                "message": "Database initialized successfully",
+                "company_id": company_id,
+                "users_created": users_created
+            }
+        else:
+            return {
+                "message": "SQLite database already initialized",
+                "note": "Using SQLite with existing test data"
+            }
+            
+    except Exception as e:
+        logger.error(f"Simple init error: {e}")
         raise HTTPException(status_code=500, detail=f"Initialization failed: {str(e)}")
 
 @app.options("/api/v1/{path:path}")
