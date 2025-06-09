@@ -103,13 +103,25 @@ USE_POSTGRESQL = bool(DATABASE_URL and DATABASE_URL.startswith("postgresql"))
 
 if USE_POSTGRESQL:
     try:
-        import asyncpg
-        import asyncio
+        import psycopg2
+        from psycopg2 import pool
         logger.info("🐘 PostgreSQL mode enabled")
+        # Create connection pool
+        pg_pool = psycopg2.pool.SimpleConnectionPool(
+            1, 20,  # min and max connections
+            DATABASE_URL
+        )
+        logger.info("✅ PostgreSQL connection pool created")
     except ImportError:
-        logger.warning("PostgreSQL dependencies not found, falling back to SQLite")
+        logger.error("❌ psycopg2 not installed - falling back to SQLite")
+        pg_pool = None
+        USE_POSTGRESQL = False
+    except Exception as e:
+        logger.error(f"❌ Failed to create PostgreSQL pool: {e}")
+        pg_pool = None
         USE_POSTGRESQL = False
 else:
+    pg_pool = None
     logger.info("🗃️ SQLite mode enabled")
 
 app = FastAPI(
