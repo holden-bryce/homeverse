@@ -1,0 +1,30 @@
+cat >> init_db_now.py << 'SCRIPT'
+
+    # Create companies table
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS companies (
+        id TEXT PRIMARY KEY,
+        key TEXT UNIQUE NOT NULL,
+        name TEXT NOT NULL,
+        plan TEXT DEFAULT 'trial',
+        seats INTEGER DEFAULT 5,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    ''')
+    print("✅ Companies table created")
+
+    # Create users table
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        company_id TEXT,
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        role TEXT DEFAULT 'user',
+        active BOOLEAN DEFAULT true,
+        email_verified BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    ''')
+    print("✅ Users table created")
+SCRIPT

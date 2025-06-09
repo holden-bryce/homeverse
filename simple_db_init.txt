@@ -1,0 +1,69 @@
+# Simple Database Init - Copy and paste this into Render Shell
+
+python3 << 'EOF'
+import psycopg2
+import os
+import hashlib
+import uuid
+
+# Connect
+conn = psycopg2.connect(os.getenv('DATABASE_URL'))
+cursor = conn.cursor()
+print("Connected to PostgreSQL")
+
+# Create tables
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS companies (
+    id TEXT PRIMARY KEY,
+    key TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL
+)
+''')
+
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    company_id TEXT,
+    email TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    role TEXT DEFAULT 'user'
+)
+''')
+
+print("Tables created")
+
+# Insert company
+company_id = str(uuid.uuid4())
+cursor.execute('''
+INSERT INTO companies (id, key, name) 
+VALUES (%s, %s, %s)
+ON CONFLICT (key) DO UPDATE SET name = EXCLUDED.name
+RETURNING id
+''', (company_id, 'demo-company-2024', 'Demo Company'))
+company_id = cursor.fetchone()[0]
+
+# Insert users
+password = hashlib.sha256('password123'.encode()).hexdigest()
+users = [
+    ('developer@test.com', 'developer'),
+    ('lender@test.com', 'lender'),
+    ('buyer@test.com', 'buyer'),
+    ('applicant@test.com', 'applicant'),
+    ('admin@test.com', 'admin')
+]
+
+for email, role in users:
+    user_id = str(uuid.uuid4())
+    cursor.execute('''
+    INSERT INTO users (id, company_id, email, password_hash, role)
+    VALUES (%s, %s, %s, %s, %s)
+    ON CONFLICT (email) DO UPDATE 
+    SET password_hash = %s, role = %s
+    ''', (user_id, company_id, email, password, role, password, role))
+    print(f"Created: {email}")
+
+conn.commit()
+print("\nSuccess! Login with developer@test.com / password123")
+cursor.close()
+conn.close()
+EOF

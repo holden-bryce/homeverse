@@ -1,0 +1,40 @@
+cat >> init_db_now.py << 'SCRIPT'
+
+    for email, role in users:
+        user_id = str(uuid.uuid4())
+        cursor.execute('''
+        INSERT INTO users (id, email, password_hash, role, company_id, email_verified)
+        VALUES (%s, %s, %s, %s, %s, %s)
+        ON CONFLICT (email) DO UPDATE 
+        SET password_hash = EXCLUDED.password_hash,
+            role = EXCLUDED.role,
+            company_id = EXCLUDED.company_id
+        ''', (user_id, email, password_hash, role, company_id, True))
+        print(f"✅ Created user: {email} ({role})")
+
+    # Commit all changes
+    conn.commit()
+    print("\n🎉 Database initialization complete!")
+
+    # Test login
+    cursor.execute('SELECT email, role FROM users WHERE email = %s', ('developer@test.com',))
+    test_user = cursor.fetchone()
+    if test_user:
+        print(f"✅ Test user found: {test_user[0]} ({test_user[1]})")
+    else:
+        print("❌ Test user not found")
+
+    cursor.close()
+    conn.close()
+    
+    print("\n" + "="*50)
+    print("🚀 Ready to test login!")
+    print("="*50)
+    print("Go to: https://homeverse-frontend.onrender.com/auth/login")
+    print("Use: developer@test.com / password123")
+
+except Exception as e:
+    print(f"\n❌ Error: {e}")
+    import traceback
+    traceback.print_exc()
+SCRIPT

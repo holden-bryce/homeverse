@@ -1,0 +1,180 @@
+
+
+cat > init_db_now.py << 'SCRIPT'
+import psycopg2
+import os
+import hashlib
+import uuid
+
+print("🔧 Initializing PostgreSQL database...")
+
+try:
+    # Connect to database
+    conn = psycopg2.connect(os.getenv('DATABASE_URL'))
+    cursor = conn.cursor()
+    print("✅ Connected to PostgreSQL")
+
+    # Create companies table
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS companies (
+        id TEXT PRIMARY KEY,
+        key TEXT UNIQUE NOT NULL,
+        name TEXT NOT NULL,
+        plan TEXT DEFAULT 'trial',
+        seats INTEGER DEFAULT 5,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    ''')
+    print("✅ Companies table created")
+
+    # Create users table
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        company_id TEXT,
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        role TEXT DEFAULT 'user',
+        active BOOLEAN DEFAULT true,
+        email_verified BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    ''')
+    print("✅ Users table created")
+
+    # Create other required tables
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS applicants (
+        id TEXT PRIMARY KEY,
+        company_id TEXT,
+        full_name TEXT NOT NULL,
+        email TEXT,
+        phone TEXT,
+        income NUMERIC,
+        household_size INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    ''')
+
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS projects (
+        id TEXT PRIMARY KEY,
+        company_id TEXT,
+        name TEXT NOT NULL,
+        description TEXT,
+        total_units INTEGER,
+        available_units INTEGER,
+        ami_percentage INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    ''')
+
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS activities (
+        id TEXT PRIMARY KEY,
+        company_id TEXT,
+        user_id TEXT,
+        action TEXT NOT NULL,
+        resource_type TEXT,
+        resource_id TEXT,
+        details TEXT DEFAULT '{}',
+        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    ''')
+
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS contact_submissions (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        email TEXT NOT NULL,
+        subject TEXT NOT NULL,
+        message TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    ''')
+
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS email_verifications (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        token TEXT UNIQUE NOT NULL,
+        expires_at TIMESTAMP NOT NULL,
+        verified_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    ''')
+
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS password_resets (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        token TEXT UNIQUE NOT NULL,
+        expires_at TIMESTAMP NOT NULL,
+        used_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    ''')
+
+    print("✅ All tables created")
+
+    # Create test company
+    company_id = str(uuid.uuid4())
+    cursor.execute('''
+    INSERT INTO companies (id, key, name) 
+    VALUES (%s, 'demo-company-2024', 'Demo Company')
+    ON CONFLICT (key) DO UPDATE SET id = EXCLUDED.id
+    RETURNING id
+    ''', (company_id,))
+    company_id = cursor.fetchone()[0]
+    print(f"✅ Test company created: {company_id}")
+
+    # Create test users
+    password_hash = hashlib.sha256('password123'.encode()).hexdigest()
+    users = [
+        ('developer@test.com', 'developer'),
+        ('lender@test.com', 'lender'),
+        ('buyer@test.com', 'buyer'),
+        ('applicant@test.com', 'applicant'),
+        ('admin@test.com', 'admin')
+    ]
+
+    for email, role in users:
+        user_id = str(uuid.uuid4())
+        cursor.execute('''
+        INSERT INTO users (id, email, password_hash, role, company_id, email_verified)
+        VALUES (%s, %s, %s, %s, %s, %s)
+        ON CONFLICT (email) DO UPDATE 
+        SET password_hash = EXCLUDED.password_hash,
+            role = EXCLUDED.role,
+            company_id = EXCLUDED.company_id
+        ''', (user_id, email, password_hash, role, company_id, True))
+        print(f"✅ Created user: {email} ({role})")
+
+    # Commit all changes
+    conn.commit()
+    print("\n🎉 Database initialization complete!")
+
+    # Test login
+    cursor.execute('SELECT email, role FROM users WHERE email = %s', ('developer@test.com',))
+    test_user = cursor.fetchone()
+    if test_user:
+        print(f"✅ Test user found: {test_user[0]} ({test_user[1]})")
+    else:
+        print("❌ Test user not found")
+
+    cursor.close()
+    conn.close()
+    
+    print("\n" + "="*50)
+    print("🚀 Ready to test login!")
+    print("="*50)
+    print("Go to: https://homeverse-frontend.onrender.com/auth/login")
+    print("Use: developer@test.com / password123")
+
+except Exception as e:
+    print(f"\n❌ Error: {e}")
+    import traceback
+    traceback.print_exc()
+SCRIPT
+
+python init_db_now.py

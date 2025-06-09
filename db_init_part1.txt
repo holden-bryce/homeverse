@@ -1,0 +1,14 @@
+cat > init_db_now.py << 'SCRIPT'
+import psycopg2
+import os
+import hashlib
+import uuid
+
+print("🔧 Initializing PostgreSQL database...")
+
+try:
+    # Connect to database
+    conn = psycopg2.connect(os.getenv('DATABASE_URL'))
+    cursor = conn.cursor()
+    print("✅ Connected to PostgreSQL")
+SCRIPT

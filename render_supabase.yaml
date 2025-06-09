@@ -6,16 +6,14 @@ services:
     startCommand: "python supabase_backend.py"
     envVars:
       - key: SUPABASE_URL
-        sync: false
+        sync: false  # Add as environment variable in Render dashboard
       - key: SUPABASE_SERVICE_KEY
-        sync: false
+        sync: false  # Add as secret in Render dashboard
       - key: SUPABASE_ANON_KEY
-        sync: false
+        sync: false  # Add as environment variable in Render dashboard
       - key: CORS_ORIGINS
         value: "*"
       - key: SENDGRID_API_KEY
         sync: false
-      - key: OPENAI_API_KEY
-        sync: false
 
-# No database needed - using Supabase!
+# No database needed - Supabase handles it!

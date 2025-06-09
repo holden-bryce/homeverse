@@ -1,0 +1,23 @@
+cat >> init_db_now.py << 'SCRIPT'
+
+    # Create test company
+    company_id = str(uuid.uuid4())
+    cursor.execute('''
+    INSERT INTO companies (id, key, name) 
+    VALUES (%s, 'demo-company-2024', 'Demo Company')
+    ON CONFLICT (key) DO UPDATE SET id = EXCLUDED.id
+    RETURNING id
+    ''', (company_id,))
+    company_id = cursor.fetchone()[0]
+    print(f"✅ Test company created: {company_id}")
+
+    # Create test users
+    password_hash = hashlib.sha256('password123'.encode()).hexdigest()
+    users = [
+        ('developer@test.com', 'developer'),
+        ('lender@test.com', 'lender'),
+        ('buyer@test.com', 'buyer'),
+        ('applicant@test.com', 'applicant'),
+        ('admin@test.com', 'admin')
+    ]
+SCRIPT
