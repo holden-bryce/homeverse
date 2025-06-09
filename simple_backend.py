@@ -113,6 +113,16 @@ app = FastAPI(
 )
 security = HTTPBearer()
 
+# Configure CORS
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*").split(",")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # WebSocket Connection Manager
 class ConnectionManager:
     def __init__(self):
