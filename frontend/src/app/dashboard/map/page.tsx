@@ -423,7 +423,7 @@ export default function MapViewPage() {
                   <div>
                     <div className="text-sm text-gray-500 mb-2">AMI Ranges</div>
                     <div className="flex flex-wrap gap-1">
-                      {selectedProjectData.ami_ranges.map((ami) => (
+                      {selectedProjectData.ami_ranges.map((ami: string) => (
                         <Badge key={ami} className="bg-sage-100 text-sage-800 border border-sage-200 rounded-full text-xs">
                           {ami} AMI
                         </Badge>
@@ -434,7 +434,7 @@ export default function MapViewPage() {
                   <div>
                     <div className="text-sm text-gray-500 mb-2">Unit Types</div>
                     <div className="flex flex-wrap gap-1">
-                      {selectedProjectData.unit_types.map((type) => (
+                      {selectedProjectData.unit_types.map((type: string) => (
                         <Badge key={type} className="bg-cream-100 text-cream-800 border border-cream-200 rounded-full text-xs">
                           {type}
                         </Badge>
