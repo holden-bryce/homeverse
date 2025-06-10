@@ -22,7 +22,7 @@ import {
   Loader2,
   Trash2
 } from 'lucide-react'
-import { useDeleteProject } from '@/lib/api/hooks'
+import { useDeleteProject } from '@/lib/supabase/hooks'
 import { useConfirmationModal } from '@/components/ui/confirmation-modal'
 
 interface ProjectDetailProps {
