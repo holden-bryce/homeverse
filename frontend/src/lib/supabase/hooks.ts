@@ -59,6 +59,16 @@ export const useCreateApplicant = () => {
       }
       
       console.log('Creating applicant with transformed data:', transformedData)
+      console.log('User profile:', profile)
+      console.log('Company ID being used:', profile?.company_id)
+      
+      // First, let's check if the table exists by doing a simple select
+      const { data: testData, error: testError } = await supabase
+        .from('applicants')
+        .select('count')
+        .limit(1)
+      
+      console.log('Table existence check:', { testData, testError })
       
       const { data, error } = await supabase
         .from('applicants')
@@ -66,9 +76,16 @@ export const useCreateApplicant = () => {
         .select()
         .single()
       
+      console.log('Insert result:', { data, error })
+      
       if (error) {
-        console.error('Supabase insert error:', error)
-        throw error
+        console.error('Supabase insert error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        })
+        throw new Error(`Failed to create applicant: ${error.message}`)
       }
       return data
     },
@@ -172,6 +189,16 @@ export const useCreateProject = () => {
       }
       
       console.log('Creating project with transformed data:', transformedData)
+      console.log('User profile:', profile)
+      console.log('Company ID being used:', profile?.company_id)
+      
+      // First, let's check if the table exists by doing a simple select
+      const { data: testData, error: testError } = await supabase
+        .from('projects')
+        .select('count')
+        .limit(1)
+      
+      console.log('Projects table existence check:', { testData, testError })
       
       const { data, error } = await supabase
         .from('projects')
@@ -179,9 +206,16 @@ export const useCreateProject = () => {
         .select()
         .single()
       
+      console.log('Project insert result:', { data, error })
+      
       if (error) {
-        console.error('Supabase insert error:', error)
-        throw error
+        console.error('Supabase project insert error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        })
+        throw new Error(`Failed to create project: ${error.message}`)
       }
       return data
     },
