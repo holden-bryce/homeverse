@@ -37,13 +37,67 @@ export const useApplicant = (id: string) => {
 
 export const useCreateApplicant = () => {
   const queryClient = useQueryClient()
-  const { profile } = useAuth()
+  const { profile, user } = useAuth()
   
   return useMutation({
     mutationFn: async (applicantData: any) => {
+      // Ensure we have a company_id - get or create default company
+      let companyId = profile?.company_id
+      
+      if (!companyId) {
+        console.log('No company_id in profile, ensuring default company exists...')
+        
+        // First, try to get or create the default company
+        const { data: companies, error: companyError } = await supabase
+          .from('companies')
+          .select('id')
+          .eq('key', 'demo-company-2024')
+          .single()
+        
+        if (companyError || !companies) {
+          console.log('Creating default company...')
+          const { data: newCompany, error: createError } = await supabase
+            .from('companies')
+            .insert({
+              name: 'Demo Company',
+              key: 'demo-company-2024',
+              plan: 'trial',
+              seats: 100
+            })
+            .select()
+            .single()
+          
+          if (createError) {
+            console.error('Error creating company:', createError)
+            throw new Error('Failed to create default company')
+          }
+          companyId = newCompany.id
+        } else {
+          companyId = companies.id
+        }
+        
+        // If user exists but no profile, create the profile
+        if (user && !profile) {
+          console.log('Creating user profile...')
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .insert({
+              id: user.id,
+              company_id: companyId,
+              role: user.user_metadata?.role || 'developer',
+              full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
+            })
+          
+          if (profileError) {
+            console.error('Error creating profile:', profileError)
+            // Continue anyway, we have the company_id
+          }
+        }
+      }
+      
       // Transform form data to match Supabase schema
       const transformedData = {
-        company_id: profile?.company_id || 'default-company',
+        company_id: companyId,
         full_name: `${applicantData.first_name || ''} ${applicantData.last_name || ''}`.trim(),
         email: applicantData.email,
         phone: applicantData.phone,
@@ -170,13 +224,67 @@ export const useProject = (id: string) => {
 
 export const useCreateProject = () => {
   const queryClient = useQueryClient()
-  const { profile } = useAuth()
+  const { profile, user } = useAuth()
   
   return useMutation({
     mutationFn: async (projectData: any) => {
+      // Ensure we have a company_id - get or create default company
+      let companyId = profile?.company_id
+      
+      if (!companyId) {
+        console.log('No company_id in profile, ensuring default company exists...')
+        
+        // First, try to get or create the default company
+        const { data: companies, error: companyError } = await supabase
+          .from('companies')
+          .select('id')
+          .eq('key', 'demo-company-2024')
+          .single()
+        
+        if (companyError || !companies) {
+          console.log('Creating default company...')
+          const { data: newCompany, error: createError } = await supabase
+            .from('companies')
+            .insert({
+              name: 'Demo Company',
+              key: 'demo-company-2024',
+              plan: 'trial',
+              seats: 100
+            })
+            .select()
+            .single()
+          
+          if (createError) {
+            console.error('Error creating company:', createError)
+            throw new Error('Failed to create default company')
+          }
+          companyId = newCompany.id
+        } else {
+          companyId = companies.id
+        }
+        
+        // If user exists but no profile, create the profile
+        if (user && !profile) {
+          console.log('Creating user profile...')
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .insert({
+              id: user.id,
+              company_id: companyId,
+              role: user.user_metadata?.role || 'developer',
+              full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
+            })
+          
+          if (profileError) {
+            console.error('Error creating profile:', profileError)
+            // Continue anyway, we have the company_id
+          }
+        }
+      }
+      
       // Transform form data to match Supabase schema
       const transformedData = {
-        company_id: profile?.company_id || 'default-company',
+        company_id: companyId,
         name: projectData.name,
         description: projectData.description,
         location: projectData.location || projectData.address,
