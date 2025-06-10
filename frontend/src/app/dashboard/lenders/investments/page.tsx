@@ -134,7 +134,7 @@ export default function InvestmentsPage() {
   // TODO: Replace with actual data hooks
   const investments = mockInvestments
   const investmentsLoading = false
-  const portfolioStats = null
+  const portfolioStats: any = null // Type as any to avoid TypeScript errors until real data is implemented
   const statsLoading = false
   const performanceData = mockPerformanceData
   const performanceLoading = false
