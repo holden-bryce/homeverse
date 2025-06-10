@@ -37,16 +37,28 @@ export const useApplicant = (id: string) => {
 
 export const useCreateApplicant = () => {
   const queryClient = useQueryClient()
+  const { profile } = useAuth()
   
   return useMutation({
     mutationFn: async (applicantData: any) => {
+      // Add company_id from current user profile
+      const dataWithCompany = {
+        ...applicantData,
+        company_id: profile?.company_id || 'default-company'
+      }
+      
+      console.log('Creating applicant with data:', dataWithCompany)
+      
       const { data, error } = await supabase
         .from('applicants')
-        .insert(applicantData)
+        .insert(dataWithCompany)
         .select()
         .single()
       
-      if (error) throw error
+      if (error) {
+        console.error('Supabase insert error:', error)
+        throw error
+      }
       return data
     },
     onSuccess: () => {
@@ -130,16 +142,28 @@ export const useProject = (id: string) => {
 
 export const useCreateProject = () => {
   const queryClient = useQueryClient()
+  const { profile } = useAuth()
   
   return useMutation({
     mutationFn: async (projectData: any) => {
+      // Add company_id from current user profile
+      const dataWithCompany = {
+        ...projectData,
+        company_id: profile?.company_id || 'default-company'
+      }
+      
+      console.log('Creating project with data:', dataWithCompany)
+      
       const { data, error } = await supabase
         .from('projects')
-        .insert(projectData)
+        .insert(dataWithCompany)
         .select()
         .single()
       
-      if (error) throw error
+      if (error) {
+        console.error('Supabase insert error:', error)
+        throw error
+      }
       return data
     },
     onSuccess: () => {
