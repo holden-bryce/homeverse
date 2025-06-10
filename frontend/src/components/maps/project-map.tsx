@@ -65,10 +65,10 @@ export function ProjectMap({
   useEffect(() => {
     if (map.current || !mapContainer.current) return
 
-    // Check if we have a valid Mapbox token - temporarily disable Mapbox due to network issues
-    if (MAPBOX_TOKEN === 'pk.placeholder' || !MAPBOX_TOKEN || MAPBOX_TOKEN.length < 10 || true) {
+    // Check if we have a valid Mapbox token
+    if (MAPBOX_TOKEN === 'pk.placeholder' || !MAPBOX_TOKEN || MAPBOX_TOKEN.length < 10) {
       // Show fallback map
-      console.log('Using fallback map due to Mapbox network issues')
+      console.log('No valid Mapbox token found, using fallback map')
       mapContainer.current.innerHTML = `
         <div style="
           width: 100%; 
