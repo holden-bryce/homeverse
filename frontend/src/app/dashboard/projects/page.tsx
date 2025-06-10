@@ -25,7 +25,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from '@/components/ui/toast'
-import { useProjects, useUpdateProject } from '@/lib/supabase/hooks'
+import { useProjects, useUpdateProject, useDeleteProject } from '@/lib/supabase/hooks'
 import { useConfirmationModal } from '@/components/ui/confirmation-modal'
 
 // Type for projects that handles both old and new field names
@@ -82,9 +82,8 @@ export default function ProjectsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [developerFilter, setDeveloperFilter] = useState('all')
-  const [projects, setProjects] = useState<Project[]>([])
-  const [isLoading, setIsLoading] = useState(true)
   
+  const { data: projects = [], isLoading, refetch: fetchProjects } = useProjects()
   const deleteProject = useDeleteProject()
   const { confirm, ConfirmationModal } = useConfirmationModal()
 
@@ -116,47 +115,7 @@ export default function ProjectsPage() {
     })
   }
 
-  useEffect(() => {
-    fetchProjects()
-  }, [])
-
-  const fetchProjects = async () => {
-    try {
-      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0]
-      
-      if (!token) {
-        toast({
-          variant: 'destructive',
-          title: 'Authentication Error',
-          description: 'Please log in again to continue.',
-        })
-        router.push('/auth/login')
-        return
-      }
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/projects`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch projects')
-      }
-
-      const data = await response.json()
-      setProjects(data)
-    } catch (error) {
-      console.error('Error fetching projects:', error)
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to load projects.',
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  // Data fetching is now handled by useProjects hook
 
   const filteredProjects = projects.filter(project => {
     const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||

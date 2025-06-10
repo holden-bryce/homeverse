@@ -170,6 +170,24 @@ export const useUpdateProject = () => {
   })
 }
 
+export const useDeleteProject = () => {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('projects')
+        .delete()
+        .eq('id', id)
+      
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
+    }
+  })
+}
+
 // User profile hooks
 export const useCurrentUser = () => {
   const { user } = useAuth()
