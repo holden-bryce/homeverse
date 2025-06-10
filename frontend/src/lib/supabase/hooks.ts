@@ -41,17 +41,28 @@ export const useCreateApplicant = () => {
   
   return useMutation({
     mutationFn: async (applicantData: any) => {
-      // Add company_id from current user profile
-      const dataWithCompany = {
-        ...applicantData,
-        company_id: profile?.company_id || 'default-company'
+      // Transform form data to match Supabase schema
+      const transformedData = {
+        company_id: profile?.company_id || 'default-company',
+        full_name: `${applicantData.first_name || ''} ${applicantData.last_name || ''}`.trim(),
+        email: applicantData.email,
+        phone: applicantData.phone,
+        income: applicantData.income,
+        household_size: applicantData.household_size,
+        preferences: {
+          ami_percent: applicantData.ami_percent,
+          location_preference: applicantData.location_preference,
+          coordinates: applicantData.latitude && applicantData.longitude ? 
+            [applicantData.latitude, applicantData.longitude] : null
+        },
+        status: 'active'
       }
       
-      console.log('Creating applicant with data:', dataWithCompany)
+      console.log('Creating applicant with transformed data:', transformedData)
       
       const { data, error } = await supabase
         .from('applicants')
-        .insert(dataWithCompany)
+        .insert(transformedData)
         .select()
         .single()
       
@@ -146,17 +157,25 @@ export const useCreateProject = () => {
   
   return useMutation({
     mutationFn: async (projectData: any) => {
-      // Add company_id from current user profile
-      const dataWithCompany = {
-        ...projectData,
-        company_id: profile?.company_id || 'default-company'
+      // Transform form data to match Supabase schema
+      const transformedData = {
+        company_id: profile?.company_id || 'default-company',
+        name: projectData.name,
+        description: projectData.description,
+        location: projectData.location || projectData.address,
+        total_units: projectData.total_units,
+        available_units: projectData.affordable_units || projectData.total_units,
+        ami_percentage: projectData.ami_levels ? parseInt(projectData.ami_levels) : null,
+        amenities: [],
+        images: [],
+        status: 'active'
       }
       
-      console.log('Creating project with data:', dataWithCompany)
+      console.log('Creating project with transformed data:', transformedData)
       
       const { data, error } = await supabase
         .from('projects')
-        .insert(dataWithCompany)
+        .insert(transformedData)
         .select()
         .single()
       
