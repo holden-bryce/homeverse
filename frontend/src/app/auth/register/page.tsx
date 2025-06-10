@@ -10,8 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { useRegister } from '@/lib/api/hooks'
-import { useAuthStore } from '@/lib/stores/auth'
+import { useAuth } from '@/providers/supabase-auth-provider'
 import { AlertCircle, CheckCircle } from 'lucide-react'
 import { Logo } from '@/components/ui/logo'
 
@@ -34,8 +33,7 @@ type RegisterFormData = z.infer<typeof registerSchema>
 
 export default function RegisterPage() {
   const router = useRouter()
-  const { setUser, setCompany } = useAuthStore()
-  const registerMutation = useRegister()
+  const { signUp } = useAuth()
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
 
@@ -55,15 +53,11 @@ export default function RegisterPage() {
   const onSubmit = async (data: RegisterFormData) => {
     try {
       setError('')
-      const response = await registerMutation.mutateAsync({
-        email: data.email,
-        password: data.password,
-        company_key: data.company_key,
-        role: data.role,
+      await signUp(data.email, data.password, {
+        full_name: data.email.split('@')[0], // Use email prefix as name
+        role: data.role || 'buyer',
+        company_key: data.company_key
       })
-      
-      // Store user and company in Zustand store
-      setUser(response.user)
       
       // Show success message and redirect
       setSuccess(true)

@@ -21,7 +21,7 @@ const loginSchema = z.object({
 type LoginFormData = z.infer<typeof loginSchema>
 
 export default function LoginPage() {
-  const { login, isLoading } = useAuth()
+  const { signIn, loading } = useAuth()
   const [error, setError] = useState('')
 
   const {
@@ -35,7 +35,7 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginFormData) => {
     try {
       setError('')
-      await login(data.email, data.password)
+      await signIn(data.email, data.password)
     } catch (error: any) {
       console.error('Login error:', error)
       setError(error.message || 'Login failed. Please try again.')
@@ -130,7 +130,7 @@ export default function LoginPage() {
               <Button
                 type="submit"
                 className="w-full bg-teal-600 hover:bg-teal-700 text-white"
-                loading={isSubmitting || isLoading}
+                loading={isSubmitting || loading}
               >
                 Sign in
               </Button>
