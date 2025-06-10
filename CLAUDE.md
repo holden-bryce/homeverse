@@ -4,17 +4,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 🚨 IMPORTANT: Current Architecture
 
-**The production backend uses `simple_backend.py` (5000+ lines monolithic file)**
+**The production backend uses `supabase_backend.py` with Supabase as the database**
 - ✅ This is the ONLY backend file currently in use
+- ✅ Supabase handles authentication, database, and file storage
+- ❌ Do NOT use `simple_backend.py` - it's the old SQLite/PostgreSQL backend
 - ❌ Do NOT use files in `app/` directory - they are legacy/future refactoring
-- ❌ Do NOT use `simple_main.py`, `app/main.py`, etc. - they are not active
 
 ## Development Commands
 
 ### Prerequisites
 ```bash
 # Install Python dependencies
-pip install -r requirements.txt
+pip install -r requirements_supabase.txt
 
 # For frontend
 cd frontend && npm install
@@ -24,7 +25,7 @@ cd frontend && npm install
 
 ```bash
 # Terminal 1: Start backend
-python3 simple_backend.py                    # Runs on http://localhost:8000
+python3 supabase_backend.py                  # Runs on http://localhost:8000
 
 # Terminal 2: Start frontend
 cd frontend && npm run dev                    # Runs on http://localhost:3000
@@ -63,13 +64,13 @@ git push origin main
 
 ### 🚨 CURRENT PRODUCTION ARCHITECTURE
 
-**Backend**: `simple_backend.py` (monolithic FastAPI application)
-- Contains ALL endpoints, models, and business logic in one file
-- Supports both SQLite (local) and PostgreSQL (production)
-- JWT authentication with 5 user roles
-- Multi-tenant isolation via company_id
-- File upload handling
+**Backend**: `supabase_backend.py` (FastAPI with Supabase)
+- Uses Supabase for authentication, database, and file storage
+- Built-in auth with Supabase Auth (replaces JWT)
+- Multi-tenant isolation via Row Level Security (RLS)
+- File uploads via Supabase Storage
 - Email integration via SendGrid
+- Real-time subscriptions available
 
 **Frontend**: Next.js 14 with TypeScript (`frontend/` directory)
 - App Router structure
@@ -78,8 +79,10 @@ git push origin main
 - Real-time features ready (WebSocket support)
 
 **Database**: 
-- Local: SQLite (`homeverse_demo.db`)
-- Production: PostgreSQL (pending initialization)
+- Supabase PostgreSQL with Row Level Security
+- Automatic multi-tenant isolation
+- Built-in auth and user management
+- Real-time subscriptions
 
 ### Note on Legacy Code Structure
 
@@ -92,7 +95,7 @@ These files exist for future migration but should be IGNORED for current develop
 
 ## Development Patterns
 
-### Adding New Features to `simple_backend.py`
+### Adding New Features to `supabase_backend.py`
 
 1. **Add New Endpoint**:
    ```python

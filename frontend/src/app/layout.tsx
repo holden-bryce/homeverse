@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { QueryProvider } from '@/providers/query-provider'
-import { AuthProvider } from '@/providers/auth-provider'
+import { SupabaseAuthProvider } from '@/providers/supabase-auth-provider'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ToastProvider, ToastViewport } from '@/components/ui/toast'
 import { ErrorBoundary } from '@/components/ui/error-boundary'
@@ -79,14 +79,14 @@ export default function RootLayout({
       <body className={inter.className}>
         <ErrorBoundary>
           <QueryProvider>
-            <AuthProvider>
+            <SupabaseAuthProvider>
               <TooltipProvider>
                 <ToastProvider>
                   {children}
                   <ToastViewport />
                 </ToastProvider>
               </TooltipProvider>
-            </AuthProvider>
+            </SupabaseAuthProvider>
           </QueryProvider>
         </ErrorBoundary>
       </body>

@@ -9,7 +9,7 @@ import { z } from 'zod'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { useAuth } from '@/providers/auth-provider'
+import { useAuth } from '@/providers/supabase-auth-provider'
 import { AlertCircle } from 'lucide-react'
 import { Logo } from '@/components/ui/logo'
 
