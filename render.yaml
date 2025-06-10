@@ -2,8 +2,11 @@ services:
   - type: web
     name: homeverse-api
     runtime: python
-    buildCommand: "pip install -r requirements_supabase.txt"
+    env: python
+    buildCommand: "pip install --upgrade pip && pip install -r requirements_minimal_supabase.txt"
     startCommand: "python supabase_backend.py"
+    region: oregon
+    plan: starter
     envVars:
       - key: SUPABASE_URL
         sync: false
@@ -17,5 +20,7 @@ services:
         sync: false
       - key: OPENAI_API_KEY
         sync: false
+      - key: PYTHONPATH
+        value: "."
 
 # No database needed - using Supabase!
