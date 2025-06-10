@@ -103,6 +103,10 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
     if (error) throw error
 
     if (data.user) {
+      // Set user state immediately
+      setUser(data.user)
+      setSession(data.session)
+      
       // Try to get user role from metadata first (more reliable)
       let role = data.user.user_metadata?.role
       
@@ -114,6 +118,13 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
         console.error('Error loading profile (likely RLS issue):', profileError)
         // Use role from user metadata if profile fetch fails
         console.log('Using role from metadata:', role)
+        // Set fallback profile
+        setProfile({
+          id: data.user.id,
+          role: role || 'buyer',
+          full_name: data.user.user_metadata?.full_name || data.user.email?.split('@')[0],
+          company_id: data.user.user_metadata?.company_id
+        })
       }
       
       // Redirect based on role
@@ -128,7 +139,9 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
       const defaultPath = roleRoutes[role] || '/dashboard'
       const finalRedirect = redirectUrl || defaultPath
       console.log(`Redirecting ${data.user.email} (${role}) to ${finalRedirect}`)
-      router.push(finalRedirect)
+      
+      // Use window.location for hard redirect to ensure middleware runs
+      window.location.href = finalRedirect
     }
   }
 

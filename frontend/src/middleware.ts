@@ -1,3 +1,4 @@
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
@@ -10,6 +11,7 @@ const PUBLIC_ROUTES = [
   '/terms',
   '/privacy',
   '/contact',
+  '/about',
 ]
 
 const AUTH_ROUTES = [
@@ -19,70 +21,92 @@ const AUTH_ROUTES = [
   '/auth/reset-password',
 ]
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
-  
-  // Get auth token from cookies or localStorage (via request header)
-  const token = request.cookies.get('auth_token')?.value || 
-               request.headers.get('authorization')?.replace('Bearer ', '')
+  let response = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  })
 
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return request.cookies.get(name)?.value
+        },
+        set(name: string, value: string, options: CookieOptions) {
+          request.cookies.set({
+            name,
+            value,
+            ...options,
+          })
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          })
+          response.cookies.set({
+            name,
+            value,
+            ...options,
+          })
+        },
+        remove(name: string, options: CookieOptions) {
+          request.cookies.set({
+            name,
+            value: '',
+            ...options,
+          })
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          })
+          response.cookies.set({
+            name,
+            value: '',
+            ...options,
+          })
+        },
+      },
+    }
+  )
+
+  const { data: { session } } = await supabase.auth.getSession()
+  
   // Allow public routes without authentication
   if (PUBLIC_ROUTES.includes(pathname) || pathname.startsWith('/public/')) {
     // If user is authenticated and trying to access auth pages, redirect to dashboard
-    if (token && AUTH_ROUTES.includes(pathname)) {
-      return NextResponse.redirect(new URL('/dashboard', request.url))
+    if (session && AUTH_ROUTES.includes(pathname)) {
+      // Get user role to redirect to appropriate dashboard
+      const role = session.user?.user_metadata?.role || 'buyer'
+      const roleRoutes: Record<string, string> = {
+        developer: '/dashboard/projects',
+        lender: '/dashboard/lenders',
+        buyer: '/dashboard/buyers',
+        applicant: '/dashboard/applicants',
+        admin: '/dashboard',
+      }
+      const redirectPath = roleRoutes[role] || '/dashboard'
+      return NextResponse.redirect(new URL(redirectPath, request.url))
     }
-    return NextResponse.next()
+    return response
   }
 
   // Protected routes - require authentication
   if (pathname.startsWith('/dashboard')) {
-    if (!token) {
+    if (!session) {
       // Redirect to login with the current path as a return URL
       const loginUrl = new URL('/auth/login', request.url)
       loginUrl.searchParams.set('redirect', pathname)
       return NextResponse.redirect(loginUrl)
     }
-    
-    // Add company key validation for dashboard routes
-    const companyKey = request.cookies.get('company_key')?.value ||
-                      request.headers.get('x-company-key')
-    
-    if (!companyKey && !pathname.startsWith('/dashboard/setup')) {
-      // Redirect to company setup if no company key
-      return NextResponse.redirect(new URL('/dashboard/setup', request.url))
-    }
   }
 
-  // API routes protection
-  if (pathname.startsWith('/api/v1')) {
-    // Allow auth endpoints without token
-    if (pathname.includes('/auth/') && 
-        (pathname.includes('login') || 
-         pathname.includes('register') || 
-         pathname.includes('refresh'))) {
-      return NextResponse.next()
-    }
-    
-    // Require authentication for other API routes
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      )
-    }
-    
-    // Require company key for multi-tenant endpoints
-    const companyKey = request.headers.get('x-company-key')
-    if (!companyKey && !pathname.includes('/auth/')) {
-      return NextResponse.json(
-        { error: 'Company key required' },
-        { status: 401 }
-      )
-    }
-  }
-
-  return NextResponse.next()
+  return response
 }
 
 export const config = {

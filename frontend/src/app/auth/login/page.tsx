@@ -61,6 +61,7 @@ function LoginForm() {
       } else {
         await signIn(data.email, data.password)
       }
+      // The signIn function handles navigation, so we don't need to do anything here
     } catch (error: any) {
       console.error('Login error:', error)
       setError(error.message || 'Login failed. Please try again.')
