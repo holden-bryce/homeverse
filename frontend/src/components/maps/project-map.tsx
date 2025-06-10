@@ -99,8 +99,10 @@ export function ProjectMap({
 
     // Initialize real Mapbox map
     mapboxgl.accessToken = MAPBOX_TOKEN
+    console.log('Mapbox token:', MAPBOX_TOKEN.substring(0, 10) + '...')
 
     try {
+      console.log('Initializing Mapbox map...')
       map.current = new mapboxgl.Map({
         container: mapContainer.current,
         style: 'mapbox://styles/mapbox/light-v11',
@@ -109,6 +111,8 @@ export function ProjectMap({
         attributionControl: false
       })
 
+      console.log('Mapbox map initialized successfully')
+
       // Add controls
       if (showControls) {
         map.current.addControl(new mapboxgl.NavigationControl(), 'top-right')
@@ -116,7 +120,13 @@ export function ProjectMap({
 
       // Wait for map to load before adding markers
       map.current.on('load', () => {
+        console.log('Mapbox map loaded, adding markers...')
         addProjectMarkers()
+      })
+
+      // Add error handling for map events
+      map.current.on('error', (e) => {
+        console.error('Mapbox map error:', e)
       })
 
     } catch (error) {
@@ -130,12 +140,15 @@ export function ProjectMap({
   const addProjectMarkers = () => {
     if (!map.current) return
 
+    console.log('Adding markers for projects:', projects.length)
+
     // Clear existing markers
     Object.values(markers.current).forEach(marker => marker.remove())
     markers.current = {}
 
     // Add new markers for each project
     projects.forEach((project) => {
+      console.log('Adding marker for project:', project.name, 'at coordinates:', project.coordinates)
       const markerElement = document.createElement('div')
       markerElement.innerHTML = `
         <div style="
@@ -184,9 +197,23 @@ export function ProjectMap({
         onProjectHover?.(null)
       })
 
-      // Swap coordinates from [lat, lng] to [lng, lat] for Mapbox
+      // Ensure coordinates are in [lng, lat] format for Mapbox
+      let coords: [number, number]
+      if (Array.isArray(project.coordinates) && project.coordinates.length === 2) {
+        // Check if coordinates are in [lat, lng] format (common) and swap to [lng, lat] for Mapbox
+        const [first, second] = project.coordinates
+        // If first coordinate is > 90, it's likely longitude (should be second)
+        if (Math.abs(first) > Math.abs(second) && Math.abs(first) > 90) {
+          coords = [first, second] // Already [lng, lat]
+        } else {
+          coords = [second, first] // Swap from [lat, lng] to [lng, lat]
+        }
+      } else {
+        coords = [-122.4194, 37.7749] // Default to SF
+      }
+
       const marker = new mapboxgl.Marker(markerElement)
-        .setLngLat([project.coordinates[1], project.coordinates[0]])
+        .setLngLat(coords)
         .addTo(map.current!)
 
       markers.current[project.id] = marker

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -22,9 +22,11 @@ import {
   Settings
 } from 'lucide-react'
 import { ProjectMap } from '@/components/maps/project-map'
+import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/providers/supabase-auth-provider'
 
-// Mock data for projects with enhanced geographic spread
-const projects = [
+// Fallback mock data for projects with enhanced geographic spread
+const fallbackProjects = [
   {
     id: '1',
     name: 'Sunset Gardens',
@@ -119,12 +121,64 @@ const projects = [
 
 export default function MapViewPage() {
   const router = useRouter()
+  const { profile } = useAuth()
+  const [projects, setProjects] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedAMI, setSelectedAMI] = useState('all')
   const [selectedStatus, setSelectedStatus] = useState('all')
   const [selectedProject, setSelectedProject] = useState<string | undefined>(undefined)
   const [showFilters, setShowFilters] = useState(false)
   const [mapStyle, setMapStyle] = useState('streets')
+
+  // Load projects from Supabase
+  useEffect(() => {
+    loadProjects()
+  }, [])
+
+  const loadProjects = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Error loading projects:', error)
+        // Use fallback data if database fails
+        setProjects(fallbackProjects)
+      } else {
+        // Transform Supabase data to match expected format
+        const transformedProjects = data?.map(project => ({
+          id: project.id,
+          name: project.name,
+          developer: project.developer_name || 'Developer',
+          location: project.location || 'Location TBD',
+          coordinates: project.coordinates ? 
+            (Array.isArray(project.coordinates) ? project.coordinates : [37.7749, -122.4194]) : 
+            [37.7749, -122.4194],
+          ami_ranges: project.ami_ranges || ['80%'],
+          unit_types: project.unit_types || ['1BR', '2BR'],
+          units_available: project.units_available || 0,
+          total_units: project.total_units || 0,
+          estimated_delivery: project.estimated_delivery,
+          status: project.status || 'planning',
+          price_range: project.price_range || 'Contact for pricing',
+          transit_score: 85,
+          school_rating: 8,
+          is_saved: false,
+          match_score: 85,
+        })) || []
+
+        setProjects(transformedProjects.length > 0 ? transformedProjects : fallbackProjects)
+      }
+    } catch (error) {
+      console.error('Error fetching projects:', error)
+      setProjects(fallbackProjects)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const filteredProjects = projects.filter(project => {
     const matchesSearch = project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -274,18 +328,26 @@ export default function MapViewPage() {
           <div className="lg:col-span-3">
             <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
               <CardContent className="p-0">
-                <ProjectMap
-                  projects={filteredProjects}
-                  height={600}
-                  selectedProject={selectedProject}
-                  onProjectSelect={(projectId) => {
-                    setSelectedProject(projectId === selectedProject ? undefined : projectId)
-                  }}
-                  onProjectHover={(projectId) => {
-                    // Handle project hover
-                    console.log('Hovered project:', projectId)
-                  }}
-                />
+                {loading ? (
+                  <div className="h-[600px] flex items-center justify-center bg-gradient-to-br from-sage-50 to-cream-50 rounded-xl">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sage-600 mx-auto mb-4"></div>
+                      <p className="text-gray-600">Loading projects...</p>
+                    </div>
+                  </div>
+                ) : (
+                  <ProjectMap
+                    projects={filteredProjects}
+                    height={600}
+                    selectedProject={selectedProject}
+                    onProjectSelect={(projectId) => {
+                      setSelectedProject(projectId === selectedProject ? undefined : projectId)
+                    }}
+                    onProjectHover={(projectId) => {
+                      console.log('Hovered project:', projectId)
+                    }}
+                  />
+                )}
               </CardContent>
             </Card>
 
