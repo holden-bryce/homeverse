@@ -4,7 +4,8 @@ import { useEffect, useRef } from 'react'
 import { formatDistanceToNow } from 'date-fns'
 import { X, Bell, AlertCircle, Info, AlertTriangle, CheckCircle } from 'lucide-react'
 import { useWebSocket, NotificationData } from '@/lib/websocket'
-import { useNotifications, useMarkNotificationRead, useMarkAllNotificationsRead } from '@/lib/api/hooks'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { supabase } from '@/lib/supabase'
 import { Button } from './button'
 import { ScrollArea } from './scroll-area'
 import { cn } from '@/lib/utils'
@@ -34,10 +35,60 @@ const priorityColors = {
 
 export function NotificationDropdown({ onClose }: NotificationDropdownProps) {
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const queryClient = useQueryClient()
   const { notifications: wsNotifications, markAsRead } = useWebSocket()
-  const { data: apiData } = useNotifications({ limit: 20 })
-  const markReadMutation = useMarkNotificationRead()
-  const markAllReadMutation = useMarkAllNotificationsRead()
+  
+  // Notification hooks
+  const { data: apiData } = useQuery({
+    queryKey: ['notifications', { limit: 20 }],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(20)
+      
+      if (error) throw error
+      
+      const unread_count = data?.filter(n => n.status === 'unread').length || 0
+      return {
+        notifications: data || [],
+        unread_count,
+        total: data?.length || 0
+      }
+    }
+  })
+  
+  const markReadMutation = useMutation({
+    mutationFn: async (notificationId: string) => {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ status: 'read', read: true })
+        .eq('id', notificationId)
+      
+      if (error) throw error
+      return { message: 'Notification marked as read' }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+    }
+  })
+  
+  const markAllReadMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase
+        .from('notifications')
+        .update({ status: 'read', read: true })
+        .eq('status', 'unread')
+        .select()
+      
+      if (error) throw error
+      return { message: 'All notifications marked as read', updated_count: data?.length || 0 }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+    }
+  })
 
   // Combine WebSocket and API notifications
   const allNotifications = [

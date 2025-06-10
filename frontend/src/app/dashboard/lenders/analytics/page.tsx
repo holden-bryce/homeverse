@@ -24,7 +24,8 @@ import {
   AlertTriangle,
   CheckCircle
 } from 'lucide-react'
-import { usePortfolioStats, useInvestmentPerformance } from '@/lib/api/hooks'
+import { useQuery } from '@tanstack/react-query'
+import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatPercentage } from '@/lib/utils'
 
 // Mock data for analytics
@@ -91,8 +92,11 @@ export default function LendersAnalyticsPage() {
   const [timeframe, setTimeframe] = useState('6M')
   const [dataType, setDataType] = useState('investment_density')
 
-  const { data: portfolioStats, isLoading: statsLoading } = usePortfolioStats()
-  const { data: performanceData, isLoading: performanceLoading } = useInvestmentPerformance(timeframe as any)
+  // TODO: Replace with actual data hooks
+  const portfolioStats = null
+  const statsLoading = false
+  const performanceData = null
+  const performanceLoading = false
 
   return (
     <div className="p-6 space-y-6">

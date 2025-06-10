@@ -16,7 +16,7 @@ import {
   Calendar,
   MapPin
 } from 'lucide-react'
-import { useCurrentUser } from '@/lib/api/hooks'
+import { useCurrentUser } from '@/lib/supabase/hooks'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 

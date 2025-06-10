@@ -75,12 +75,26 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
     try {
       const profile = await getProfile(userId)
       setProfile(profile)
+      return profile
     } catch (error) {
       console.error('Error loading profile:', error)
+      // Try to get user info from auth.users table as fallback
+      const { data: userData } = await supabase.auth.getUser()
+      if (userData?.user) {
+        const fallbackProfile = {
+          id: userData.user.id,
+          role: userData.user.user_metadata?.role || 'buyer',
+          full_name: userData.user.user_metadata?.full_name || userData.user.email?.split('@')[0],
+          company_id: userData.user.user_metadata?.company_id
+        }
+        setProfile(fallbackProfile)
+        return fallbackProfile
+      }
+      return null
     }
   }
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (email: string, password: string, redirectUrl?: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -89,26 +103,32 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
     if (error) throw error
 
     if (data.user) {
+      // Try to get user role from metadata first (more reliable)
+      let role = data.user.user_metadata?.role
+      
       try {
         const userProfile = await getProfile(data.user.id)
         setProfile(userProfile)
-        
-        // Redirect based on role
-        const role = userProfile?.role || 'buyer'
-        const roleRoutes: Record<string, string> = {
-          developer: '/dashboard/projects',
-          lender: '/dashboard/lenders',
-          buyer: '/dashboard/buyers',
-          applicant: '/dashboard/applicants',
-          admin: '/dashboard',
-        }
-        
-        router.push(roleRoutes[role] || '/dashboard')
+        role = userProfile?.role || role || 'buyer'
       } catch (profileError) {
-        console.error('Error loading profile:', profileError)
-        // If profile loading fails, redirect to default dashboard
-        router.push('/dashboard')
+        console.error('Error loading profile (likely RLS issue):', profileError)
+        // Use role from user metadata if profile fetch fails
+        console.log('Using role from metadata:', role)
       }
+      
+      // Redirect based on role
+      const roleRoutes: Record<string, string> = {
+        developer: '/dashboard/projects',
+        lender: '/dashboard/lenders',
+        buyer: '/dashboard/buyers',
+        applicant: '/dashboard/applicants',
+        admin: '/dashboard',
+      }
+      
+      const defaultPath = roleRoutes[role] || '/dashboard'
+      const finalRedirect = redirectUrl || defaultPath
+      console.log(`Redirecting ${data.user.email} (${role}) to ${finalRedirect}`)
+      router.push(finalRedirect)
     }
   }
 

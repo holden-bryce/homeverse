@@ -21,7 +21,7 @@ import {
   RefreshCw,
   Download
 } from 'lucide-react'
-import { useActivities } from '@/lib/api/hooks'
+import { useActivities } from '@/lib/supabase/hooks'
 import { formatDistanceToNow } from '@/lib/utils'
 
 const activityTypes = [
@@ -43,11 +43,7 @@ export default function ActivitiesPage() {
   const [page, setPage] = useState(0)
   const limit = 20
 
-  const { data: activities = [], isLoading, refetch } = useActivities({ 
-    type: selectedType === 'all' ? undefined : selectedType,
-    limit,
-    offset: page * limit
-  })
+  const { data: activities = [], isLoading, refetch } = useActivities()
 
   const getActivityIcon = (type: string) => {
     switch (type) {

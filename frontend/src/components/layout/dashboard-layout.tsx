@@ -24,7 +24,8 @@ import { Badge } from '@/components/ui/badge'
 import { Logo } from '@/components/ui/logo'
 import { NotificationBell } from '@/components/ui/notification-bell'
 import { useAuthStore } from '@/lib/stores/auth'
-import { useLogout, useCurrentUser, useCurrentCompany } from '@/lib/api/hooks'
+import { useCurrentUser, useCurrentCompany } from '@/lib/supabase/hooks'
+import { useAuth } from '@/providers/supabase-auth-provider'
 
 interface NavItem {
   id: string
@@ -129,13 +130,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { user, logout: logoutStore } = useAuthStore()
+  const { signOut, profile } = useAuth()
   const { data: currentUser } = useCurrentUser()
   const { data: currentCompany } = useCurrentCompany()
-  const logoutMutation = useLogout()
 
   const handleLogout = async () => {
     try {
-      await logoutMutation.mutateAsync()
+      await signOut()
       logoutStore()
       router.push('/auth/login')
     } catch (error) {

@@ -31,7 +31,9 @@ import {
   ArrowRight,
   Sparkles
 } from 'lucide-react'
-import { useMatches, useRunMatching, useProjects, useApplicants } from '@/lib/api/hooks'
+import { useProjects, useApplicants } from '@/lib/supabase/hooks'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate } from '@/lib/utils'
 
 // Mock data for AI matching
@@ -203,7 +205,7 @@ export default function DeveloperMatchingPage() {
   const matches = mockMatches
   const matchesLoading = false
   const { data: projects = [], isLoading: projectsLoading } = useProjects()
-  const runMatching = useRunMatching()
+  // const runMatching = useRunMatching() // TODO: Implement matching hook
 
   const handleRunMatching = async () => {
     setIsRunningMatching(true)

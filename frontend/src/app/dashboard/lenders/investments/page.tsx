@@ -27,12 +27,8 @@ import {
 import { BarChart } from '@/components/charts/bar-chart'
 import { LineChart } from '@/components/charts/line-chart'
 import { formatCurrency, formatDate, formatPercentage } from '@/lib/utils'
-import { 
-  useInvestments, 
-  usePortfolioStats, 
-  useInvestmentPerformance,
-  useCRAMetrics 
-} from '@/lib/api/hooks'
+import { useQuery } from '@tanstack/react-query'
+import { supabase } from '@/lib/supabase'
 
 // Fallback mock data for development
 const mockInvestments = [
@@ -135,9 +131,13 @@ export default function InvestmentsPage() {
   const [selectedInvestment, setSelectedInvestment] = useState<any>(null)
   
   // API hooks with fallback to mock data
-  const { data: investments = mockInvestments, isLoading: investmentsLoading } = useInvestments()
-  const { data: portfolioStats, isLoading: statsLoading } = usePortfolioStats()
-  const { data: performanceData = mockPerformanceData, isLoading: performanceLoading } = useInvestmentPerformance('1Y')
+  // TODO: Replace with actual data hooks
+  const investments = mockInvestments
+  const investmentsLoading = false
+  const portfolioStats = null
+  const statsLoading = false
+  const performanceData = mockPerformanceData
+  const performanceLoading = false
   
   // Transform portfolio stats to match component format
   const transformedStats = portfolioStats ? [

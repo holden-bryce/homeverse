@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { toast } from '@/components/ui/toast'
 import { ArrowLeft, Edit, Mail, Phone, Users, DollarSign, MapPin, Loader2, Trash2 } from 'lucide-react'
-import { useDeleteApplicant } from '@/lib/api/hooks'
+import { useApplicant, useDeleteApplicant } from '@/lib/supabase/hooks'
 import { useConfirmationModal } from '@/components/ui/confirmation-modal'
 
 interface ApplicantDetailProps {
@@ -34,8 +34,7 @@ interface Applicant {
 
 export default function ApplicantDetailPage({ params }: ApplicantDetailProps) {
   const router = useRouter()
-  const [applicant, setApplicant] = useState<Applicant | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const { data: applicant, isLoading, error } = useApplicant(params.id)
   
   const deleteApplicant = useDeleteApplicant()
   const { confirm, ConfirmationModal } = useConfirmationModal()
@@ -71,91 +70,15 @@ export default function ApplicantDetailPage({ params }: ApplicantDetailProps) {
   }
 
   useEffect(() => {
-    const fetchApplicant = async () => {
-      try {
-        const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0]
-        
-        if (!token) {
-          toast({
-            variant: 'destructive',
-            title: 'Authentication Error',
-            description: 'Please log in again to continue.',
-          })
-          router.push('/auth/login')
-          return
-        }
-
-        // First try to get specific applicant from API
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/applicants/${params.id}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        })
-
-        if (response.ok) {
-          const applicant = await response.json()
-          setApplicant(applicant)
-        } else {
-          // Fallback to demo data
-          const demoApplicants = [
-            {
-              id: "demo_app_001",
-              first_name: "Maria",
-              last_name: "Rodriguez",
-              email: "maria.rodriguez@email.com",
-              phone: "(555) 123-4567",
-              household_size: 3,
-              income: 45000,
-              ami_percent: 65,
-              location_preference: "Oakland, CA",
-              latitude: 37.8044,
-              longitude: -122.2711,
-              status: "active",
-              created_at: "2024-01-15T10:30:00Z"
-            },
-            {
-              id: "demo_app_002", 
-              first_name: "James",
-              last_name: "Chen",
-              email: "james.chen@email.com",
-              phone: "(555) 234-5678",
-              household_size: 2,
-              income: 52000,
-              ami_percent: 75,
-              location_preference: "San Francisco, CA",
-              latitude: 37.7749,
-              longitude: -122.4194,
-              status: "active",
-              created_at: "2024-01-20T14:15:00Z"
-            }
-          ]
-          
-          const demoApplicant = demoApplicants.find(app => app.id === params.id)
-          if (demoApplicant) {
-            setApplicant(demoApplicant)
-          } else {
-            toast({
-              variant: 'destructive',
-              title: 'Not Found',
-              description: 'Applicant not found.',
-            })
-            router.push('/dashboard/applicants')
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching applicant:', error)
-        toast({
-          variant: 'destructive',
-          title: 'Error',
-          description: 'Failed to load applicant details.',
-        })
-      } finally {
-        setIsLoading(false)
-      }
+    if (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to load applicant details.',
+      })
+      router.push('/dashboard/applicants')
     }
-
-    fetchApplicant()
-  }, [params.id, router])
+  }, [error, router])
 
   if (isLoading) {
     return (

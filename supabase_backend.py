@@ -197,20 +197,38 @@ async def register(request: RegisterRequest):
             company_id = company.data['id']
         
         # Register user with Supabase Auth
-        auth_response = supabase.auth.sign_up({
-            "email": request.email,
-            "password": request.password,
-            "options": {
-                "data": {
+        # Use admin API to create user (bypasses email confirmation)
+        try:
+            auth_response = supabase.auth.admin.create_user({
+                "email": request.email,
+                "password": request.password,
+                "email_confirm": True,  # Auto-confirm email
+                "user_metadata": {
                     "full_name": request.full_name,
                     "role": request.role,
                     "company_id": company_id
                 }
-            }
-        })
-        
-        if not auth_response.user:
-            raise HTTPException(status_code=400, detail="Registration failed")
+            })
+            
+            if not auth_response.user:
+                raise HTTPException(status_code=400, detail="Registration failed")
+        except Exception as e:
+            # Fallback to regular signup if admin method fails
+            logger.warning(f"Admin create failed, trying regular signup: {str(e)}")
+            auth_response = supabase.auth.sign_up({
+                "email": request.email,
+                "password": request.password,
+                "options": {
+                    "data": {
+                        "full_name": request.full_name,
+                        "role": request.role,
+                        "company_id": company_id
+                    }
+                }
+            })
+            
+            if not auth_response.user:
+                raise HTTPException(status_code=400, detail="Registration failed")
         
         # Update profile with company_id and role
         profile_update = supabase.table('profiles').update({
@@ -229,6 +247,62 @@ async def register(request: RegisterRequest):
         }
     except Exception as e:
         logger.error(f"Registration error: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/v1/admin/users", dependencies=[Depends(get_current_user)])
+async def create_user_admin(request: RegisterRequest, user=Depends(get_current_user)):
+    """Admin endpoint to create users - requires admin role"""
+    # Check if user is admin
+    if user.get('role') != 'admin':
+        raise HTTPException(status_code=403, detail="Only admins can create users")
+    
+    try:
+        # Get company
+        company = supabase.table('companies').select('*').eq('key', request.company_key).single().execute()
+        
+        if not company.data:
+            company = supabase.table('companies').insert({
+                "name": f"Company {request.company_key}",
+                "key": request.company_key
+            }).execute()
+            company_id = company.data[0]['id']
+        else:
+            company_id = company.data['id']
+        
+        # Create user with admin API (always confirms email)
+        auth_response = supabase.auth.admin.create_user({
+            "email": request.email,
+            "password": request.password,
+            "email_confirm": True,
+            "user_metadata": {
+                "full_name": request.full_name,
+                "role": request.role,
+                "company_id": company_id
+            }
+        })
+        
+        if not auth_response.user:
+            raise HTTPException(status_code=400, detail="User creation failed")
+        
+        # Create profile
+        profile = supabase.table('profiles').insert({
+            "id": auth_response.user.id,
+            "company_id": company_id,
+            "role": request.role,
+            "full_name": request.full_name
+        }).execute()
+        
+        return {
+            "message": "User created successfully",
+            "user": {
+                "id": auth_response.user.id,
+                "email": auth_response.user.email,
+                "role": request.role,
+                "company": company.data.get('name', 'Unknown')
+            }
+        }
+    except Exception as e:
+        logger.error(f"Admin user creation error: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/api/v1/auth/login")

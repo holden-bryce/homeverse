@@ -22,7 +22,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from '@/components/ui/toast'
-import { useCreateProject } from '@/lib/api/hooks'
+import { useCreateProject } from '@/lib/supabase/hooks'
 import { sanitizeFormData } from '@/lib/utils/sanitize'
 
 const projectSchema = z.object({

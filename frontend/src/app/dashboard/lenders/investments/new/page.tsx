@@ -9,13 +9,16 @@ import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { useCreateInvestment, useProjects } from '@/lib/api/hooks'
+import { useProjects } from '@/lib/supabase/hooks'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { supabase } from '@/lib/supabase'
 import { formatCurrency } from '@/lib/utils'
 import { ArrowLeft, Building2, MapPin, DollarSign, TrendingUp, Calendar, Users } from 'lucide-react'
 import type { InvestmentForm } from '@/types'
 
 export default function NewInvestmentPage() {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const [formData, setFormData] = useState<InvestmentForm>({
     project_id: '',
     investment_amount: 0,
@@ -27,8 +30,17 @@ export default function NewInvestmentPage() {
   })
   const [selectedProject, setSelectedProject] = useState<any>(null)
 
-  const { data: projects = [], isLoading: projectsLoading } = useProjects({ status: 'active' })
-  const createInvestment = useCreateInvestment()
+  const { data: projects = [], isLoading: projectsLoading } = useProjects()
+  
+  const createInvestment = useMutation({
+    mutationFn: async (data: InvestmentForm) => {
+      // For now, just return mock data since investments table doesn't exist yet
+      return { id: Date.now().toString(), ...data }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['investments'] })
+    }
+  })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

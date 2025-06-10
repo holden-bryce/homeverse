@@ -17,7 +17,8 @@ import {
   Building2,
   DollarSign
 } from 'lucide-react'
-import { useActivityDetail } from '@/lib/api/hooks'
+import { useQuery } from '@tanstack/react-query'
+import { supabase } from '@/lib/supabase'
 import { formatCurrency } from '@/lib/utils'
 
 interface ActivityDetailModalProps {
@@ -28,7 +29,22 @@ interface ActivityDetailModalProps {
 
 export function ActivityDetailModal({ activityId, isOpen, onClose }: ActivityDetailModalProps) {
   const router = useRouter()
-  const { data: activity, isLoading } = useActivityDetail(activityId || '')
+  const { data: activity, isLoading } = useQuery({
+    queryKey: ['activity', activityId],
+    queryFn: async () => {
+      if (!activityId) return null
+      
+      const { data, error } = await supabase
+        .from('activities')
+        .select('*, profiles(full_name)')
+        .eq('id', activityId)
+        .single()
+      
+      if (error) throw error
+      return data
+    },
+    enabled: !!activityId
+  })
 
   if (!activityId || !activity) return null
 

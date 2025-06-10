@@ -3,8 +3,8 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/lib/stores/auth'
-import { useCurrentUser, useCurrentCompany } from '@/lib/api/hooks'
-import { apiClient } from '@/lib/api/client'
+import { useCurrentUser, useCurrentCompany } from '@/lib/supabase/hooks'
+import { supabase } from '@/lib/supabase'
 import type { User, Company } from '@/types'
 
 interface AuthContextType {
@@ -45,10 +45,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const initializeAuth = async () => {
       try {
         setLoading(true)
-        const auth = apiClient.getAuth()
+        const { data: { session } } = await supabase.auth.getSession()
         
-        if (auth.token) {
-          // Token exists, try to fetch user data
+        if (session) {
+          // Session exists, try to fetch user data
           if (!user && !userQuery.isLoading) {
             await userQuery.refetch()
           }
@@ -58,8 +58,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
       } catch (error) {
         console.error('Auth initialization failed:', error)
-        // Clear invalid tokens
-        apiClient.setAuth(null, null)
+        // Clear invalid session
+        await supabase.auth.signOut()
         storeLogout()
       } finally {
         setLoading(false)
@@ -89,18 +89,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const login = async (email: string, password: string) => {
     try {
       setLoading(true)
-      const response = await apiClient.login({ email, password })
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      })
       
-      // Store user data
-      setUser(response.user)
+      if (error) throw error
       
-      // Fetch company data
-      try {
-        const companyData = await apiClient.getCurrentCompany()
-        setCompany(companyData)
-      } catch (error) {
-        console.warn('Could not fetch company data:', error)
-      }
+      // Fetch user profile and company data after login
+      await userQuery.refetch()
+      await companyQuery.refetch()
       
       // Redirect to dashboard or return URL
       const searchParams = new URLSearchParams(window.location.search)
@@ -113,7 +111,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const logout = async () => {
     try {
-      await apiClient.logout()
+      await supabase.auth.signOut()
     } catch (error) {
       console.error('Logout error:', error)
     } finally {

@@ -5,7 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Select } from '@/components/ui/select'
-import { useHeatmap } from '@/lib/api/hooks'
+import { useQuery } from '@tanstack/react-query'
+import { supabase } from '@/lib/supabase'
 import { 
   MapPin, 
   Layers, 
@@ -53,7 +54,29 @@ export default function Heatmap({ className = '', height = 400, showControls = t
     west: -122.4908
   })
 
-  const { data: heatmapData, isLoading } = useHeatmap(bounds)
+  const { data: heatmapData, isLoading } = useQuery({
+    queryKey: ['heatmap', bounds],
+    queryFn: async () => {
+      // For now, return mock data since heatmap endpoint doesn't exist yet
+      return {
+        type: 'FeatureCollection',
+        features: [
+          // Mock heatmap data points
+          {
+            type: 'Feature',
+            properties: { value: 0.8 },
+            geometry: { type: 'Point', coordinates: [-122.4194, 37.7749] }
+          },
+          {
+            type: 'Feature',
+            properties: { value: 0.6 },
+            geometry: { type: 'Point', coordinates: [-122.4494, 37.7849] }
+          }
+        ]
+      }
+    },
+    enabled: !!bounds
+  })
 
   // Load Mapbox
   useEffect(() => {
@@ -537,7 +560,7 @@ export default function Heatmap({ className = '', height = 400, showControls = t
           <div className="text-center">
             <div className="text-sm text-gray-600">Data Points</div>
             <div className="text-lg font-semibold">
-              {heatmapData ? heatmapData.length : 0}
+              {heatmapData ? (Array.isArray(heatmapData) ? heatmapData.length : heatmapData.features?.length || 0) : 0}
             </div>
           </div>
           <div className="text-center">

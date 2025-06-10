@@ -1,7 +1,7 @@
 // WebSocket connection management for real-time notifications
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useAuthStore } from '@/lib/stores/auth'
-import { apiClient } from '@/lib/api/client'
+import { supabase } from '@/lib/supabase'
 import { toast } from 'react-hot-toast'
 
 export interface WebSocketMessage {
@@ -30,8 +30,9 @@ export const useWebSocket = () => {
   const [notifications, setNotifications] = useState<NotificationData[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
 
-  const connect = useCallback(() => {
-    const { token } = apiClient.getAuth()
+  const connect = useCallback(async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    const token = session?.access_token
     
     if (!user || !token || wsRef.current?.readyState === WebSocket.OPEN) {
       return

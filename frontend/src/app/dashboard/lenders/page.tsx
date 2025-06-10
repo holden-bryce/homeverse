@@ -31,13 +31,9 @@ import {
   TrendingDown,
   Activity
 } from 'lucide-react'
-import { 
-  usePortfolioStats, 
-  useInvestments, 
-  useCRAMetrics, 
-  useReports,
-  useActivities 
-} from '@/lib/api/hooks'
+import { useActivities } from '@/lib/supabase/hooks'
+import { useQuery } from '@tanstack/react-query'
+import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatPercentage } from '@/lib/utils'
 import { 
   MetricCard, 
@@ -232,12 +228,39 @@ export default function LendersPage() {
   const [selectedActivity, setSelectedActivity] = useState<string | null>(null)
   const [isActivityModalOpen, setIsActivityModalOpen] = useState(false)
   
-  // API hooks with fallback to mock data
-  const { data: portfolioStatsData, isLoading: statsLoading } = usePortfolioStats()
-  const { data: investments = mockInvestments, isLoading: investmentsLoading } = useInvestments({ limit: 5 })
-  const { data: craMetrics = mockCRAMetrics, isLoading: craLoading } = useCRAMetrics()
-  const { data: reports = [], isLoading: reportsLoading } = useReports({ type: 'cra', limit: 5 })
-  const { data: activities = [], isLoading: activitiesLoading } = useActivities({ limit: 10 })
+  // Custom hooks for lender-specific data
+  const { data: portfolioStatsData, isLoading: statsLoading } = useQuery({
+    queryKey: ['portfolio-stats'],
+    queryFn: async () => {
+      // For now, return mock data until we have the proper tables
+      return {
+        current_portfolio_value: 2400000,
+        active_investments: 3,
+        compliance_rate: 0.992,
+        average_roi: 0.087,
+        total_invested: 2200000,
+        total_return: 200000,
+        annualized_return: 0.091
+      }
+    }
+  })
+  
+  const { data: investments = mockInvestments, isLoading: investmentsLoading } = useQuery({
+    queryKey: ['investments', { limit: 5 }],
+    queryFn: async () => mockInvestments // Use mock data for now
+  })
+  
+  const { data: craMetrics = mockCRAMetrics, isLoading: craLoading } = useQuery({
+    queryKey: ['cra-metrics'],
+    queryFn: async () => mockCRAMetrics // Use mock data for now
+  })
+  
+  const { data: reports = [], isLoading: reportsLoading } = useQuery({
+    queryKey: ['reports', { type: 'cra', limit: 5 }],
+    queryFn: async () => [] // Empty for now
+  })
+  
+  const { data: activities = [], isLoading: activitiesLoading } = useActivities()
   
   // Transform API data to component format
   const portfolioStats = portfolioStatsData ? [
@@ -271,9 +294,9 @@ export default function LendersPage() {
     },
   ] : mockPortfolioStats
   
-  const upcomingReports = reports.length > 0 ? reports.map(report => ({
+  const upcomingReports = reports && reports.length > 0 ? reports.map((report: any) => ({
     id: report.id,
-    title: report.report_type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) + ' Report',
+    title: report.report_type.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) + ' Report',
     due_date: '2024-03-15', // TODO: Get from API
     status: report.status,
     completeness: report.status === 'completed' ? 100 : 

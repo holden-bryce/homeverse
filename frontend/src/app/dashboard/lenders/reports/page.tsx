@@ -24,7 +24,8 @@ import {
   Loader2,
   Filter
 } from 'lucide-react'
-import { useReports, useCreateReport, useCRAMetrics } from '@/lib/api/hooks'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { supabase } from '@/lib/supabase'
 import { formatDate } from '@/lib/utils'
 import { toast } from '@/components/ui/toast'
 
@@ -75,9 +76,12 @@ export default function LendersReportsPage() {
     parameters: {}
   })
 
-  const { data: reports = [], isLoading: reportsLoading } = useReports()
-  const { data: craMetrics = [], isLoading: craLoading } = useCRAMetrics()
-  const createReport = useCreateReport()
+  // TODO: Replace with actual data hooks
+  const reports: any[] = []
+  const reportsLoading = false
+  const craMetrics: any[] = []
+  const craLoading = false
+  const createReport = { mutateAsync: async (data: any) => console.log('Creating report:', data) }
 
   const handleGenerateReport = async () => {
     if (!newReportData.report_type) return

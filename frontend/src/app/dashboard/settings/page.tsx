@@ -30,7 +30,7 @@ import {
   Phone,
   MapPin
 } from 'lucide-react'
-import { useCurrentUser, useCurrentCompany } from '@/lib/api/hooks'
+import { useCurrentUser, useCurrentCompany } from '@/lib/supabase/hooks'
 
 export default function SettingsPage() {
   const router = useRouter()

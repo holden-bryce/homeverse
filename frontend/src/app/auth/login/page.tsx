@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -21,8 +21,28 @@ const loginSchema = z.object({
 type LoginFormData = z.infer<typeof loginSchema>
 
 export default function LoginPage() {
-  const { signIn, loading } = useAuth()
+  const { signIn, user } = useAuth()
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [error, setError] = useState('')
+  
+  // Get redirect URL from query params
+  const redirectUrl = searchParams.get('redirect') || null
+
+  // If already logged in, redirect
+  useEffect(() => {
+    if (user) {
+      const roleRoutes: Record<string, string> = {
+        developer: '/dashboard/projects',
+        lender: '/dashboard/lenders',
+        buyer: '/dashboard/buyers',
+        applicant: '/dashboard/applicants',
+        admin: '/dashboard',
+      }
+      const defaultPath = roleRoutes[user.user_metadata?.role || 'buyer'] || '/dashboard'
+      router.push(redirectUrl || defaultPath)
+    }
+  }, [user, redirectUrl, router])
 
   const {
     register,
@@ -35,7 +55,12 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginFormData) => {
     try {
       setError('')
-      await signIn(data.email, data.password)
+      // Pass redirect URL to signIn if available
+      if (redirectUrl) {
+        await signIn(data.email, data.password, redirectUrl)
+      } else {
+        await signIn(data.email, data.password)
+      }
     } catch (error: any) {
       console.error('Login error:', error)
       setError(error.message || 'Login failed. Please try again.')
@@ -130,7 +155,7 @@ export default function LoginPage() {
               <Button
                 type="submit"
                 className="w-full bg-teal-600 hover:bg-teal-700 text-white"
-                loading={isSubmitting || loading}
+                loading={isSubmitting}
               >
                 Sign in
               </Button>
