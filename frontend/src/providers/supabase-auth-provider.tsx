@@ -109,46 +109,28 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
   const signIn = async (email: string, password: string, redirectUrl?: string) => {
     console.log('SignIn called with:', email)
     
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
 
-      console.log('Supabase auth response:', { data, error })
+    console.log('Supabase auth response:', { 
+      user: data?.user?.email, 
+      session: !!data?.session,
+      error: error?.message 
+    })
 
-      if (error) {
-        console.error('Supabase auth error:', error)
-        throw error
-      }
-
-      if (data.user && data.session) {
-        console.log('Login successful, user:', data.user.email)
-        
-        // The auth state change listener will handle setting user/session state
-        // Just do the redirect here
-        const role = data.user.user_metadata?.role || 'buyer'
-        console.log('User role:', role)
-        
-        // Redirect based on role
-        const roleRoutes: Record<string, string> = {
-          developer: '/dashboard/projects',
-          lender: '/dashboard/lenders',
-          buyer: '/dashboard/buyers',
-          applicant: '/dashboard/applicants',
-          admin: '/dashboard',
-        }
-        
-        const defaultPath = roleRoutes[role] || '/dashboard'
-        const finalRedirect = redirectUrl || defaultPath
-        console.log(`Redirecting to: ${finalRedirect}`)
-        
-        // Use router.push instead of window.location for SPA navigation
-        router.push(finalRedirect)
-      }
-    } catch (error) {
-      console.error('SignIn error:', error)
+    if (error) {
+      console.error('Supabase auth error:', error)
       throw error
+    }
+
+    // If login successful, the session will be stored in cookies
+    // and the middleware will handle the redirect on the next navigation
+    if (data.user && data.session) {
+      console.log('Login successful, refreshing page...')
+      // Force a page refresh to let middleware handle redirect
+      window.location.reload()
     }
   }
 
