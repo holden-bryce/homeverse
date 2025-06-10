@@ -34,7 +34,7 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' *.mapbox.com; style-src 'self' 'unsafe-inline' *.mapbox.com; img-src 'self' data: blob: *.mapbox.com https:; connect-src 'self' *.mapbox.com api.mapbox.com https://homeverse-api.onrender.com http://localhost:8000; font-src 'self' data:; frame-src 'self'; object-src 'none';",
+            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' *.mapbox.com; style-src 'self' 'unsafe-inline' *.mapbox.com; img-src 'self' data: blob: *.mapbox.com https:; connect-src 'self' *.mapbox.com api.mapbox.com *.supabase.co https://homeverse-api.onrender.com http://localhost:8000; font-src 'self' data:; frame-src 'self'; object-src 'none';",
           },
           {
             key: 'Strict-Transport-Security',
