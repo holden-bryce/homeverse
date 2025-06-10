@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/toast'
+import { useSubmitContact } from '@/lib/supabase/hooks'
 import { Loader2, Send } from 'lucide-react'
 
 const contactSchema = z.object({
@@ -23,28 +24,16 @@ const contactSchema = z.object({
 type ContactFormData = z.infer<typeof contactSchema>
 
 export function ContactForm() {
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const { toast } = useToast()
+  const submitContact = useSubmitContact()
   
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<ContactFormData>({
+  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<ContactFormData>({
     resolver: zodResolver(contactSchema),
   })
 
   const onSubmit = async (data: ContactFormData) => {
-    setIsSubmitting(true)
-    
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/contact`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to send message')
-      }
+      await submitContact.mutateAsync(data)
 
       toast({
         variant: 'success',
@@ -59,8 +48,6 @@ export function ContactForm() {
         title: 'Error',
         description: 'Failed to send message. Please try again later.',
       })
-    } finally {
-      setIsSubmitting(false)
     }
   }
 
