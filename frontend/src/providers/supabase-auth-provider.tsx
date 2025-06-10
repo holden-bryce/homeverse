@@ -83,16 +83,38 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
     return () => subscription.unsubscribe()
   }, [])
 
-  const loadProfile = async (userId: string) => {
+  const loadProfile = async (userId: string, forceReload: boolean = false) => {
     try {
-      const profile = await getProfile(userId)
-      setProfile(profile)
-      return profile
+      // Force reload from database, not cache
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*, companies(*)')
+        .eq('id', userId)
+        .single()
+      
+      if (error) throw error
+      
+      console.log('Loaded profile:', data)
+      setProfile(data)
+      return data
     } catch (error) {
       console.error('Error loading profile:', error)
       // Try to get user info from auth.users table as fallback
       const { data: userData } = await supabase.auth.getUser()
       if (userData?.user) {
+        // Check if profile exists in database
+        const { data: existingProfile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userData.user.id)
+          .single()
+        
+        if (existingProfile) {
+          console.log('Found existing profile:', existingProfile)
+          setProfile(existingProfile)
+          return existingProfile
+        }
+        
         const fallbackProfile = {
           id: userData.user.id,
           role: userData.user.user_metadata?.role || 'buyer',

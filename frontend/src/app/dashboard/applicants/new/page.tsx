@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -13,6 +13,7 @@ import { toast } from '@/components/ui/toast'
 import { ArrowLeft, Save, Loader2 } from 'lucide-react'
 import { useCreateApplicant } from '@/lib/supabase/hooks'
 import { sanitizeFormData } from '@/lib/utils/sanitize'
+import { useAuth } from '@/providers/supabase-auth-provider'
 
 const applicantSchema = z.object({
   first_name: z.string().min(2, 'First name must be at least 2 characters'),
@@ -32,10 +33,16 @@ type ApplicantFormData = z.infer<typeof applicantSchema>
 export default function NewApplicantPage() {
   const router = useRouter()
   const createApplicant = useCreateApplicant()
+  const { profile, refreshProfile } = useAuth()
   
   const { register, handleSubmit, formState: { errors } } = useForm<ApplicantFormData>({
     resolver: zodResolver(applicantSchema),
   })
+  
+  // Debug: Show current profile state
+  useEffect(() => {
+    console.log('Current profile in NewApplicantPage:', profile)
+  }, [profile])
 
   const onSubmit = async (data: ApplicantFormData) => {
     try {
