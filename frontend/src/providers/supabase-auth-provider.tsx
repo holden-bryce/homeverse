@@ -86,19 +86,26 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
     if (error) throw error
 
     if (data.user) {
-      await loadProfile(data.user.id)
-      
-      // Redirect based on role
-      const role = profile?.role || 'buyer'
-      const roleRoutes: Record<string, string> = {
-        developer: '/dashboard/projects',
-        lender: '/dashboard/lenders',
-        buyer: '/dashboard/buyers',
-        applicant: '/dashboard/applicants',
-        admin: '/dashboard',
+      try {
+        const userProfile = await getProfile(data.user.id)
+        setProfile(userProfile)
+        
+        // Redirect based on role
+        const role = userProfile?.role || 'buyer'
+        const roleRoutes: Record<string, string> = {
+          developer: '/dashboard/projects',
+          lender: '/dashboard/lenders',
+          buyer: '/dashboard/buyers',
+          applicant: '/dashboard/applicants',
+          admin: '/dashboard',
+        }
+        
+        router.push(roleRoutes[role] || '/dashboard')
+      } catch (profileError) {
+        console.error('Error loading profile:', profileError)
+        // If profile loading fails, redirect to default dashboard
+        router.push('/dashboard')
       }
-      
-      router.push(roleRoutes[role] || '/dashboard')
     }
   }
 
