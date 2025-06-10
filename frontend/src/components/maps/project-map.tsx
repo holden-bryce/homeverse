@@ -105,7 +105,7 @@ export function ProjectMap({
     try {
       console.log('Initializing Mapbox map...')
       map.current = new mapboxgl.Map({
-        container: mapContainer.current,
+        container: mapContainer.current!,
         style: 'mapbox://styles/mapbox/light-v11',
         center: center as [number, number],
         zoom: zoom,
