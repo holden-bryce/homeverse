@@ -42,15 +42,24 @@ export default function NewApplicantPage() {
   // Debug: Show current profile state
   useEffect(() => {
     console.log('Current profile in NewApplicantPage:', profile)
+    if (!profile || !profile.company_id) {
+      console.warn('⚠️ No profile or company_id found!')
+    }
   }, [profile])
 
   const onSubmit = async (data: ApplicantFormData) => {
+    console.log('=== APPLICANT CREATION START ===')
+    console.log('Form data:', data)
+    console.log('Current profile:', profile)
+    
     try {
       // Sanitize form data before submission
       const sanitizedData = sanitizeFormData(data)
+      console.log('Sanitized data:', sanitizedData)
       
       // Send data in format backend expects
-      await createApplicant.mutateAsync(sanitizedData as any)
+      const result = await createApplicant.mutateAsync(sanitizedData as any)
+      console.log('Create result:', result)
       
       toast({
         variant: 'success',
@@ -60,7 +69,8 @@ export default function NewApplicantPage() {
       
       router.push('/dashboard/applicants')
     } catch (error: any) {
-      console.error('Error creating applicant:', error)
+      console.error('=== APPLICANT CREATION ERROR ===')
+      console.error('Error details:', error)
       toast({
         variant: 'destructive',
         title: 'Error',
