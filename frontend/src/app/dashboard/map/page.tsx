@@ -137,11 +137,14 @@ export default function MapViewPage() {
   }, [])
 
   const loadProjects = async () => {
+    console.log('Loading projects for map view...')
     try {
       const { data, error } = await supabase
         .from('projects')
         .select('*')
         .order('created_at', { ascending: false })
+
+      console.log('Projects query result:', { data, error })
 
       if (error) {
         console.error('Error loading projects:', error)
@@ -149,27 +152,38 @@ export default function MapViewPage() {
         setProjects(fallbackProjects)
       } else {
         // Transform Supabase data to match expected format
-        const transformedProjects = data?.map(project => ({
-          id: project.id,
-          name: project.name,
-          developer: project.developer_name || 'Developer',
-          location: project.location || 'Location TBD',
-          coordinates: project.coordinates ? 
-            (Array.isArray(project.coordinates) ? project.coordinates : [37.7749, -122.4194]) : 
-            [37.7749, -122.4194],
-          ami_ranges: project.ami_ranges || ['80%'],
-          unit_types: project.unit_types || ['1BR', '2BR'],
-          units_available: project.units_available || 0,
-          total_units: project.total_units || 0,
-          estimated_delivery: project.estimated_delivery,
-          status: project.status || 'planning',
-          price_range: project.price_range || 'Contact for pricing',
-          transit_score: 85,
-          school_rating: 8,
-          is_saved: false,
-          match_score: 85,
-        })) || []
+        const transformedProjects = data?.map(project => {
+          // Handle coordinates - PostgreSQL returns [lng, lat], but our component expects [lat, lng]
+          let coords = [37.7749, -122.4194]; // Default SF
+          if (project.coordinates && Array.isArray(project.coordinates) && project.coordinates.length === 2) {
+            // Swap from [lng, lat] to [lat, lng] if needed
+            const [first, second] = project.coordinates;
+            coords = [second, first]; // PostgreSQL gives [lng, lat], we need [lat, lng]
+          }
+          
+          console.log(`Project ${project.name} coordinates:`, project.coordinates, '→', coords);
+          
+          return {
+            id: project.id,
+            name: project.name,
+            developer: project.developer_name || 'Developer',
+            location: project.location || 'Location TBD',
+            coordinates: coords as [number, number],
+            ami_ranges: [`${project.ami_percentage || 80}%`],
+            unit_types: project.unit_types || ['1BR', '2BR'],
+            units_available: project.available_units || 0,
+            total_units: project.total_units || 0,
+            estimated_delivery: project.estimated_delivery,
+            status: project.status || 'planning',
+            price_range: project.price_range || 'Contact for pricing',
+            transit_score: 85,
+            school_rating: 8,
+            is_saved: false,
+            match_score: 85,
+          };
+        }) || []
 
+        console.log('Transformed projects:', transformedProjects);
         setProjects(transformedProjects.length > 0 ? transformedProjects : fallbackProjects)
       }
     } catch (error) {
