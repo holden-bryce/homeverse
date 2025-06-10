@@ -140,8 +140,10 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
       const finalRedirect = redirectUrl || defaultPath
       console.log(`Redirecting ${data.user.email} (${role}) to ${finalRedirect}`)
       
-      // Use window.location for hard redirect to ensure middleware runs
-      window.location.href = finalRedirect
+      // Force a full page reload to ensure session is picked up
+      setTimeout(() => {
+        window.location.href = finalRedirect
+      }, 100)
     }
   }
 
