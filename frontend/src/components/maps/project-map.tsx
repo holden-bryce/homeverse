@@ -116,17 +116,17 @@ export function ProjectMap({
 
       // Add controls
       if (showControls) {
-        map.current.addControl(new mapboxgl.NavigationControl(), 'top-right')
+        map.current!.addControl(new mapboxgl.NavigationControl(), 'top-right')
       }
 
       // Wait for map to load before adding markers
-      map.current.on('load', () => {
+      map.current!.on('load', () => {
         console.log('Mapbox map loaded, adding markers...')
         addProjectMarkers()
       })
 
       // Add error handling for map events
-      map.current.on('error', (e) => {
+      map.current!.on('error', (e) => {
         console.error('Mapbox map error:', e)
       })
 
@@ -324,7 +324,6 @@ export function ProjectMap({
         map.current.remove()
       }
     }
-
   }, [])
 
   const getStatusColor = (status: string) => {
