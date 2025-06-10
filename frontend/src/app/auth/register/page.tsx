@@ -230,7 +230,7 @@ export default function RegisterPage() {
               <Button
                 type="submit"
                 className="w-full bg-teal-600 hover:bg-teal-700 text-white"
-                loading={isSubmitting || registerMutation.isPending}
+                loading={isSubmitting}
               >
                 Create Account
               </Button>

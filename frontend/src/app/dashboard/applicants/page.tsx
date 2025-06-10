@@ -25,7 +25,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from '@/components/ui/toast'
-import { useDeleteApplicant } from '@/lib/api/hooks'
+import { useApplicants, useDeleteApplicant } from '@/lib/supabase/hooks'
 import { useConfirmationModal } from '@/components/ui/confirmation-modal'
 
 const stats = [
@@ -54,9 +54,8 @@ export default function ApplicantsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [amiBandFilter, setAmiBandFilter] = useState('all')
-  const [applicants, setApplicants] = useState<any[]>([])
-  const [isLoading, setIsLoading] = useState(true)
   
+  const { data: applicants = [], isLoading, refetch: fetchApplicants } = useApplicants()
   const deleteApplicant = useDeleteApplicant()
   const { confirm, ConfirmationModal } = useConfirmationModal()
 
@@ -88,47 +87,7 @@ export default function ApplicantsPage() {
     })
   }
 
-  useEffect(() => {
-    fetchApplicants()
-  }, [])
-
-  const fetchApplicants = async () => {
-    try {
-      const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0]
-      
-      if (!token) {
-        toast({
-          variant: 'destructive',
-          title: 'Authentication Error',
-          description: 'Please log in again to continue.',
-        })
-        router.push('/auth/login')
-        return
-      }
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/applicants`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch applicants')
-      }
-
-      const data = await response.json()
-      setApplicants(data)
-    } catch (error) {
-      console.error('Error fetching applicants:', error)
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to load applicants.',
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  // Data fetching is now handled by useApplicants hook
 
   const filteredApplicants = applicants.filter(applicant => {
     const matchesSearch = (

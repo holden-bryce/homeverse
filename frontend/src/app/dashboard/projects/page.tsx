@@ -25,7 +25,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from '@/components/ui/toast'
-import { useDeleteProject } from '@/lib/api/hooks'
+import { useProjects, useUpdateProject } from '@/lib/supabase/hooks'
 import { useConfirmationModal } from '@/components/ui/confirmation-modal'
 
 // Type for projects that handles both old and new field names
