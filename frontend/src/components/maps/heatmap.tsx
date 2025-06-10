@@ -207,14 +207,18 @@ export default function Heatmap({ className = '', height = 400, showControls = t
     }
     
     // Add data points
-    heatmapData.forEach((point: any, index: number) => {
-      const x = lngToX(point.lng)
-      const y = latToY(point.lat)
-      const radius = 3 + (point.intensity * 2)
-      const opacity = 0.6 + (point.intensity * 0.1)
+    const dataPoints = Array.isArray(heatmapData) ? heatmapData : heatmapData?.features || []
+    dataPoints.forEach((feature: any, index: number) => {
+      // Extract coordinates based on data structure
+      const coords = feature.geometry ? feature.geometry.coordinates : [feature.lng, feature.lat]
+      const x = lngToX(coords[0])
+      const y = latToY(coords[1])
+      const intensity = feature.properties?.value || feature.intensity || 0.5
+      const radius = 3 + (intensity * 2)
+      const opacity = 0.6 + (intensity * 0.1)
       
-      const color = point.intensity >= 5 ? '#ef4444' : 
-                   point.intensity >= 3 ? '#f59e0b' : '#6b8e3a'
+      const color = intensity >= 5 ? '#ef4444' : 
+                   intensity >= 3 ? '#f59e0b' : '#6b8e3a'
       
       const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
       circle.setAttribute('cx', x.toString())
@@ -232,9 +236,9 @@ export default function Heatmap({ className = '', height = 400, showControls = t
         tooltip.style.left = `${e.pageX + 10}px`
         tooltip.style.top = `${e.pageY - 30}px`
         tooltip.innerHTML = `
-          <div class="font-medium">${point.description}</div>
-          <div>Value: ${point.value}</div>
-          <div>Intensity: ${point.intensity}</div>
+          <div class="font-medium">${feature.properties?.description || 'Data Point'}</div>
+          <div>Value: ${feature.properties?.value || 'N/A'}</div>
+          <div>Intensity: ${intensity}</div>
         `
         document.body.appendChild(tooltip)
         
@@ -283,21 +287,7 @@ export default function Heatmap({ className = '', height = 400, showControls = t
       // Add new heatmap data
       map.current.addSource('heatmap-source', {
       type: 'geojson',
-      data: {
-        type: 'FeatureCollection',
-        features: heatmapData.map((point: any) => ({
-          type: 'Feature',
-          properties: {
-            intensity: point.intensity,
-            value: point.value,
-            description: point.description
-          },
-          geometry: {
-            type: 'Point',
-            coordinates: [point.lng, point.lat]
-          }
-        }))
-      }
+      data: heatmapData
     })
 
     // Add heatmap layer

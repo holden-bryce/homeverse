@@ -304,8 +304,8 @@ export default function InvestmentsPage() {
                 <LineChart 
                   title="Portfolio Performance"
                   description="ROI trends over time (%)"
-                  data={performanceData.map(item => ({ 
-                    name: 'name' in item ? item.name : item.date, 
+                  data={performanceData.map((item: any) => ({ 
+                    name: item.name, 
                     value: item.roi 
                   }))}
                   xAxisKey="name"
@@ -529,8 +529,8 @@ export default function InvestmentsPage() {
               <LineChart 
                 title="Cumulative Returns"
                 description="Total investment value over time ($M)"
-                data={performanceData.map(item => ({ 
-                  name: 'name' in item ? item.name : item.date, 
+                data={performanceData.map((item: any) => ({ 
+                  name: item.name, 
                   value: item.invested / 1000000 
                 }))}
                 xAxisKey="name"
