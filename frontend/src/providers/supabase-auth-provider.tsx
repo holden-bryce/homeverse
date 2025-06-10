@@ -43,7 +43,19 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
       setUser(session?.user ?? null)
       
       if (session?.user) {
-        await loadProfile(session.user.id)
+        try {
+          await loadProfile(session.user.id)
+        } catch (error) {
+          console.log('Profile load failed, using metadata:', error)
+          // Set profile from metadata if database fails
+          setProfile({
+            id: session.user.id,
+            email: session.user.email,
+            role: session.user.user_metadata?.role || 'buyer',
+            full_name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0],
+            company_id: session.user.user_metadata?.company_id
+          })
+        }
       }
       
       setLoading(false)
@@ -95,55 +107,48 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
   }
 
   const signIn = async (email: string, password: string, redirectUrl?: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    console.log('SignIn called with:', email)
+    
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
 
-    if (error) throw error
+      console.log('Supabase auth response:', { data, error })
 
-    if (data.user) {
-      // Set user state immediately
-      setUser(data.user)
-      setSession(data.session)
-      
-      // Try to get user role from metadata first (more reliable)
-      let role = data.user.user_metadata?.role
-      
-      try {
-        const userProfile = await getProfile(data.user.id)
-        setProfile(userProfile)
-        role = userProfile?.role || role || 'buyer'
-      } catch (profileError) {
-        console.error('Error loading profile (likely RLS issue):', profileError)
-        // Use role from user metadata if profile fetch fails
-        console.log('Using role from metadata:', role)
-        // Set fallback profile
-        setProfile({
-          id: data.user.id,
-          role: role || 'buyer',
-          full_name: data.user.user_metadata?.full_name || data.user.email?.split('@')[0],
-          company_id: data.user.user_metadata?.company_id
-        })
+      if (error) {
+        console.error('Supabase auth error:', error)
+        throw error
       }
-      
-      // Redirect based on role
-      const roleRoutes: Record<string, string> = {
-        developer: '/dashboard/projects',
-        lender: '/dashboard/lenders',
-        buyer: '/dashboard/buyers',
-        applicant: '/dashboard/applicants',
-        admin: '/dashboard',
+
+      if (data.user && data.session) {
+        console.log('Login successful, user:', data.user.email)
+        
+        // The auth state change listener will handle setting user/session state
+        // Just do the redirect here
+        const role = data.user.user_metadata?.role || 'buyer'
+        console.log('User role:', role)
+        
+        // Redirect based on role
+        const roleRoutes: Record<string, string> = {
+          developer: '/dashboard/projects',
+          lender: '/dashboard/lenders',
+          buyer: '/dashboard/buyers',
+          applicant: '/dashboard/applicants',
+          admin: '/dashboard',
+        }
+        
+        const defaultPath = roleRoutes[role] || '/dashboard'
+        const finalRedirect = redirectUrl || defaultPath
+        console.log(`Redirecting to: ${finalRedirect}`)
+        
+        // Use router.push instead of window.location for SPA navigation
+        router.push(finalRedirect)
       }
-      
-      const defaultPath = roleRoutes[role] || '/dashboard'
-      const finalRedirect = redirectUrl || defaultPath
-      console.log(`Redirecting ${data.user.email} (${role}) to ${finalRedirect}`)
-      
-      // Force a full page reload to ensure session is picked up
-      setTimeout(() => {
-        window.location.href = finalRedirect
-      }, 100)
+    } catch (error) {
+      console.error('SignIn error:', error)
+      throw error
     }
   }
 
