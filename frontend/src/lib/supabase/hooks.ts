@@ -124,6 +124,9 @@ export const useCreateApplicant = () => {
       
       console.log('Table existence check:', { testData, testError })
       
+      // Log the exact data being sent
+      console.log('Attempting insert with data:', JSON.stringify(transformedData, null, 2))
+      
       const { data, error } = await supabase
         .from('applicants')
         .insert(transformedData)
@@ -131,6 +134,16 @@ export const useCreateApplicant = () => {
         .single()
       
       console.log('Insert result:', { data, error })
+      
+      // If error, let's check what's in the table
+      if (error) {
+        const { data: existingData, error: fetchError } = await supabase
+          .from('applicants')
+          .select('id, company_id, full_name')
+          .limit(5)
+        
+        console.log('Existing applicants check:', { existingData, fetchError })
+      }
       
       if (error) {
         console.error('Supabase insert error details:', {
