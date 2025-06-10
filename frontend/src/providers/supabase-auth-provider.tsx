@@ -38,14 +38,17 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
 
   useEffect(() => {
     // Check active sessions and sets the user
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session)
       setUser(session?.user ?? null)
       
       if (session?.user) {
-        loadProfile(session.user.id)
+        await loadProfile(session.user.id)
       }
       
+      setLoading(false)
+    }).catch((error) => {
+      console.error('Error getting session:', error)
       setLoading(false)
     })
 
