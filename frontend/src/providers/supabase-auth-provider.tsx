@@ -165,9 +165,7 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
         }
       }
       setProfile(userProfile)
-      return userProfile
     }
-    return null
   }
 
   const value = {
