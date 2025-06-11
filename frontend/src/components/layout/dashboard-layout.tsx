@@ -134,24 +134,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { data: currentUser, isLoading: userLoading } = useCurrentUser()
   const { data: currentCompany, isLoading: companyLoading } = useCurrentCompany()
 
-  // If auth is loading, show loading state
-  if (loading) {
-    return (
-      <div className="h-screen flex items-center justify-center bg-gray-100">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
-        </div>
-      </div>
-    )
-  }
-
-  // If no user, redirect to login (this should be handled by middleware but just in case)
-  if (!user && !loading) {
-    router.push('/auth/login')
-    return null
-  }
-
   // Get the user's role from profile or fallback
   const userRole = profile?.role || currentUser?.role || 'user'
   
@@ -171,7 +153,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     !item.roles || item.roles.includes(effectiveRole)
   )
   
-  // Debug logging
+  // Debug logging - must be called before any early returns
   useEffect(() => {
     console.log('Dashboard Clean Debug:', {
       userEmail: user?.email,
@@ -182,6 +164,24 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       filteredNavigationCount: filteredNavigation.length
     })
   }, [userRole, effectiveRole, profile, loading, filteredNavigation.length, user?.email])
+
+  // If auth is loading, show loading state
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-gray-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // If no user, redirect to login (this should be handled by middleware but just in case)
+  if (!user && !loading) {
+    router.push('/auth/login')
+    return null
+  }
 
   const handleLogout = async () => {
     console.log('Logout button clicked')
