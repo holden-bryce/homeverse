@@ -148,10 +148,24 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     }
   }
 
+  // Get the user's role from multiple sources
+  const userRole = currentUser?.role || profile?.role || user?.user_metadata?.role || 'user'
+  
   // Filter navigation based on user role
   const filteredNavigation = navigation.filter(item => 
-    !item.roles || item.roles.includes(currentUser?.role || user?.role || 'user')
+    !item.roles || item.roles.includes(userRole)
   )
+  
+  // Debug logging
+  useEffect(() => {
+    console.log('Dashboard Layout Debug:', {
+      userRole,
+      currentUser,
+      profile,
+      user,
+      filteredNavigationCount: filteredNavigation.length
+    })
+  }, [userRole, currentUser, profile, user, filteredNavigation.length])
 
   return (
     <div className="h-screen flex overflow-hidden bg-gray-100">

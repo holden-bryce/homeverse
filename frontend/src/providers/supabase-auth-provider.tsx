@@ -115,20 +115,31 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
         attempts++
         console.log(`Profile load attempt ${attempts}/${maxAttempts}`)
         
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*, companies(*)')
-          .eq('id', userId)
-          .single()
-        
-        if (data && data.company_id) {
-          profileData = data
-          console.log('✅ Profile loaded successfully:', profileData)
-          break
-        } else if (error) {
-          console.log('Profile error:', error)
-        } else {
-          console.log('Profile missing company_id, will fix...')
+        try {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('*, companies(*)')
+            .eq('id', userId)
+            .single()
+          
+          if (error) {
+            console.log('Profile query error:', error)
+            // If it's a not found error, we'll create the profile
+            if (error.code === 'PGRST116') {
+              console.log('Profile not found, will create...')
+              break
+            }
+          } else if (data) {
+            if (data.company_id) {
+              profileData = data
+              console.log('✅ Profile loaded successfully:', profileData)
+              break
+            } else {
+              console.log('Profile missing company_id, will fix...')
+            }
+          }
+        } catch (queryError) {
+          console.error('Profile query exception:', queryError)
         }
         
         // Wait a bit before retry
