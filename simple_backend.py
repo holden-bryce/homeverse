@@ -3087,6 +3087,36 @@ async def login(request: LoginRequest, conn=Depends(get_db)):
     try:
         # Get user by email
         cursor = conn.cursor()
+        cursor.execute("SELECT * FROM users WHERE email = ?", (request.email,))
+        user = cursor.fetchone()
+        
+        if not user or not verify_password(request.password, user["password_hash"]):
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+        
+        # Create JWT token
+        access_token = create_access_token(data={
+            "sub": user["email"],
+            "user_id": user["id"],
+            "role": user["role"],
+            "company_id": user["company_id"]
+        })
+        
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user": {
+                "id": user["id"],
+                "email": user["email"],
+                "role": user["role"],
+                "full_name": user["full_name"],
+                "company_id": user["company_id"]
+            }
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Login error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Login failed")
 
 @app.post("/api/v1/auth/logout")
 async def logout(current_user: dict = Depends(get_current_user)):
@@ -3109,56 +3139,6 @@ async def logout_get(current_user: dict = Depends(get_current_user)):
         "message": "Logout successful",
         "status": "success"
     }
-
-        
-        if USE_POSTGRESQL and pg_pool:
-            cursor.execute("SELECT * FROM users WHERE email = %s", (request.email,))
-            user_row = cursor.fetchone()
-            if user_row:
-                columns = [desc[0] for desc in cursor.description]
-                user = dict(zip(columns, user_row))
-            else:
-                user = None
-        else:
-            cursor.execute("SELECT * FROM users WHERE email = ?", (request.email,))
-            user_row = cursor.fetchone()
-            user = dict(user_row) if user_row else None
-        
-        if not user:
-            raise HTTPException(status_code=401, detail="Invalid credentials")
-        
-        # Check password
-        password_hash = user.get('hashed_password') or user.get('password_hash')
-        if not password_hash or not verify_password(request.password, password_hash):
-            raise HTTPException(status_code=401, detail="Invalid credentials")
-        
-        # Create token
-        token_data = {
-            "sub": user['id'], 
-            "email": user['email'], 
-            "role": user.get('role', 'user')
-        }
-        access_token = create_access_token(token_data)
-        
-        # Return response with CORS headers
-        return LoginResponse(
-            access_token=access_token,
-            token_type="bearer",
-            user={
-                "id": user['id'],
-                "email": user['email'],
-                "role": user.get('role', 'user'),
-                "company_id": user.get('company_id', '')
-            }
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Login error: {str(e)}")
-        import traceback
-        logger.error(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=f"Login failed: {str(e)}")
 
 @app.options("/api/v1/auth/login")
 async def login_options():
