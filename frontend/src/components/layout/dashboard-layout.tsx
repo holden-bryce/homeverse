@@ -26,6 +26,7 @@ import { NotificationBell } from '@/components/ui/notification-bell'
 import { useAuthStore } from '@/lib/stores/auth'
 import { useCurrentUser, useCurrentCompany } from '@/lib/supabase/hooks'
 import { useAuth } from '@/providers/supabase-auth-provider'
+import { logout } from '@/lib/api/auth'
 
 interface NavItem {
   id: string
@@ -135,15 +136,15 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { data: currentCompany } = useCurrentCompany()
 
   const handleLogout = async () => {
+    console.log('Logout button clicked')
+    
     try {
-      await signOut()
-      logoutStore()
-      router.push('/auth/login')
+      // Use the unified logout function that handles everything
+      await logout()
     } catch (error) {
       console.error('Logout error:', error)
-      // Force logout even if the API call fails
-      logoutStore()
-      router.push('/auth/login')
+      // Logout already handles redirect, but just in case
+      window.location.href = '/auth/login'
     }
   }
 

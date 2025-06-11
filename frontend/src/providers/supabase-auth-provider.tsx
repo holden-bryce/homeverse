@@ -256,6 +256,8 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
 
   const signOut = async () => {
     try {
+      console.log('Starting signOut process...')
+      
       // Clear local state first
       setUser(null)
       setProfile(null)
@@ -264,27 +266,42 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
       // Sign out from Supabase
       const { error } = await supabase.auth.signOut()
       if (error) {
-        console.error('Signout error:', error)
+        console.error('Supabase signOut error:', error)
       }
       
       // Clear any persisted auth state
       if (typeof window !== 'undefined') {
-        // Clear localStorage
-        localStorage.removeItem('supabase.auth.token')
-        // Clear cookies
+        // Clear all localStorage items related to auth
+        const keysToRemove = []
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i)
+          if (key && (key.includes('supabase') || key.includes('auth') || key.includes('token'))) {
+            keysToRemove.push(key)
+          }
+        }
+        keysToRemove.forEach(key => localStorage.removeItem(key))
+        
+        // Clear all cookies
         document.cookie.split(";").forEach((c) => {
-          document.cookie = c
-            .replace(/^ +/, "")
-            .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
-        });
+          const eqPos = c.indexOf("=")
+          const name = eqPos > -1 ? c.substr(0, eqPos).trim() : c.trim()
+          document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`
+          document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=${window.location.hostname}`
+          document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=.${window.location.hostname}`
+        })
+        
+        // Clear sessionStorage too
+        sessionStorage.clear()
       }
       
-      // Force redirect to login
-      window.location.href = '/auth/login'
+      console.log('Auth state cleared, redirecting to login...')
+      
+      // Use replace instead of href to prevent back button issues
+      window.location.replace('/auth/login')
     } catch (error) {
       console.error('Error during signout:', error)
       // Force redirect even if there's an error
-      window.location.href = '/auth/login'
+      window.location.replace('/auth/login')
     }
   }
 

@@ -3087,6 +3087,29 @@ async def login(request: LoginRequest, conn=Depends(get_db)):
     try:
         # Get user by email
         cursor = conn.cursor()
+
+@app.post("/api/v1/auth/logout")
+async def logout(current_user: dict = Depends(get_current_user)):
+    """Logout user - invalidates token on client side"""
+    # Since we're using stateless JWT, we just return success
+    # The client should remove the token from storage
+    logger.info(f"User {current_user.get('email')} logged out")
+    
+    return {
+        "message": "Logout successful",
+        "status": "success"
+    }
+
+@app.get("/api/v1/auth/logout")
+async def logout_get(current_user: dict = Depends(get_current_user)):
+    """Logout user via GET - for convenience"""
+    logger.info(f"User {current_user.get('email')} logged out via GET")
+    
+    return {
+        "message": "Logout successful",
+        "status": "success"
+    }
+
         
         if USE_POSTGRESQL and pg_pool:
             cursor.execute("SELECT * FROM users WHERE email = %s", (request.email,))
