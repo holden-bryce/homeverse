@@ -106,46 +106,38 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
     try {
       console.log('🔍 Loading profile for user:', userId)
       
-      // First try to get the profile with retry logic
+      // First try to get the profile - simplified approach
       let profileData = null
-      let attempts = 0
-      const maxAttempts = 3
       
-      while (!profileData && attempts < maxAttempts) {
-        attempts++
-        console.log(`Profile load attempt ${attempts}/${maxAttempts}`)
+      try {
+        console.log('Loading profile for user:', userId)
         
-        try {
-          const { data, error } = await supabase
-            .from('profiles')
-            .select('*, companies(*)')
-            .eq('id', userId)
-            .single()
-          
-          if (error) {
-            console.log('Profile query error:', error)
-            // If it's a not found error, we'll create the profile
-            if (error.code === 'PGRST116') {
-              console.log('Profile not found, will create...')
-              break
-            }
-          } else if (data) {
-            if (data.company_id) {
-              profileData = data
-              console.log('✅ Profile loaded successfully:', profileData)
-              break
-            } else {
-              console.log('Profile missing company_id, will fix...')
-            }
+        // Simple query with timeout
+        const profilePromise = supabase
+          .from('profiles')
+          .select('*, companies(*)')
+          .eq('id', userId)
+          .single()
+        
+        // Add a timeout to prevent hanging
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Profile query timeout')), 5000)
+        )
+        
+        const result = await Promise.race([profilePromise, timeoutPromise]) as any
+        
+        if (result?.data) {
+          profileData = result.data
+          console.log('✅ Profile loaded:', profileData)
+        } else if (result?.error) {
+          console.log('Profile error:', result.error)
+          if (result.error.code === 'PGRST116') {
+            console.log('Profile not found, will create...')
           }
-        } catch (queryError) {
-          console.error('Profile query exception:', queryError)
         }
-        
-        // Wait a bit before retry
-        if (attempts < maxAttempts) {
-          await new Promise(resolve => setTimeout(resolve, 500))
-        }
+      } catch (error: any) {
+        console.error('Profile load failed:', error.message || error)
+        // Continue to create profile if needed
       }
       
       // If we still don't have a valid profile, fix it

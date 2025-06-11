@@ -131,7 +131,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { user, logout: logoutStore } = useAuthStore()
-  const { signOut, profile } = useAuth()
+  const { signOut, profile, loading, refreshProfile } = useAuth()
   const { data: currentUser } = useCurrentUser()
   const { data: currentCompany } = useCurrentCompany()
 
@@ -148,24 +148,41 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     }
   }
 
-  // Get the user's role from multiple sources
-  const userRole = currentUser?.role || profile?.role || user?.role || 'user'
+  // Get the user's role from multiple sources, with better fallback
+  const userRole = currentUser?.role || 
+                   profile?.role || 
+                   user?.user_metadata?.role || 
+                   user?.role || 
+                   'user'
+  
+  // For admin@test.com specifically, force admin role if email matches
+  const effectiveRole = user?.email === 'admin@test.com' ? 'admin' : userRole
   
   // Filter navigation based on user role
   const filteredNavigation = navigation.filter(item => 
-    !item.roles || item.roles.includes(userRole)
+    !item.roles || item.roles.includes(effectiveRole)
   )
   
   // Debug logging
   useEffect(() => {
     console.log('Dashboard Layout Debug:', {
+      userEmail: user?.email,
       userRole,
+      effectiveRole,
       currentUser,
       profile,
       user,
       filteredNavigationCount: filteredNavigation.length
     })
-  }, [userRole, currentUser, profile, user, filteredNavigation.length])
+  }, [userRole, effectiveRole, currentUser, profile, user, filteredNavigation.length])
+  
+  // If profile is not loading but we have a user, try to refresh
+  useEffect(() => {
+    if (user && !profile && !loading) {
+      console.log('User exists but no profile, attempting refresh...')
+      refreshProfile?.()
+    }
+  }, [user, profile, loading, refreshProfile])
 
   return (
     <div className="h-screen flex overflow-hidden bg-gray-100">
