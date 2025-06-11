@@ -1,0 +1,195 @@
+{
+  "total_tests": 12,
+  "passed": 12,
+  "failed": 0,
+  "details": [
+    {
+      "user": "developer@test.com",
+      "test": "profile_completion",
+      "status": "passed"
+    },
+    {
+      "user": "developer@test.com",
+      "test": "create_applicant",
+      "status": "passed",
+      "data": {
+        "id": "771eca4c-5b83-484b-9c46-7755a794057b",
+        "company_id": "e48780e1-02e4-4162-9356-7a6e0e6508fa",
+        "full_name": "Test Applicant 20250611_104642",
+        "email": "testapplicant_1749653202.703829@example.com",
+        "phone": "555-0123",
+        "income": 50000.0,
+        "household_size": 3,
+        "preferences": {
+          "bedrooms": 2,
+          "location": "Downtown",
+          "max_rent": 2000
+        },
+        "documents": [],
+        "status": "active",
+        "created_at": "2025-06-11T14:46:42.638216+00:00",
+        "updated_at": "2025-06-11T14:46:42.638216+00:00"
+      }
+    },
+    {
+      "user": "developer@test.com",
+      "test": "create_project",
+      "status": "passed",
+      "data": {
+        "id": "3b4ba7eb-2f5e-43ad-908e-a217ea58fb02",
+        "company_id": "e48780e1-02e4-4162-9356-7a6e0e6508fa",
+        "name": "Test Project 20250611_104643",
+        "description": "A test affordable housing project",
+        "location": "123 Main St, Test City",
+        "total_units": 100,
+        "available_units": 50,
+        "ami_percentage": 80,
+        "amenities": [
+          "Parking",
+          "Gym",
+          "Laundry"
+        ],
+        "images": [],
+        "status": "active",
+        "created_at": "2025-06-11T14:46:43.377162+00:00",
+        "updated_at": "2025-06-11T14:46:43.377162+00:00"
+      }
+    },
+    {
+      "user": "lender@test.com",
+      "test": "profile_completion",
+      "status": "passed"
+    },
+    {
+      "user": "lender@test.com",
+      "test": "create_applicant",
+      "status": "passed",
+      "data": {
+        "id": "cc63d3d1-4fb0-46f2-a210-7e2e0b677547",
+        "company_id": "e48780e1-02e4-4162-9356-7a6e0e6508fa",
+        "full_name": "Test Applicant 20250611_104644",
+        "email": "testapplicant_1749653204.74655@example.com",
+        "phone": "555-0123",
+        "income": 50000.0,
+        "household_size": 3,
+        "preferences": {
+          "bedrooms": 2,
+          "location": "Downtown",
+          "max_rent": 2000
+        },
+        "documents": [],
+        "status": "active",
+        "created_at": "2025-06-11T14:46:44.77772+00:00",
+        "updated_at": "2025-06-11T14:46:44.77772+00:00"
+      }
+    },
+    {
+      "user": "buyer@test.com",
+      "test": "profile_completion",
+      "status": "passed"
+    },
+    {
+      "user": "buyer@test.com",
+      "test": "create_applicant",
+      "status": "passed",
+      "data": {
+        "id": "6c912525-de2a-48d9-821d-d03cbcc26447",
+        "company_id": "e48780e1-02e4-4162-9356-7a6e0e6508fa",
+        "full_name": "Test Applicant 20250611_104646",
+        "email": "testapplicant_1749653206.067609@example.com",
+        "phone": "555-0123",
+        "income": 50000.0,
+        "household_size": 3,
+        "preferences": {
+          "bedrooms": 2,
+          "location": "Downtown",
+          "max_rent": 2000
+        },
+        "documents": [],
+        "status": "active",
+        "created_at": "2025-06-11T14:46:46.215868+00:00",
+        "updated_at": "2025-06-11T14:46:46.215868+00:00"
+      }
+    },
+    {
+      "user": "applicant@test.com",
+      "test": "profile_completion",
+      "status": "passed"
+    },
+    {
+      "user": "applicant@test.com",
+      "test": "create_applicant",
+      "status": "passed",
+      "data": {
+        "id": "51f25e7f-05ea-4c9b-8fbc-516a23c931ed",
+        "company_id": "e48780e1-02e4-4162-9356-7a6e0e6508fa",
+        "full_name": "Test Applicant 20250611_104647",
+        "email": "testapplicant_1749653207.539994@example.com",
+        "phone": "555-0123",
+        "income": 50000.0,
+        "household_size": 3,
+        "preferences": {
+          "bedrooms": 2,
+          "location": "Downtown",
+          "max_rent": 2000
+        },
+        "documents": [],
+        "status": "active",
+        "created_at": "2025-06-11T14:46:47.640941+00:00",
+        "updated_at": "2025-06-11T14:46:47.640941+00:00"
+      }
+    },
+    {
+      "user": "admin@test.com",
+      "test": "profile_completion",
+      "status": "passed"
+    },
+    {
+      "user": "admin@test.com",
+      "test": "create_applicant",
+      "status": "passed",
+      "data": {
+        "id": "ba34383d-6cff-489d-afad-dcb4008ee14d",
+        "company_id": "e48780e1-02e4-4162-9356-7a6e0e6508fa",
+        "full_name": "Test Applicant 20250611_104649",
+        "email": "testapplicant_1749653209.832912@example.com",
+        "phone": "555-0123",
+        "income": 50000.0,
+        "household_size": 3,
+        "preferences": {
+          "bedrooms": 2,
+          "location": "Downtown",
+          "max_rent": 2000
+        },
+        "documents": [],
+        "status": "active",
+        "created_at": "2025-06-11T14:46:50.065201+00:00",
+        "updated_at": "2025-06-11T14:46:50.065201+00:00"
+      }
+    },
+    {
+      "user": "admin@test.com",
+      "test": "create_project",
+      "status": "passed",
+      "data": {
+        "id": "1e2d9a0f-4614-47a0-bf08-3386e20ca932",
+        "company_id": "e48780e1-02e4-4162-9356-7a6e0e6508fa",
+        "name": "Test Project 20250611_104650",
+        "description": "A test affordable housing project",
+        "location": "123 Main St, Test City",
+        "total_units": 100,
+        "available_units": 50,
+        "ami_percentage": 80,
+        "amenities": [
+          "Parking",
+          "Gym",
+          "Laundry"
+        ],
+        "images": [],
+        "status": "active",
+        "created_at": "2025-06-11T14:46:50.592505+00:00",
+        "updated_at": "2025-06-11T14:46:50.592505+00:00"
+      }
+    }
+  ]
+}

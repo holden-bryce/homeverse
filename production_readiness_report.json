@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-06-08T15:22:57.290809",
+  "timestamp": "2025-06-11T11:00:13.937464",
   "passed": 9,
   "failed": 5,
   "warnings": 0,
@@ -26,19 +26,19 @@
       "category": "Authentication",
       "test": "Login - developer",
       "status": "\u274c FAIL",
-      "details": "Server error - DB not initialized"
+      "details": "Status: 401"
     },
     {
       "category": "Authentication",
       "test": "Login - lender",
       "status": "\u274c FAIL",
-      "details": "Server error - DB not initialized"
+      "details": "Status: 401"
     },
     {
       "category": "Authentication",
       "test": "Login - admin",
       "status": "\u274c FAIL",
-      "details": "Server error - DB not initialized"
+      "details": "Status: 401"
     },
     {
       "category": "API Endpoints",
@@ -80,13 +80,13 @@
       "category": "Performance",
       "test": "Backend Response Time",
       "status": "\u2705 PASS",
-      "details": "349ms"
+      "details": "375ms"
     },
     {
       "category": "Performance",
       "test": "Frontend Load Time",
       "status": "\u2705 PASS",
-      "details": "638ms"
+      "details": "517ms"
     }
   ]
 }

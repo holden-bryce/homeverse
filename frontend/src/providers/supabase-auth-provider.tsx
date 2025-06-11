@@ -85,45 +85,80 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
 
   const loadProfile = async (userId: string, forceReload: boolean = false) => {
     try {
-      // Force reload from database, not cache
-      const { data, error } = await supabase
+      // First try to get the profile
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*, companies(*)')
         .eq('id', userId)
         .single()
       
-      if (error) throw error
-      
-      console.log('Loaded profile:', data)
-      setProfile(data)
-      return data
-    } catch (error) {
-      console.error('Error loading profile:', error)
-      // Try to get user info from auth.users table as fallback
-      const { data: userData } = await supabase.auth.getUser()
-      if (userData?.user) {
-        // Check if profile exists in database
-        const { data: existingProfile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userData.user.id)
+      if (profileError || !profileData?.company_id) {
+        console.log('Profile missing or incomplete, fixing...')
+        
+        // Get or create default company
+        const { data: defaultCompany } = await supabase
+          .from('companies')
+          .select('id')
+          .eq('key', 'default-company')
           .single()
         
-        if (existingProfile) {
-          console.log('Found existing profile:', existingProfile)
-          setProfile(existingProfile)
-          return existingProfile
+        let companyId = defaultCompany?.id
+        
+        if (!companyId) {
+          // Create default company
+          const { data: newCompany } = await supabase
+            .from('companies')
+            .insert({
+              name: 'Default Company',
+              key: 'default-company',
+              plan: 'trial',
+              seats: 100
+            })
+            .select()
+            .single()
+          
+          companyId = newCompany?.id
         }
         
-        const fallbackProfile = {
-          id: userData.user.id,
-          role: userData.user.user_metadata?.role || 'buyer',
-          full_name: userData.user.user_metadata?.full_name || userData.user.email?.split('@')[0],
-          company_id: userData.user.user_metadata?.company_id
+        // Create or update profile
+        if (!profileData) {
+          // Get user metadata
+          const { data: { user } } = await supabase.auth.getUser()
+          
+          // Create profile
+          await supabase
+            .from('profiles')
+            .insert({
+              id: userId,
+              company_id: companyId,
+              role: user?.user_metadata?.role || 'buyer',
+              full_name: user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User'
+            })
+        } else {
+          // Update existing profile with company_id
+          await supabase
+            .from('profiles')
+            .update({ company_id: companyId })
+            .eq('id', userId)
         }
-        setProfile(fallbackProfile)
-        return fallbackProfile
+        
+        // Reload profile
+        const { data: updatedProfile } = await supabase
+          .from('profiles')
+          .select('*, companies(*)')
+          .eq('id', userId)
+          .single()
+        
+        console.log('Fixed profile:', updatedProfile)
+        setProfile(updatedProfile)
+        return updatedProfile
       }
+      
+      console.log('Loaded profile:', profileData)
+      setProfile(profileData)
+      return profileData
+    } catch (error) {
+      console.error('Error in loadProfile:', error)
       return null
     }
   }
@@ -150,9 +185,29 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
     // If login successful, the session will be stored in cookies
     // and the middleware will handle the redirect on the next navigation
     if (data.user && data.session) {
-      console.log('Login successful, refreshing page...')
-      // Force a page refresh to let middleware handle redirect
-      window.location.reload()
+      console.log('Login successful, loading profile...')
+      
+      // Ensure profile is loaded and has company_id
+      await loadProfile(data.user.id, true)
+      
+      // Get the user's role for redirect
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', data.user.id)
+        .single()
+      
+      // Redirect based on role
+      const roleRedirects: Record<string, string> = {
+        developer: '/dashboard',
+        lender: '/dashboard/lenders',
+        buyer: '/dashboard/buyers',
+        applicant: '/dashboard',
+        admin: '/dashboard'
+      }
+      
+      const targetUrl = redirectUrl || roleRedirects[profile?.role || 'buyer'] || '/dashboard'
+      window.location.href = targetUrl
     }
   }
 
@@ -181,12 +236,37 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
   }
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut()
-    if (error) throw error
-    
-    setUser(null)
-    setProfile(null)
-    router.push('/')
+    try {
+      // Clear local state first
+      setUser(null)
+      setProfile(null)
+      setSession(null)
+      
+      // Sign out from Supabase
+      const { error } = await supabase.auth.signOut()
+      if (error) {
+        console.error('Signout error:', error)
+      }
+      
+      // Clear any persisted auth state
+      if (typeof window !== 'undefined') {
+        // Clear localStorage
+        localStorage.removeItem('supabase.auth.token')
+        // Clear cookies
+        document.cookie.split(";").forEach((c) => {
+          document.cookie = c
+            .replace(/^ +/, "")
+            .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+        });
+      }
+      
+      // Force redirect to login
+      window.location.href = '/auth/login'
+    } catch (error) {
+      console.error('Error during signout:', error)
+      // Force redirect even if there's an error
+      window.location.href = '/auth/login'
+    }
   }
 
   const refreshProfile = async () => {

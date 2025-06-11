@@ -4,7 +4,7 @@ import os
 import logging
 from datetime import datetime
 from typing import Optional, Dict, List, Any
-from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, Form, Request, Header
+from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr
@@ -93,7 +93,6 @@ class ProjectCreate(BaseModel):
     name: str
     description: Optional[str] = None
     location: Optional[str] = None
-    coordinates: Optional[List[float]] = None
     total_units: Optional[int] = None
     available_units: Optional[int] = None
     ami_percentage: Optional[int] = None
@@ -103,7 +102,6 @@ class ProjectUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     location: Optional[str] = None
-    coordinates: Optional[List[float]] = None
     total_units: Optional[int] = None
     available_units: Optional[int] = None
     ami_percentage: Optional[int] = None
@@ -182,20 +180,6 @@ async def get_current_user(authorization: str = Header(None)):
     except Exception as e:
         logger.error(f"Auth error: {str(e)}")
         raise HTTPException(status_code=401, detail="Authentication failed")
-
-# Role-based access decorator
-def require_role(allowed_roles: List[str]):
-    def decorator(func):
-        @wraps(func)
-        async def wrapper(*args, user=None, **kwargs):
-            if not user:
-                raise HTTPException(status_code=401, detail="Not authenticated")
-            if user.get('role') not in allowed_roles:
-                raise HTTPException(status_code=403, detail=f"Requires one of roles: {allowed_roles}")
-            return await func(*args, user=user, **kwargs)
-        return wrapper
-    return decorator
-
 @app.get("/")
 async def root():
     return {"message": "HomeVerse API v2.0 - Powered by Supabase"}

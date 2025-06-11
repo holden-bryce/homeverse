@@ -39,13 +39,14 @@ export default function NewApplicantPage() {
     resolver: zodResolver(applicantSchema),
   })
   
-  // Debug: Show current profile state
+  // Debug: Show current profile state and refresh if needed
   useEffect(() => {
     console.log('Current profile in NewApplicantPage:', profile)
     if (!profile || !profile.company_id) {
-      console.warn('⚠️ No profile or company_id found!')
+      console.warn('⚠️ No profile or company_id found! Refreshing profile...')
+      refreshProfile()
     }
-  }, [profile])
+  }, [profile, refreshProfile])
 
   const onSubmit = async (data: ApplicantFormData) => {
     console.log('=== APPLICANT CREATION START ===')
