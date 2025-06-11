@@ -151,8 +151,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   // Get the user's role from multiple sources, with better fallback
   const userRole = currentUser?.role || 
                    profile?.role || 
-                   user?.user_metadata?.role || 
-                   user?.role || 
                    'user'
   
   // For admin@test.com specifically, force admin role if email matches
