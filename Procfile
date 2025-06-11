@@ -1,1 +1,1 @@
-web: python supabase_backend.py
+web: python3 supabase_backend.py
