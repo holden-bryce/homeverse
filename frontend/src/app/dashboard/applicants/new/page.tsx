@@ -33,7 +33,8 @@ type ApplicantFormData = z.infer<typeof applicantSchema>
 export default function NewApplicantPage() {
   const router = useRouter()
   const createApplicant = useCreateApplicant()
-  const { profile, refreshProfile } = useAuth()
+  const { profile, refreshProfile, loading, user } = useAuth()
+  const [profileLoading, setProfileLoading] = useState(true)
   
   const { register, handleSubmit, formState: { errors } } = useForm<ApplicantFormData>({
     resolver: zodResolver(applicantSchema),
@@ -41,12 +42,56 @@ export default function NewApplicantPage() {
   
   // Debug: Show current profile state and refresh if needed
   useEffect(() => {
-    console.log('Current profile in NewApplicantPage:', profile)
-    if (!profile || !profile.company_id) {
-      console.warn('⚠️ No profile or company_id found! Refreshing profile...')
-      refreshProfile()
+    const loadProfileData = async () => {
+      console.log('Current profile in NewApplicantPage:', profile)
+      console.log('Auth loading state:', loading)
+      console.log('User:', user)
+      
+      if (!loading && user && (!profile || !profile.company_id)) {
+        console.warn('⚠️ No profile or company_id found! Refreshing profile...')
+        setProfileLoading(true)
+        await refreshProfile()
+        setProfileLoading(false)
+      } else if (!loading && profile) {
+        setProfileLoading(false)
+      }
     }
-  }, [profile, refreshProfile])
+    
+    loadProfileData()
+  }, [profile, refreshProfile, loading, user])
+  
+  // Show loading state while auth or profile is loading
+  if (loading || profileLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-teal-600" />
+          <p className="text-muted-foreground">Loading profile...</p>
+        </div>
+      </div>
+    )
+  }
+  
+  // If not loading but profile is still missing, show error state
+  if (!loading && !profileLoading && (!profile || !profile.company_id)) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center space-y-4">
+          <div className="text-red-600">
+            <p className="font-semibold">Profile Setup Required</p>
+            <p className="text-sm text-muted-foreground">Your profile is being set up. Please wait...</p>
+          </div>
+          <Button 
+            onClick={() => refreshProfile()}
+            variant="outline"
+          >
+            <Loader2 className="mr-2 h-4 w-4" />
+            Retry Profile Load
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   const onSubmit = async (data: ApplicantFormData) => {
     console.log('=== APPLICANT CREATION START ===')

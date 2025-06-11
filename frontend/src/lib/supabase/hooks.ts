@@ -37,12 +37,32 @@ export const useApplicant = (id: string) => {
 
 export const useCreateApplicant = () => {
   const queryClient = useQueryClient()
-  const { profile, user } = useAuth()
+  const { profile, user, refreshProfile } = useAuth()
   
   return useMutation({
     mutationFn: async (applicantData: any) => {
+      console.log('useCreateApplicant - Initial profile check:', profile)
+      
+      // If profile is not loaded, try to refresh it
+      let currentProfile = profile
+      if (!currentProfile && user) {
+        console.log('Profile not loaded, attempting to refresh...')
+        await refreshProfile()
+        // Get the updated profile from the profiles table directly
+        const { data: freshProfile } = await supabase
+          .from('profiles')
+          .select('*, companies(*)')
+          .eq('id', user.id)
+          .single()
+        
+        if (freshProfile) {
+          currentProfile = freshProfile
+          console.log('Fresh profile loaded:', currentProfile)
+        }
+      }
+      
       // Ensure we have a company_id - get or create default company
-      let companyId = profile?.company_id
+      let companyId = currentProfile?.company_id
       
       if (!companyId) {
         console.log('No company_id in profile, ensuring default company exists...')
@@ -76,12 +96,12 @@ export const useCreateApplicant = () => {
           companyId = companies.id
         }
         
-        // If user exists but no profile, create the profile
-        if (user && !profile) {
-          console.log('Creating user profile...')
+        // If user exists but no profile, create or update the profile
+        if (user) {
+          console.log('Creating/updating user profile with company_id...')
           const { error: profileError } = await supabase
             .from('profiles')
-            .insert({
+            .upsert({
               id: user.id,
               company_id: companyId,
               role: user.user_metadata?.role || 'developer',
@@ -89,8 +109,7 @@ export const useCreateApplicant = () => {
             })
           
           if (profileError) {
-            console.error('Error creating profile:', profileError)
-            // Continue anyway, we have the company_id
+            console.error('Error creating/updating profile:', profileError)
           }
         }
       }
@@ -113,8 +132,8 @@ export const useCreateApplicant = () => {
       }
       
       console.log('Creating applicant with transformed data:', transformedData)
-      console.log('User profile:', profile)
-      console.log('Company ID being used:', profile?.company_id)
+      console.log('Current profile:', currentProfile)
+      console.log('Company ID being used:', companyId)
       
       // First, let's check if the table exists by doing a simple select
       const { data: testData, error: testError } = await supabase

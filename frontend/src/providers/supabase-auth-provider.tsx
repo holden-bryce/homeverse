@@ -37,37 +37,51 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
   const router = useRouter()
 
   useEffect(() => {
+    let mounted = true
+    
     // Check active sessions and sets the user
     supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!mounted) return
+      
+      console.log('Initial session check:', session?.user?.email)
       setSession(session)
       setUser(session?.user ?? null)
       
       if (session?.user) {
         try {
-          await loadProfile(session.user.id)
+          const loadedProfile = await loadProfile(session.user.id)
+          console.log('Initial profile loaded:', loadedProfile)
         } catch (error) {
           console.log('Profile load failed, using metadata:', error)
           // Set profile from metadata if database fails
-          setProfile({
-            id: session.user.id,
-            email: session.user.email,
-            role: session.user.user_metadata?.role || 'buyer',
-            full_name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0],
-            company_id: session.user.user_metadata?.company_id
-          })
+          if (mounted) {
+            setProfile({
+              id: session.user.id,
+              email: session.user.email,
+              role: session.user.user_metadata?.role || 'buyer',
+              full_name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0],
+              company_id: session.user.user_metadata?.company_id
+            })
+          }
         }
       }
       
-      setLoading(false)
+      if (mounted) {
+        setLoading(false)
+      }
     }).catch((error) => {
       console.error('Error getting session:', error)
-      setLoading(false)
+      if (mounted) {
+        setLoading(false)
+      }
     })
-
+    
     // Listen for changes on auth state (sign in, sign out, etc.)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!mounted) return
+      
       setSession(session)
       setUser(session?.user ?? null)
       
@@ -77,10 +91,15 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
         setProfile(null)
       }
       
-      setLoading(false)
+      if (mounted) {
+        setLoading(false)
+      }
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
+    }
   }, [])
 
   const loadProfile = async (userId: string, forceReload: boolean = false) => {
@@ -270,9 +289,13 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
   }
 
   const refreshProfile = async () => {
+    console.log('refreshProfile called, current user:', user)
     if (user) {
-      await loadProfile(user.id)
+      const profile = await loadProfile(user.id, true)
+      console.log('Profile after refresh:', profile)
+      return profile
     }
+    return null
   }
 
   const value = {
