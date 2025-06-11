@@ -23,7 +23,8 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Logo } from '@/components/ui/logo'
 import { NotificationBell } from '@/components/ui/notification-bell'
-import { supabase } from '@/lib/supabase'
+import { useCurrentUser, useCurrentCompany } from '@/lib/supabase/hooks'
+import { useAuth } from '@/providers/supabase-auth-provider'
 
 interface NavItem {
   id: string
@@ -123,82 +124,55 @@ interface DashboardLayoutProps {
   children: React.ReactNode
 }
 
-// Email to role mapping
-const EMAIL_ROLE_MAP: Record<string, string> = {
-  'admin@test.com': 'admin',
-  'developer@test.com': 'developer',
-  'lender@test.com': 'lender',
-  'buyer@test.com': 'buyer',
-  'applicant@test.com': 'applicant'
-}
-
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [user, setUser] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
   const pathname = usePathname()
   const router = useRouter()
+  const { user, profile, loading, signOut, refreshProfile } = useAuth()
+  const { data: currentUser, isLoading: userLoading } = useCurrentUser()
+  const { data: currentCompany, isLoading: companyLoading } = useCurrentCompany()
 
-  useEffect(() => {
-    // Get session directly from Supabase
-    const checkUser = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
-        console.log('Dashboard: Session check:', session?.user?.email)
-        
-        if (session?.user) {
-          setUser(session.user)
-        }
-      } catch (error) {
-        console.error('Dashboard: Error getting session:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    checkUser()
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      console.log('Dashboard: Auth state changed:', _event, session?.user?.email)
-      if (session?.user) {
-        setUser(session.user)
-      } else {
-        setUser(null)
-      }
-      setLoading(false)
-    })
-
-    return () => {
-      subscription.unsubscribe()
-    }
-  }, [])
-
-  // Determine user role
-  const effectiveRole = user?.email ? (EMAIL_ROLE_MAP[user.email] || 'user') : 'user'
+  // Get the user's role - prioritize profile from auth context
+  const effectiveRole = profile?.role || 'user'
   
   // Filter navigation based on user role
   const filteredNavigation = navigation.filter(item => 
     !item.roles || item.roles.includes(effectiveRole)
   )
-
+  
   // Debug logging
   useEffect(() => {
-    console.log('Dashboard Fixed Debug:', {
-      userEmail: user?.email,
+    console.log('Dashboard Layout Debug:', {
+      userEmail: user?.email || profile?.email,
       effectiveRole,
+      profile,
       loading,
-      filteredNavigationCount: filteredNavigation.length,
-      user
+      filteredNavigationCount: filteredNavigation.length
     })
-  }, [user, effectiveRole, loading, filteredNavigation.length])
+  }, [effectiveRole, profile, user, loading, filteredNavigation.length])
+  
+  // If profile is not loading but we have a user, try to refresh
+  useEffect(() => {
+    if (user && !profile && !loading) {
+      console.log('User exists but no profile, attempting refresh...')
+      refreshProfile?.()
+    }
+  }, [user, profile, loading, refreshProfile])
 
   const handleLogout = async () => {
-    console.log('Logout clicked')
-    await supabase.auth.signOut()
-    window.location.href = '/auth/login'
+    console.log('Logout button clicked')
+    
+    try {
+      // Use the signOut from auth context
+      await signOut()
+    } catch (error) {
+      console.error('Logout error:', error)
+      // Force redirect on error
+      window.location.href = '/auth/login'
+    }
   }
 
+  // Show loading state while auth is initializing
   if (loading) {
     return (
       <div className="h-screen flex items-center justify-center bg-gray-100">
@@ -208,13 +182,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         </div>
       </div>
     )
-  }
-
-  // Default company info
-  const company = {
-    name: 'Default Company',
-    plan: 'trial',
-    seats: 100
   }
 
   return (
@@ -241,8 +208,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           <Sidebar 
             navigation={filteredNavigation} 
             currentPath={pathname}
-            user={user}
-            company={company}
+            user={currentUser || user}
+            company={currentCompany}
             onLogout={handleLogout}
           />
         </div>
@@ -254,8 +221,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           <Sidebar 
             navigation={filteredNavigation} 
             currentPath={pathname}
-            user={user}
-            company={company}
+            user={currentUser || user}
+            company={currentCompany}
             onLogout={handleLogout}
           />
         </div>
@@ -299,10 +266,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   </div>
                   <div className="hidden sm:block">
                     <div className="text-sm font-medium text-gray-900">
-                      {user?.email}
+                      {currentUser?.email || user?.email}
                     </div>
                     <div className="text-xs text-gray-500">
-                      {company.name}
+                      {currentCompany?.name || 'Loading...'}
                     </div>
                   </div>
                 </div>
@@ -329,8 +296,6 @@ interface SidebarProps {
 }
 
 function Sidebar({ navigation, currentPath, user, company, onLogout }: SidebarProps) {
-  const userRole = user?.email ? (EMAIL_ROLE_MAP[user.email] || 'user') : 'user'
-  
   return (
     <div className="flex flex-col h-full bg-white border-r border-gray-200">
       {/* Logo */}
@@ -354,6 +319,21 @@ function Sidebar({ navigation, currentPath, user, company, onLogout }: SidebarPr
         {navigation.map((item) => {
           const isActive = currentPath === item.href || 
             (item.href !== '/dashboard' && currentPath.startsWith(item.href))
+          
+          if (item.href === '#') {
+            return (
+              <button
+                key={item.id}
+                onClick={() => alert(`${item.label} coming soon!`)}
+                className="group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors text-gray-600 hover:bg-gray-50 hover:text-gray-900 w-full text-left"
+              >
+                <span className="mr-3 flex-shrink-0 h-5 w-5 text-gray-400 group-hover:text-gray-500">
+                  {item.icon}
+                </span>
+                {item.label}
+              </button>
+            )
+          }
           
           return (
             <Link
@@ -389,7 +369,7 @@ function Sidebar({ navigation, currentPath, user, company, onLogout }: SidebarPr
               {user?.email}
             </div>
             <div className="text-xs text-gray-500 capitalize">
-              {userRole}
+              {user?.role}
             </div>
           </div>
         </div>
