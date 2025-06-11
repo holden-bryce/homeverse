@@ -106,6 +106,13 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // If accessing root while authenticated, don't auto-redirect
+  // Let the user choose where to go
+  if (pathname === '/' && session) {
+    // Don't auto-redirect, let them see the landing page
+    return response
+  }
+
   return response
 }
 

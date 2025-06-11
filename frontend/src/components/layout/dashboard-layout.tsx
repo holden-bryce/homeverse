@@ -148,9 +148,17 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         
         if (session?.user) {
           setUser(session.user)
+        } else {
+          // No session - redirect to login
+          console.log('No session found, redirecting to login')
+          window.location.href = '/auth/login'
+          return
         }
       } catch (error) {
         console.error('Dashboard: Error getting session:', error)
+        // On error, redirect to login
+        window.location.href = '/auth/login'
+        return
       } finally {
         setLoading(false)
       }
@@ -163,10 +171,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       console.log('Dashboard: Auth state changed:', _event, session?.user?.email)
       if (session?.user) {
         setUser(session.user)
+        setLoading(false)
       } else {
-        setUser(null)
+        // User logged out - redirect to login
+        window.location.href = '/auth/login'
       }
-      setLoading(false)
     })
 
     return () => {
