@@ -13,6 +13,7 @@ import {
   LogOut,
   Menu,
   X,
+  Bell,
   Search,
   User,
   Building2
@@ -22,6 +23,8 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Logo } from '@/components/ui/logo'
 import { NotificationBell } from '@/components/ui/notification-bell'
+import { useCurrentUser, useCurrentCompany } from '@/lib/supabase/hooks'
+import { useAuth } from '@/providers/supabase-auth-provider'
 
 interface NavItem {
   id: string
@@ -74,6 +77,13 @@ const navigation: NavItem[] = [
     roles: ['admin', 'manager', 'lender'],
   },
   {
+    id: 'buyer-portal',
+    label: 'Buyer Portal',
+    href: '/dashboard/buyers',
+    icon: <Home className="h-5 w-5" />,
+    roles: ['admin'],
+  },
+  {
     id: 'housing-search',
     label: 'Find Housing',
     href: '/dashboard/buyers',
@@ -114,135 +124,69 @@ interface DashboardLayoutProps {
   children: React.ReactNode
 }
 
-// Simple email to role mapping - no external dependencies
-const EMAIL_ROLE_MAP: Record<string, string> = {
-  'admin@test.com': 'admin',
-  'developer@test.com': 'developer',
-  'lender@test.com': 'lender',
-  'buyer@test.com': 'buyer',
-  'applicant@test.com': 'applicant'
-}
-
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [user, setUser] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [authChecked, setAuthChecked] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
+  
+  // Use auth context - this is the SINGLE source of truth
+  const { user, profile, loading, signOut } = useAuth()
+  const { data: currentUser, isLoading: userLoading } = useCurrentUser()
+  const { data: currentCompany, isLoading: companyLoading } = useCurrentCompany()
 
-  // Single useEffect to handle all auth logic
+  // Get the user's role from profile or fallback
+  const userRole = profile?.role || currentUser?.role || 'user'
+  
+  // Email-based role mapping as fallback
+  const emailRoleMap: Record<string, string> = {
+    'admin@test.com': 'admin',
+    'developer@test.com': 'developer', 
+    'lender@test.com': 'lender',
+    'buyer@test.com': 'buyer',
+    'applicant@test.com': 'applicant'
+  }
+  
+  const effectiveRole = userRole !== 'user' ? userRole : (emailRoleMap[user?.email || ''] || 'user')
+  
+  // Filter navigation based on user role
+  const filteredNavigation = navigation.filter(item => 
+    !item.roles || item.roles.includes(effectiveRole)
+  )
+  
+  // Debug logging - must be called before any early returns
   useEffect(() => {
-    let mounted = true
-    
-    const checkAuth = async () => {
-      console.log('Emergency Dashboard: Starting auth check...')
-      
-      try {
-        // Check if we're in browser
-        if (typeof window === 'undefined') {
-          return
-        }
+    console.log('Dashboard Clean Debug:', {
+      userEmail: user?.email,
+      userRole,
+      effectiveRole,
+      profile,
+      loading,
+      filteredNavigationCount: filteredNavigation.length
+    })
+  }, [userRole, effectiveRole, profile, loading, filteredNavigation.length, user?.email])
 
-        // Try to get Supabase session
-        const { supabase } = await import('@/lib/supabase')
-        const { data: { session }, error } = await supabase.auth.getSession()
-        
-        console.log('Emergency Dashboard: Session check result:', {
-          hasSession: !!session,
-          userEmail: session?.user?.email,
-          error: error?.message
-        })
-
-        if (error) {
-          console.error('Emergency Dashboard: Session error:', error)
-          if (mounted) {
-            setLoading(false)
-            setAuthChecked(true)
-            // Redirect to login on error
-            router.replace('/auth/login')
-          }
-          return
-        }
-
-        if (session?.user) {
-          console.log('Emergency Dashboard: User found, setting up...')
-          if (mounted) {
-            setUser(session.user)
-            setLoading(false)
-            setAuthChecked(true)
-          }
-        } else {
-          console.log('Emergency Dashboard: No session, redirecting to login...')
-          if (mounted) {
-            setLoading(false)
-            setAuthChecked(true)
-            router.replace('/auth/login')
-          }
-        }
-      } catch (error) {
-        console.error('Emergency Dashboard: Auth check error:', error)
-        if (mounted) {
-          setLoading(false)
-          setAuthChecked(true)
-          router.replace('/auth/login')
-        }
-      }
-    }
-
-    // Only run once
-    if (!authChecked) {
-      checkAuth()
-    }
-
-    return () => {
-      mounted = false
-    }
-  }, [authChecked, router])
-
-  // Show loading only while we're checking auth
-  if (loading || !authChecked) {
+  // If auth is loading, show loading state
+  if (loading) {
     return (
       <div className="h-screen flex items-center justify-center bg-gray-100">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading...</p>
-          <p className="mt-2 text-xs text-gray-500">Emergency Dashboard</p>
         </div>
       </div>
     )
   }
 
-  // If no user after auth check, we should have been redirected
-  if (!user) {
-    return (
-      <div className="h-screen flex items-center justify-center bg-gray-100">
-        <div className="text-center">
-          <p className="text-gray-600">Redirecting to login...</p>
-        </div>
-      </div>
-    )
+  // If no user, redirect to login (this should be handled by middleware but just in case)
+  if (!user && !loading) {
+    router.push('/auth/login')
+    return null
   }
-
-  // Determine role
-  const userRole = EMAIL_ROLE_MAP[user.email || ''] || 'user'
-  
-  // Filter navigation
-  const filteredNavigation = navigation.filter(item => 
-    !item.roles || item.roles.includes(userRole)
-  )
-
-  console.log('Emergency Dashboard: Rendering with user:', {
-    email: user.email,
-    role: userRole,
-    navItems: filteredNavigation.length
-  })
 
   const handleLogout = async () => {
+    console.log('Logout button clicked')
     try {
-      const { supabase } = await import('@/lib/supabase')
-      await supabase.auth.signOut()
-      window.location.href = '/auth/login'
+      await signOut()
     } catch (error) {
       console.error('Logout error:', error)
       window.location.href = '/auth/login'
@@ -273,9 +217,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           <Sidebar 
             navigation={filteredNavigation} 
             currentPath={pathname}
-            user={user}
+            user={currentUser || user}
+            company={currentCompany || profile?.companies}
             onLogout={handleLogout}
-            role={userRole}
           />
         </div>
       </div>
@@ -286,9 +230,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           <Sidebar 
             navigation={filteredNavigation} 
             currentPath={pathname}
-            user={user}
+            user={currentUser || user}
+            company={currentCompany || profile?.companies}
             onLogout={handleLogout}
-            role={userRole}
           />
         </div>
       </div>
@@ -331,10 +275,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   </div>
                   <div className="hidden sm:block">
                     <div className="text-sm font-medium text-gray-900">
-                      {user.email}
+                      {user?.email}
                     </div>
                     <div className="text-xs text-gray-500">
-                      Default Company
+                      {currentCompany?.name || profile?.companies?.name || 'Default Company'}
                     </div>
                   </div>
                 </div>
@@ -356,11 +300,11 @@ interface SidebarProps {
   navigation: NavItem[]
   currentPath: string
   user: any
+  company: any
   onLogout: () => void
-  role: string
 }
 
-function Sidebar({ navigation, currentPath, user, onLogout, role }: SidebarProps) {
+function Sidebar({ navigation, currentPath, user, company, onLogout }: SidebarProps) {
   return (
     <div className="flex flex-col h-full bg-white border-r border-gray-200">
       {/* Logo */}
@@ -369,13 +313,15 @@ function Sidebar({ navigation, currentPath, user, onLogout, role }: SidebarProps
       </div>
 
       {/* Company info */}
-      <div className="px-4 py-3 border-b border-gray-200">
-        <div className="text-sm font-medium text-gray-900">Default Company</div>
-        <div className="flex items-center space-x-2 mt-1">
-          <Badge variant="outline">trial</Badge>
-          <span className="text-xs text-gray-500">100 seats</span>
+      {company && (
+        <div className="px-4 py-3 border-b border-gray-200">
+          <div className="text-sm font-medium text-gray-900">{company.name}</div>
+          <div className="flex items-center space-x-2 mt-1">
+            <Badge variant="outline">{company.plan || 'trial'}</Badge>
+            <span className="text-xs text-gray-500">{company.seats || 100} seats</span>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Navigation */}
       <nav className="mt-5 flex-1 px-2 space-y-1 overflow-y-auto">
@@ -414,10 +360,10 @@ function Sidebar({ navigation, currentPath, user, onLogout, role }: SidebarProps
           </div>
           <div className="ml-3 flex-1 min-w-0">
             <div className="text-sm font-medium text-gray-900 truncate">
-              {user.email}
+              {user?.email}
             </div>
             <div className="text-xs text-gray-500 capitalize">
-              {role}
+              {user?.role || 'user'}
             </div>
           </div>
         </div>
