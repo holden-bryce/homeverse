@@ -132,8 +132,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const router = useRouter()
   const { user, logout: logoutStore } = useAuthStore()
   const { signOut, profile, loading, refreshProfile } = useAuth()
-  const { data: currentUser } = useCurrentUser()
-  const { data: currentCompany } = useCurrentCompany()
+  const { data: currentUser, isLoading: userLoading } = useCurrentUser()
+  const { data: currentCompany, isLoading: companyLoading } = useCurrentCompany()
 
   const handleLogout = async () => {
     console.log('Logout button clicked')
@@ -153,8 +153,17 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                    profile?.role || 
                    'user'
   
-  // For admin@test.com specifically, force admin role if email matches
-  const effectiveRole = user?.email === 'admin@test.com' ? 'admin' : userRole
+  // Email-based role mapping for known test users
+  const emailRoleMap: Record<string, string> = {
+    'admin@test.com': 'admin',
+    'developer@test.com': 'developer',
+    'lender@test.com': 'lender',
+    'buyer@test.com': 'buyer',
+    'applicant@test.com': 'applicant'
+  }
+  
+  // Use email-based role if available, otherwise use detected role
+  const effectiveRole = (user?.email && emailRoleMap[user.email]) || userRole
   
   // Filter navigation based on user role
   const filteredNavigation = navigation.filter(item => 
