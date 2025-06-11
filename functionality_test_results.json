@@ -1,0 +1,276 @@
+{
+  "timestamp": "2025-06-11T12:07:35.101377",
+  "tests": [
+    {
+      "category": "Backend",
+      "test": "Health check",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-06-11T12:07:35.742728"
+    },
+    {
+      "category": "Authentication",
+      "test": "Login as developer",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-06-11T12:07:36.337143"
+    },
+    {
+      "category": "Profile",
+      "test": "Profile has company_id (developer)",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-06-11T12:07:36.588926"
+    },
+    {
+      "category": "Entity Creation",
+      "test": "Create applicant (developer)",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-06-11T12:07:37.184126"
+    },
+    {
+      "category": "Entity Creation",
+      "test": "Create project (developer)",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-06-11T12:07:37.784297"
+    },
+    {
+      "category": "Data Access",
+      "test": "List applicants (developer)",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-06-11T12:07:38.155351"
+    },
+    {
+      "category": "Data Access",
+      "test": "List projects (developer)",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-06-11T12:07:38.295699"
+    },
+    {
+      "category": "Map View",
+      "test": "No projects found",
+      "passed": false,
+      "details": "",
+      "timestamp": "2025-06-11T12:07:38.465679"
+    },
+    {
+      "category": "Authentication",
+      "test": "Logout as developer",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-06-11T12:07:38.727915"
+    },
+    {
+      "category": "Authentication",
+      "test": "Login as lender",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-06-11T12:07:40.308235"
+    },
+    {
+      "category": "Profile",
+      "test": "Profile has company_id (lender)",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-06-11T12:07:40.545795"
+    },
+    {
+      "category": "Entity Creation",
+      "test": "Create applicant (lender)",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-06-11T12:07:41.124079"
+    },
+    {
+      "category": "Role Restriction",
+      "test": "Project creation blocked (lender)",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-06-11T12:07:41.397656"
+    },
+    {
+      "category": "Data Access",
+      "test": "List applicants (lender)",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-06-11T12:07:41.814638"
+    },
+    {
+      "category": "Data Access",
+      "test": "List projects (lender)",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-06-11T12:07:41.964157"
+    },
+    {
+      "category": "Authentication",
+      "test": "Logout as lender",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-06-11T12:07:42.201404"
+    },
+    {
+      "category": "Authentication",
+      "test": "Login as buyer",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-06-11T12:07:43.725904"
+    },
+    {
+      "category": "Profile",
+      "test": "Profile has company_id (buyer)",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-06-11T12:07:43.977085"
+    },
+    {
+      "category": "Entity Creation",
+      "test": "Create applicant (buyer)",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-06-11T12:07:44.573865"
+    },
+    {
+      "category": "Role Restriction",
+      "test": "Project creation blocked (buyer)",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-06-11T12:07:44.776586"
+    },
+    {
+      "category": "Data Access",
+      "test": "List applicants (buyer)",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-06-11T12:07:46.573842"
+    },
+    {
+      "category": "Data Access",
+      "test": "List projects (buyer)",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-06-11T12:07:46.705936"
+    },
+    {
+      "category": "Authentication",
+      "test": "Logout as buyer",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-06-11T12:07:46.898449"
+    },
+    {
+      "category": "Authentication",
+      "test": "Login as applicant",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-06-11T12:07:48.385248"
+    },
+    {
+      "category": "Profile",
+      "test": "Profile has company_id (applicant)",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-06-11T12:07:48.624606"
+    },
+    {
+      "category": "Entity Creation",
+      "test": "Create applicant (applicant)",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-06-11T12:07:49.155646"
+    },
+    {
+      "category": "Role Restriction",
+      "test": "Project creation blocked (applicant)",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-06-11T12:07:49.359340"
+    },
+    {
+      "category": "Data Access",
+      "test": "List applicants (applicant)",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-06-11T12:07:49.726707"
+    },
+    {
+      "category": "Data Access",
+      "test": "List projects (applicant)",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-06-11T12:07:49.895197"
+    },
+    {
+      "category": "Authentication",
+      "test": "Logout as applicant",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-06-11T12:07:50.086976"
+    },
+    {
+      "category": "Authentication",
+      "test": "Login as admin",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-06-11T12:07:51.639518"
+    },
+    {
+      "category": "Profile",
+      "test": "Profile has company_id (admin)",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-06-11T12:07:51.831533"
+    },
+    {
+      "category": "Entity Creation",
+      "test": "Create applicant (admin)",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-06-11T12:07:52.375754"
+    },
+    {
+      "category": "Entity Creation",
+      "test": "Create project (admin)",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-06-11T12:07:52.774267"
+    },
+    {
+      "category": "Data Access",
+      "test": "List applicants (admin)",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-06-11T12:07:53.113551"
+    },
+    {
+      "category": "Data Access",
+      "test": "List projects (admin)",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-06-11T12:07:53.276747"
+    },
+    {
+      "category": "Authentication",
+      "test": "Logout as admin",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-06-11T12:07:53.466495"
+    },
+    {
+      "category": "Communication",
+      "test": "Submit contact form",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-06-11T12:07:54.593046"
+    }
+  ],
+  "summary": {
+    "passed": 37,
+    "failed": 1,
+    "total": 38
+  }
+}
