@@ -23,10 +23,8 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Logo } from '@/components/ui/logo'
 import { NotificationBell } from '@/components/ui/notification-bell'
-import { useAuthStore } from '@/lib/stores/auth'
 import { useCurrentUser, useCurrentCompany } from '@/lib/supabase/hooks'
 import { useAuth } from '@/providers/supabase-auth-provider'
-import { logout } from '@/lib/api/auth'
 
 interface NavItem {
   id: string
@@ -130,8 +128,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
-  const { user, logout: logoutStore } = useAuthStore()
-  const { signOut, profile, loading, refreshProfile } = useAuth()
+  const { user, profile, loading, signOut, refreshProfile } = useAuth()
   const { data: currentUser, isLoading: userLoading } = useCurrentUser()
   const { data: currentCompany, isLoading: companyLoading } = useCurrentCompany()
 
@@ -139,33 +136,29 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     console.log('Logout button clicked')
     
     try {
-      // Use the unified logout function that handles everything
-      await logout()
+      // Use the signOut from auth context
+      await signOut()
     } catch (error) {
       console.error('Logout error:', error)
-      // Logout already handles redirect, but just in case
+      // Force redirect on error
       window.location.href = '/auth/login'
     }
   }
 
-  // Get the user's role from multiple sources, with better fallback
-  const userRole = currentUser?.role || 
-                   profile?.role || 
-                   'user'
-  
-  // Email-based role mapping for known test users
-  const emailRoleMap: Record<string, string> = {
-    'admin@test.com': 'admin',
-    'developer@test.com': 'developer',
-    'lender@test.com': 'lender',
-    'buyer@test.com': 'buyer',
-    'applicant@test.com': 'applicant'
+  // Show loading state while auth is initializing
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-gray-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
   }
-  
-  // Use email-based role if available, otherwise use detected role
-  const effectiveRole = (user?.email && emailRoleMap[user.email]) || 
-                       (profile?.email && emailRoleMap[profile.email]) ||
-                       userRole
+
+  // Get the user's role - prioritize profile from auth context
+  const effectiveRole = profile?.role || 'user'
   
   // Filter navigation based on user role
   const filteredNavigation = navigation.filter(item => 
@@ -175,15 +168,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   // Debug logging
   useEffect(() => {
     console.log('Dashboard Layout Debug:', {
-      userEmail: user?.email,
-      userRole,
+      userEmail: user?.email || profile?.email,
       effectiveRole,
-      currentUser,
       profile,
-      user,
+      loading,
       filteredNavigationCount: filteredNavigation.length
     })
-  }, [userRole, effectiveRole, currentUser, profile, user, filteredNavigation.length])
+  }, [effectiveRole, profile, user, loading, filteredNavigation.length])
   
   // If profile is not loading but we have a user, try to refresh
   useEffect(() => {
