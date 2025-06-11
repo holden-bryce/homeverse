@@ -4,7 +4,7 @@ import os
 import logging
 from datetime import datetime
 from typing import Optional, Dict, List, Any
-from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, Form, Request
+from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, Form, Request, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr
@@ -115,21 +115,57 @@ class ContactSubmission(BaseModel):
     message: str
 
 # Authentication Helpers
-async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    """Verify JWT token and return user data"""
+async def get_current_user(authorization: str = Header(None)):
+    """Get current user from JWT token with automatic profile creation"""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    token = authorization.replace("Bearer ", "")
+    
     try:
-        token = credentials.credentials
-        
         # Verify token with Supabase
         user = supabase.auth.get_user(token)
-        if not user or not user.user:
-            raise HTTPException(status_code=401, detail="Invalid authentication")
+        
+        if not user.user:
+            raise HTTPException(status_code=401, detail="Invalid token")
         
         # Get user profile with company info
         profile = supabase.table('profiles').select('*, companies(*)').eq('id', user.user.id).single().execute()
         
-        if not profile.data:
-            raise HTTPException(status_code=401, detail="User profile not found")
+        if not profile.data or not profile.data.get('company_id'):
+            # Profile missing or incomplete - fix it
+            logger.warning(f"Incomplete profile for user {user.user.email}, attempting to fix...")
+            
+            # Get default company
+            default_company = supabase.table('companies').select('*').eq('key', 'default-company').single().execute()
+            if not default_company.data:
+                # Create default company
+                default_company = supabase.table('companies').insert({
+                    "name": "Default Company",
+                    "key": "default-company",
+                    "plan": "trial",
+                    "seats": 100
+                }).execute()
+                company_id = default_company.data[0]['id']
+            else:
+                company_id = default_company.data['id']
+            
+            if not profile.data:
+                # Create new profile
+                new_profile = supabase.table('profiles').insert({
+                    "id": user.user.id,
+                    "company_id": company_id,
+                    "role": user.user.user_metadata.get('role', 'buyer'),
+                    "full_name": user.user.user_metadata.get('full_name', user.user.email)
+                }).execute()
+            else:
+                # Update existing profile with company_id
+                supabase.table('profiles').update({
+                    "company_id": company_id
+                }).eq('id', user.user.id).execute()
+            
+            # Re-fetch profile
+            profile = supabase.table('profiles').select('*, companies(*)').eq('id', user.user.id).single().execute()
         
         return {
             "id": user.user.id,
@@ -139,23 +175,25 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             "company": profile.data.get('companies'),
             "full_name": profile.data.get('full_name')
         }
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Authentication error: {str(e)}")
-        raise HTTPException(status_code=401, detail="Invalid authentication")
+        logger.error(f"Auth error: {str(e)}")
+        raise HTTPException(status_code=401, detail="Authentication failed")
 
+# Role-based access decorator
 def require_role(allowed_roles: List[str]):
-    """Decorator to check user role"""
     def decorator(func):
         @wraps(func)
-        async def wrapper(*args, **kwargs):
-            user = kwargs.get('user')
-            if not user or user.get('role') not in allowed_roles:
-                raise HTTPException(status_code=403, detail="Insufficient permissions")
-            return await func(*args, **kwargs)
+        async def wrapper(*args, user=None, **kwargs):
+            if not user:
+                raise HTTPException(status_code=401, detail="Not authenticated")
+            if user.get('role') not in allowed_roles:
+                raise HTTPException(status_code=403, detail=f"Requires one of roles: {allowed_roles}")
+            return await func(*args, user=user, **kwargs)
         return wrapper
     return decorator
 
-# Public Endpoints
 @app.get("/")
 async def root():
     return {"message": "HomeVerse API v2.0 - Powered by Supabase"}
@@ -345,6 +383,33 @@ async def logout(user: dict = Depends(get_current_user)):
     except Exception as e:
         logger.error(f"Logout error: {str(e)}")
         return {"message": "Logout completed"}
+
+@app.post("/api/v1/users/complete-profile")
+async def complete_profile(user=Depends(get_current_user)):
+    """Complete user profile by ensuring company assignment"""
+    try:
+        if user.get('company_id'):
+            return {
+                "message": "Profile already complete",
+                "profile": user
+            }
+        
+        # This shouldn't happen with the new get_current_user, but just in case
+        return {
+            "message": "Profile auto-completed",
+            "profile": user
+        }
+    except Exception as e:
+        logger.error(f"Profile completion error: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/v1/users/profile-status")
+async def get_profile_status(user=Depends(get_current_user)):
+    """Get current user's profile status"""
+    return {
+        "profile_complete": bool(user.get('company_id')),
+        "user": user
+    }
 
 # User Endpoints
 @app.get("/api/v1/users/me")
