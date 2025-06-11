@@ -67,33 +67,46 @@ export const useCreateApplicant = () => {
       if (!companyId) {
         console.log('No company_id in profile, ensuring default company exists...')
         
-        // First, try to get or create the default company
+        // Use the known default company ID
+        companyId = 'fc81eaca-9f77-4265-b2b1-c5ff71ce43a8'
+        
+        // Verify the company exists
         const { data: companies, error: companyError } = await supabase
           .from('companies')
           .select('id')
-          .eq('key', 'demo-company-2024')
+          .eq('id', companyId)
           .single()
         
         if (companyError || !companies) {
-          console.log('Creating default company...')
-          const { data: newCompany, error: createError } = await supabase
+          console.log('Default company not found, falling back to any available company...')
+          // Fallback: get any company
+          const { data: anyCompany } = await supabase
             .from('companies')
-            .insert({
-              name: 'Demo Company',
-              key: 'demo-company-2024',
-              plan: 'trial',
-              seats: 100
-            })
-            .select()
+            .select('id')
+            .limit(1)
             .single()
           
-          if (createError) {
-            console.error('Error creating company:', createError)
-            throw new Error('Failed to create default company')
+          if (anyCompany) {
+            companyId = anyCompany.id
+          } else {
+            console.log('No companies found, creating default company...')
+            const { data: newCompany, error: createError } = await supabase
+              .from('companies')
+              .insert({
+                name: 'Default Company',
+                key: 'default-company',
+                plan: 'trial',
+                seats: 100
+              })
+              .select()
+              .single()
+            
+            if (createError) {
+              console.error('Error creating company:', createError)
+              throw new Error('Failed to create default company')
+            }
+            companyId = newCompany.id
           }
-          companyId = newCompany.id
-        } else {
-          companyId = companies.id
         }
         
         // If user exists but no profile, create or update the profile
@@ -266,33 +279,46 @@ export const useCreateProject = () => {
       if (!companyId) {
         console.log('No company_id in profile, ensuring default company exists...')
         
-        // First, try to get or create the default company
+        // Use the known default company ID
+        companyId = 'fc81eaca-9f77-4265-b2b1-c5ff71ce43a8'
+        
+        // Verify the company exists
         const { data: companies, error: companyError } = await supabase
           .from('companies')
           .select('id')
-          .eq('key', 'demo-company-2024')
+          .eq('id', companyId)
           .single()
         
         if (companyError || !companies) {
-          console.log('Creating default company...')
-          const { data: newCompany, error: createError } = await supabase
+          console.log('Default company not found, falling back to any available company...')
+          // Fallback: get any company
+          const { data: anyCompany } = await supabase
             .from('companies')
-            .insert({
-              name: 'Demo Company',
-              key: 'demo-company-2024',
-              plan: 'trial',
-              seats: 100
-            })
-            .select()
+            .select('id')
+            .limit(1)
             .single()
           
-          if (createError) {
-            console.error('Error creating company:', createError)
-            throw new Error('Failed to create default company')
+          if (anyCompany) {
+            companyId = anyCompany.id
+          } else {
+            console.log('No companies found, creating default company...')
+            const { data: newCompany, error: createError } = await supabase
+              .from('companies')
+              .insert({
+                name: 'Default Company',
+                key: 'default-company',
+                plan: 'trial',
+                seats: 100
+              })
+              .select()
+              .single()
+            
+            if (createError) {
+              console.error('Error creating company:', createError)
+              throw new Error('Failed to create default company')
+            }
+            companyId = newCompany.id
           }
-          companyId = newCompany.id
-        } else {
-          companyId = companies.id
         }
         
         // If user exists but no profile, create the profile

@@ -104,39 +104,78 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
 
   const loadProfile = async (userId: string, forceReload: boolean = false) => {
     try {
-      // First try to get the profile
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('*, companies(*)')
-        .eq('id', userId)
-        .single()
+      console.log('🔍 Loading profile for user:', userId)
       
-      if (profileError || !profileData?.company_id) {
-        console.log('Profile missing or incomplete, fixing...')
+      // First try to get the profile with retry logic
+      let profileData = null
+      let attempts = 0
+      const maxAttempts = 3
+      
+      while (!profileData && attempts < maxAttempts) {
+        attempts++
+        console.log(`Profile load attempt ${attempts}/${maxAttempts}`)
+        
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*, companies(*)')
+          .eq('id', userId)
+          .single()
+        
+        if (data && data.company_id) {
+          profileData = data
+          console.log('✅ Profile loaded successfully:', profileData)
+          break
+        } else if (error) {
+          console.log('Profile error:', error)
+        } else {
+          console.log('Profile missing company_id, will fix...')
+        }
+        
+        // Wait a bit before retry
+        if (attempts < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, 500))
+        }
+      }
+      
+      // If we still don't have a valid profile, fix it
+      if (!profileData || !profileData.company_id) {
+        console.log('🔧 Profile missing or incomplete, fixing...')
         
         // Get or create default company
+        let companyId = 'fc81eaca-9f77-4265-b2b1-c5ff71ce43a8' // Use known default company ID
+        
+        // Verify the default company exists
         const { data: defaultCompany } = await supabase
           .from('companies')
           .select('id')
-          .eq('key', 'default-company')
+          .eq('id', companyId)
           .single()
         
-        let companyId = defaultCompany?.id
-        
-        if (!companyId) {
-          // Create default company
-          const { data: newCompany } = await supabase
+        if (!defaultCompany) {
+          // Fallback: get any company or create one
+          const { data: anyCompany } = await supabase
             .from('companies')
-            .insert({
-              name: 'Default Company',
-              key: 'default-company',
-              plan: 'trial',
-              seats: 100
-            })
-            .select()
+            .select('id')
+            .eq('key', 'default-company')
             .single()
           
-          companyId = newCompany?.id
+          if (anyCompany) {
+            companyId = anyCompany.id
+          } else {
+            // Create default company
+            const { data: newCompany } = await supabase
+              .from('companies')
+              .insert({
+                name: 'Default Company',
+                key: 'default-company',
+                plan: 'trial',
+                seats: 100
+              })
+              .select()
+              .single()
+            
+            companyId = newCompany?.id
+          }
         }
         
         // Create or update profile
@@ -144,8 +183,9 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
           // Get user metadata
           const { data: { user } } = await supabase.auth.getUser()
           
+          console.log('Creating new profile with company_id:', companyId)
           // Create profile
-          await supabase
+          const { data: newProfile } = await supabase
             .from('profiles')
             .insert({
               id: userId,
@@ -153,31 +193,35 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
               role: user?.user_metadata?.role || 'buyer',
               full_name: user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User'
             })
+            .select('*, companies(*)')
+            .single()
+          
+          profileData = newProfile
         } else {
+          console.log('Updating existing profile with company_id:', companyId)
           // Update existing profile with company_id
-          await supabase
+          const { data: updatedProfile } = await supabase
             .from('profiles')
             .update({ company_id: companyId })
             .eq('id', userId)
+            .select('*, companies(*)')
+            .single()
+          
+          profileData = updatedProfile
         }
         
-        // Reload profile
-        const { data: updatedProfile } = await supabase
-          .from('profiles')
-          .select('*, companies(*)')
-          .eq('id', userId)
-          .single()
-        
-        console.log('Fixed profile:', updatedProfile)
-        setProfile(updatedProfile)
-        return updatedProfile
+        console.log('✅ Fixed profile:', profileData)
       }
       
-      console.log('Loaded profile:', profileData)
-      setProfile(profileData)
-      return profileData
+      if (profileData) {
+        setProfile(profileData)
+        return profileData
+      } else {
+        console.error('❌ Failed to load or create profile')
+        return null
+      }
     } catch (error) {
-      console.error('Error in loadProfile:', error)
+      console.error('❌ Error in loadProfile:', error)
       return null
     }
   }
