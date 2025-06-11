@@ -132,31 +132,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { data: currentUser, isLoading: userLoading } = useCurrentUser()
   const { data: currentCompany, isLoading: companyLoading } = useCurrentCompany()
 
-  const handleLogout = async () => {
-    console.log('Logout button clicked')
-    
-    try {
-      // Use the signOut from auth context
-      await signOut()
-    } catch (error) {
-      console.error('Logout error:', error)
-      // Force redirect on error
-      window.location.href = '/auth/login'
-    }
-  }
-
-  // Show loading state while auth is initializing
-  if (loading) {
-    return (
-      <div className="h-screen flex items-center justify-center bg-gray-100">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
-        </div>
-      </div>
-    )
-  }
-
   // Get the user's role - prioritize profile from auth context
   const effectiveRole = profile?.role || 'user'
   
@@ -183,6 +158,31 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       refreshProfile?.()
     }
   }, [user, profile, loading, refreshProfile])
+
+  const handleLogout = async () => {
+    console.log('Logout button clicked')
+    
+    try {
+      // Use the signOut from auth context
+      await signOut()
+    } catch (error) {
+      console.error('Logout error:', error)
+      // Force redirect on error
+      window.location.href = '/auth/login'
+    }
+  }
+
+  // Show loading state while auth is initializing
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-gray-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="h-screen flex overflow-hidden bg-gray-100">
