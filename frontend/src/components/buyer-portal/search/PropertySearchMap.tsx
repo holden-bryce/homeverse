@@ -159,7 +159,7 @@ export function PropertySearchMap({ properties, onPropertySelect, onPropertyHove
     return () => {
       map.current?.remove()
     }
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Update demo markers when properties change (for fallback map)
   useEffect(() => {
@@ -169,7 +169,7 @@ export function PropertySearchMap({ properties, onPropertySelect, onPropertyHove
         setTimeout(() => addDemoMarkers(), 100)
       }
     }
-  }, [properties.length]) // Only depend on length to avoid infinite re-renders
+  }, [properties.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Update markers when properties change
   useEffect(() => {

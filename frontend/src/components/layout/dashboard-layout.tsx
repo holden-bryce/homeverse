@@ -149,7 +149,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   }
 
   // Get the user's role from multiple sources
-  const userRole = currentUser?.role || profile?.role || user?.user_metadata?.role || 'user'
+  const userRole = currentUser?.role || profile?.role || user?.role || 'user'
   
   // Filter navigation based on user role
   const filteredNavigation = navigation.filter(item => 

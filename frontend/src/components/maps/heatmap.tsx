@@ -400,7 +400,7 @@ export default function Heatmap({ className = '', height = 400, showControls = t
       setTimeout(() => setMapReady(true), 500)
     }
 
-  }, [heatmapData, mapReady])
+  }, [heatmapData, mapReady]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const resetView = () => {
     if (map.current) {

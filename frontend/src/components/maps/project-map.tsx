@@ -136,7 +136,7 @@ export function ProjectMap({
       showFallbackMap()
     }
 
-  }, [center, zoom, height, showControls])
+  }, [center, zoom, height, showControls]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const addProjectMarkers = () => {
     if (!map.current) return
@@ -315,7 +315,7 @@ export function ProjectMap({
     if (map.current && map.current.loaded()) {
       addProjectMarkers()
     }
-  }, [projects])
+  }, [projects]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cleanup on unmount
   useEffect(() => {
