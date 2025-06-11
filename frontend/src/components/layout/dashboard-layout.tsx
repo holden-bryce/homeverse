@@ -163,7 +163,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   }
   
   // Use email-based role if available, otherwise use detected role
-  const effectiveRole = (user?.email && emailRoleMap[user.email]) || userRole
+  const effectiveRole = (user?.email && emailRoleMap[user.email]) || 
+                       (profile?.email && emailRoleMap[profile.email]) ||
+                       userRole
   
   // Filter navigation based on user role
   const filteredNavigation = navigation.filter(item => 

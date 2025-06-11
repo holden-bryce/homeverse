@@ -58,9 +58,9 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
             setProfile({
               id: session.user.id,
               email: session.user.email,
-              role: session.user.user_metadata?.role || determineRoleFromEmail(session.user.email),
+              role: session.user.user_metadata?.role || 'buyer',
               full_name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0],
-              company_id: session.user.user_metadata?.company_id || 'fc81eaca-9f77-4265-b2b1-c5ff71ce43a8'
+              company_id: session.user.user_metadata?.company_id
             })
           }
         }
@@ -102,133 +102,118 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
     }
   }, [])
 
-  const determineRoleFromEmail = (email?: string | null): string => {
-    if (!email) return 'buyer'
-    
-    const emailRoleMap: Record<string, string> = {
-      'admin@test.com': 'admin',
-      'developer@test.com': 'developer',
-      'lender@test.com': 'lender',
-      'buyer@test.com': 'buyer',
-      'applicant@test.com': 'applicant'
-    }
-    
-    return emailRoleMap[email] || 'buyer'
-  }
-
   const loadProfile = async (userId: string, forceReload: boolean = false) => {
     try {
       console.log('🔍 Loading profile for user:', userId)
       
-      // First try to get just the profile without joins (faster, less likely to timeout)
+      // First try to get the profile - simplified approach
       let profileData = null
       
       try {
         console.log('Loading profile for user:', userId)
         
-        // Simple query without joins first
-        const { data, error } = await supabase
+        // Simple query with timeout
+        const profilePromise = supabase
           .from('profiles')
-          .select('*')
+          .select('*, companies(*)')
           .eq('id', userId)
           .single()
         
-        if (data) {
-          profileData = data
+        // Add a timeout to prevent hanging
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Profile query timeout')), 5000)
+        )
+        
+        const result = await Promise.race([profilePromise, timeoutPromise]) as any
+        
+        if (result?.data) {
+          profileData = result.data
           console.log('✅ Profile loaded:', profileData)
-          
-          // Load company separately if needed
-          if (profileData.company_id) {
-            try {
-              const { data: companyData } = await supabase
-                .from('companies')
-                .select('*')
-                .eq('id', profileData.company_id)
-                .single()
-              
-              if (companyData) {
-                profileData.companies = companyData
-              }
-            } catch (companyError) {
-              console.log('Could not load company data:', companyError)
-            }
-          }
-        } else if (error) {
-          console.log('Profile error:', error)
-          if (error.code === 'PGRST116') {
+        } else if (result?.error) {
+          console.log('Profile error:', result.error)
+          if (result.error.code === 'PGRST116') {
             console.log('Profile not found, will create...')
           }
         }
       } catch (error: any) {
         console.error('Profile load failed:', error.message || error)
-        
-        // If RLS is blocking, create a minimal profile from session data
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-          profileData = {
-            id: user.id,
-            email: user.email,
-            role: user.user_metadata?.role || determineRoleFromEmail(user.email),
-            full_name: user.user_metadata?.full_name || user.email?.split('@')[0],
-            company_id: user.user_metadata?.company_id || 'fc81eaca-9f77-4265-b2b1-c5ff71ce43a8'
-          }
-          console.log('Using fallback profile from session:', profileData)
-        }
+        // Continue to create profile if needed
       }
       
-      // If we still don't have a valid profile, create one
+      // If we still don't have a valid profile, fix it
       if (!profileData || !profileData.company_id) {
-        console.log('🔧 Profile missing or incomplete, creating...')
+        console.log('🔧 Profile missing or incomplete, fixing...')
         
         // Get or create default company
-        let companyId = 'fc81eaca-9f77-4265-b2b1-c5ff71ce43a8'
+        let companyId = 'fc81eaca-9f77-4265-b2b1-c5ff71ce43a8' // Use known default company ID
         
-        // Get user metadata
-        const { data: { user } } = await supabase.auth.getUser()
+        // Verify the default company exists
+        const { data: defaultCompany } = await supabase
+          .from('companies')
+          .select('id')
+          .eq('id', companyId)
+          .single()
         
-        if (user) {
-          const newProfileData = {
-            id: userId,
-            email: user.email,
-            company_id: companyId,
-            role: user.user_metadata?.role || determineRoleFromEmail(user.email),
-            full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
-          }
+        if (!defaultCompany) {
+          // Fallback: get any company or create one
+          const { data: anyCompany } = await supabase
+            .from('companies')
+            .select('id')
+            .eq('key', 'default-company')
+            .single()
           
-          try {
-            // Try to create profile
-            const { data: newProfile, error } = await supabase
-              .from('profiles')
-              .insert(newProfileData)
-              .select('*')
+          if (anyCompany) {
+            companyId = anyCompany.id
+          } else {
+            // Create default company
+            const { data: newCompany } = await supabase
+              .from('companies')
+              .insert({
+                name: 'Default Company',
+                key: 'default-company',
+                plan: 'trial',
+                seats: 100
+              })
+              .select()
               .single()
             
-            if (newProfile) {
-              profileData = newProfile
-              console.log('✅ Created new profile:', profileData)
-            } else if (error?.code === '23505') {
-              // Profile already exists, try to update it
-              const { data: updatedProfile } = await supabase
-                .from('profiles')
-                .update({ company_id: companyId })
-                .eq('id', userId)
-                .select('*')
-                .single()
-              
-              if (updatedProfile) {
-                profileData = updatedProfile
-              }
-            } else {
-              // If we can't create/update in DB, use local data
-              profileData = newProfileData
-              console.log('Using local profile data:', profileData)
-            }
-          } catch (createError) {
-            // If all else fails, use local profile data
-            profileData = newProfileData
-            console.log('Using fallback local profile:', profileData)
+            companyId = newCompany?.id
           }
         }
+        
+        // Create or update profile
+        if (!profileData) {
+          // Get user metadata
+          const { data: { user } } = await supabase.auth.getUser()
+          
+          console.log('Creating new profile with company_id:', companyId)
+          // Create profile
+          const { data: newProfile } = await supabase
+            .from('profiles')
+            .insert({
+              id: userId,
+              company_id: companyId,
+              role: user?.user_metadata?.role || 'buyer',
+              full_name: user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User'
+            })
+            .select('*, companies(*)')
+            .single()
+          
+          profileData = newProfile
+        } else {
+          console.log('Updating existing profile with company_id:', companyId)
+          // Update existing profile with company_id
+          const { data: updatedProfile } = await supabase
+            .from('profiles')
+            .update({ company_id: companyId })
+            .eq('id', userId)
+            .select('*, companies(*)')
+            .single()
+          
+          profileData = updatedProfile
+        }
+        
+        console.log('✅ Fixed profile:', profileData)
       }
       
       if (profileData) {
@@ -268,11 +253,15 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
     if (data.user && data.session) {
       console.log('Login successful, loading profile...')
       
-      // Ensure profile is loaded
+      // Ensure profile is loaded and has company_id
       await loadProfile(data.user.id, true)
       
       // Get the user's role for redirect
-      const userRole = determineRoleFromEmail(data.user.email)
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', data.user.id)
+        .single()
       
       // Redirect based on role
       const roleRedirects: Record<string, string> = {
@@ -283,7 +272,7 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
         admin: '/dashboard'
       }
       
-      const targetUrl = redirectUrl || roleRedirects[userRole] || '/dashboard'
+      const targetUrl = redirectUrl || roleRedirects[profile?.role || 'buyer'] || '/dashboard'
       window.location.href = targetUrl
     }
   }
