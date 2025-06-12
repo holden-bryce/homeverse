@@ -28,21 +28,12 @@ function EmergencyLoginForm() {
     setLoading(true)
 
     try {
-      // Import Supabase directly - no providers
-      const { supabase } = await import('@/lib/supabase')
+      // Import EMERGENCY Supabase client - no profile loading
+      const { emergencySignIn } = await import('@/lib/supabase-emergency')
       
       console.log('Emergency Login: Attempting sign in...')
       
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-
-      if (signInError) {
-        console.error('Emergency Login: Sign in error:', signInError)
-        setError(signInError.message)
-        return
-      }
+      const data = await emergencySignIn(email, password)
 
       if (data.user) {
         console.log('Emergency Login: Success! User:', data.user.email)
@@ -59,8 +50,8 @@ function EmergencyLoginForm() {
         const role = emailToRole[email] || 'buyer'
         console.log('Emergency Login: Redirecting to dashboard for role:', role)
         
-        // Force redirect to dashboard - let the emergency dashboard handle auth state
-        window.location.href = '/dashboard'
+        // Force hard redirect to dashboard - bypasses all React routing
+        window.location.replace('/dashboard')
       }
     } catch (error: any) {
       console.error('Emergency Login: Unexpected error:', error)

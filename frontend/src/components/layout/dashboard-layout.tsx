@@ -144,9 +144,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           return
         }
 
-        // Try to get Supabase session
-        const { supabase } = await import('@/lib/supabase')
-        const { data: { session }, error } = await supabase.auth.getSession()
+        // Try to get Supabase session using EMERGENCY client
+        const { emergencyGetSession } = await import('@/lib/supabase-emergency')
+        const session = await emergencyGetSession()
+        const error = !session ? new Error('No session') : null
         
         console.log('Emergency Dashboard: Session check result:', {
           hasSession: !!session,
@@ -240,8 +241,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const handleLogout = async () => {
     try {
-      const { supabase } = await import('@/lib/supabase')
-      await supabase.auth.signOut()
+      const { emergencySignOut } = await import('@/lib/supabase-emergency')
+      await emergencySignOut()
       window.location.href = '/auth/login'
     } catch (error) {
       console.error('Logout error:', error)
