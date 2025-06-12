@@ -1,56 +1,55 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Suppress webpack warnings for Supabase realtime
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      // Don't resolve 'fs' module on the client to prevent this error on build
+      config.resolve.fallback = {
+        fs: false,
+        net: false,
+        tls: false
+      };
+    }
+    
+    // Ignore the critical dependency warning from Supabase
+    config.module = {
+      ...config.module,
+      exprContextCritical: false,
+    };
+    
+    return config;
+  },
+  
+  // Enable build caching for Render
   experimental: {
-    // typedRoutes: true, // Temporarily disabled due to route type issues
+    turbotrace: {
+      logLevel: 'error'
+    }
   },
-  images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: '**',
-      },
-    ],
-  },
+  
+  // Optimize for production
+  swcMinify: true,
+  
+  // Handle environment variables
   env: {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     NEXT_PUBLIC_MAPBOX_TOKEN: process.env.NEXT_PUBLIC_MAPBOX_TOKEN,
   },
-  async headers() {
-    return [
-      {
-        source: '/(.*)',
-        headers: [
-          {
-            key: 'X-Content-Type-Options',
-            value: 'nosniff',
-          },
-          {
-            key: 'X-Frame-Options',
-            value: 'DENY',
-          },
-          {
-            key: 'X-XSS-Protection',
-            value: '1; mode=block',
-          },
-          {
-            key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' *.mapbox.com blob:; worker-src 'self' blob:; child-src 'self' blob:; style-src 'self' 'unsafe-inline' *.mapbox.com; img-src 'self' data: blob: *.mapbox.com https:; connect-src 'self' *.mapbox.com api.mapbox.com events.mapbox.com *.supabase.co wss://*.supabase.co https://homeverse-api.onrender.com http://localhost:8000; font-src 'self' data:; frame-src 'self'; object-src 'none';",
-          },
-          {
-            key: 'Strict-Transport-Security',
-            value: 'max-age=63072000; includeSubDomains; preload',
-          },
-          {
-            key: 'Referrer-Policy',
-            value: 'strict-origin-when-cross-origin',
-          },
-          {
-            key: 'Permissions-Policy',
-            value: 'camera=(), microphone=(), geolocation=(self)',
-          },
-        ],
-      },
-    ]
+  
+  // Ignore TypeScript errors during build (if needed)
+  typescript: {
+    // !! WARN !!
+    // Set this to false once all TypeScript errors are fixed
+    ignoreBuildErrors: false,
+  },
+  
+  // Ignore ESLint errors during build (if needed)
+  eslint: {
+    // !! WARN !!
+    // Set this to false once all ESLint errors are fixed
+    ignoreDuringBuilds: false,
   },
 }
 
