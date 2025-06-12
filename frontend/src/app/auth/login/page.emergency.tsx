@@ -9,16 +9,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { AlertCircle } from 'lucide-react'
 import { Logo } from '@/components/ui/logo'
 
-// EMERGENCY LOGIN - Bypasses complex auth providers to fix routing
-
-function EmergencyLoginForm() {
+export default function EmergencyLoginPage() {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  console.log('Emergency Login: Form loaded')
+  console.log('Emergency Login: Page loaded')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -28,7 +26,7 @@ function EmergencyLoginForm() {
     setLoading(true)
 
     try {
-      // Import Supabase directly - no providers
+      // Import Supabase directly
       const { supabase } = await import('@/lib/supabase')
       
       console.log('Emergency Login: Attempting sign in...')
@@ -59,7 +57,7 @@ function EmergencyLoginForm() {
         const role = emailToRole[email] || 'buyer'
         console.log('Emergency Login: Redirecting to dashboard for role:', role)
         
-        // Force redirect to dashboard - let the emergency dashboard handle auth state
+        // Force redirect to dashboard
         window.location.href = '/dashboard'
       }
     } catch (error: any) {
@@ -166,9 +164,4 @@ function EmergencyLoginForm() {
       </div>
     </div>
   )
-}
-
-export default function EmergencyLoginPage() {
-  console.log('Emergency Login: Page component loaded')
-  return <EmergencyLoginForm />
 }
