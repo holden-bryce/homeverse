@@ -11,7 +11,7 @@ type ProjectInsert = Database['public']['Tables']['projects']['Insert']
 export async function createProject(formData: FormData) {
   const profile = await getUserProfile()
   if (!profile || !profile.company_id) {
-    return { error: 'Unauthorized or no company assigned' }
+    throw new Error('Unauthorized or no company assigned')
   }
   
   const supabase = createClient()
@@ -41,7 +41,7 @@ export async function createProject(formData: FormData) {
   
   if (error) {
     console.error('Error creating project:', error)
-    return { error: error.message }
+    throw new Error(error.message)
   }
   
   revalidatePath('/dashboard/projects')
@@ -51,7 +51,7 @@ export async function createProject(formData: FormData) {
 export async function updateProject(id: string, formData: FormData) {
   const profile = await getUserProfile()
   if (!profile || !profile.company_id) {
-    return { error: 'Unauthorized' }
+    throw new Error('Unauthorized')
   }
   
   const supabase = createClient()
@@ -78,7 +78,7 @@ export async function updateProject(id: string, formData: FormData) {
   
   if (error) {
     console.error('Error updating project:', error)
-    return { error: error.message }
+    throw new Error(error.message)
   }
   
   revalidatePath('/dashboard/projects')
@@ -89,7 +89,7 @@ export async function updateProject(id: string, formData: FormData) {
 export async function deleteProject(id: string) {
   const profile = await getUserProfile()
   if (!profile || !profile.company_id) {
-    return { error: 'Unauthorized' }
+    throw new Error('Unauthorized')
   }
   
   const supabase = createClient()
@@ -102,7 +102,7 @@ export async function deleteProject(id: string) {
   
   if (error) {
     console.error('Error deleting project:', error)
-    return { error: error.message }
+    throw new Error(error.message)
   }
   
   revalidatePath('/dashboard/projects')

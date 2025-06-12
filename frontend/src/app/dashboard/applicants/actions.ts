@@ -11,7 +11,7 @@ type ApplicantInsert = Database['public']['Tables']['applicants']['Insert']
 export async function createApplicant(formData: FormData) {
   const profile = await getUserProfile()
   if (!profile || !profile.company_id) {
-    return { error: 'Unauthorized or no company assigned' }
+    throw new Error('Unauthorized or no company assigned')
   }
   
   const supabase = createClient()
@@ -40,7 +40,7 @@ export async function createApplicant(formData: FormData) {
   
   if (error) {
     console.error('Error creating applicant:', error)
-    return { error: error.message }
+    throw new Error(error.message)
   }
   
   revalidatePath('/dashboard/applicants')
@@ -50,7 +50,7 @@ export async function createApplicant(formData: FormData) {
 export async function updateApplicant(id: string, formData: FormData) {
   const profile = await getUserProfile()
   if (!profile || !profile.company_id) {
-    return { error: 'Unauthorized' }
+    throw new Error('Unauthorized')
   }
   
   const supabase = createClient()
@@ -76,7 +76,7 @@ export async function updateApplicant(id: string, formData: FormData) {
   
   if (error) {
     console.error('Error updating applicant:', error)
-    return { error: error.message }
+    throw new Error(error.message)
   }
   
   revalidatePath('/dashboard/applicants')
@@ -87,7 +87,7 @@ export async function updateApplicant(id: string, formData: FormData) {
 export async function deleteApplicant(id: string) {
   const profile = await getUserProfile()
   if (!profile || !profile.company_id) {
-    return { error: 'Unauthorized' }
+    throw new Error('Unauthorized')
   }
   
   const supabase = createClient()
@@ -100,7 +100,7 @@ export async function deleteApplicant(id: string) {
   
   if (error) {
     console.error('Error deleting applicant:', error)
-    return { error: error.message }
+    throw new Error(error.message)
   }
   
   revalidatePath('/dashboard/applicants')

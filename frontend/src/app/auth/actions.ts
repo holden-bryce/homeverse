@@ -13,7 +13,7 @@ export async function signIn(email: string, password: string) {
   })
   
   if (error) {
-    return { error: error.message }
+    throw new Error(error.message)
   }
   
   revalidatePath('/', 'layout')
@@ -35,17 +35,21 @@ export async function signUp(email: string, password: string, fullName: string, 
   })
   
   if (error) {
-    return { error: error.message }
+    throw new Error(error.message)
   }
   
   if (data.user) {
     // Create profile
-    await supabase.from('profiles').insert({
+    const { error: profileError } = await supabase.from('profiles').insert({
       id: data.user.id,
       full_name: fullName,
       role: role,
       company_id: null // Will be set later
     })
+    
+    if (profileError) {
+      throw new Error(profileError.message)
+    }
   }
   
   revalidatePath('/', 'layout')
