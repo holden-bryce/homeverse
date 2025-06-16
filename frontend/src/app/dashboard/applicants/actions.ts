@@ -10,11 +10,45 @@ type ApplicantInsert = Database['public']['Tables']['applicants']['Insert']
 
 export async function createApplicant(formData: FormData) {
   const profile = await getUserProfile()
-  if (!profile || !profile.company_id) {
-    throw new Error('Unauthorized or no company assigned')
+  if (!profile) {
+    throw new Error('Unauthorized')
   }
   
   const supabase = createClient()
+  
+  // If user doesn't have a company, create a default one
+  let companyId = profile.company_id
+  
+  if (!companyId) {
+    // Create a default company for the user
+    const { data: company, error: companyError } = await supabase
+      .from('companies')
+      .insert({
+        name: `${profile.full_name || profile.email}'s Company`,
+        key: `company_${profile.id.slice(0, 8)}`,
+        plan: 'trial',
+        seats: 5
+      })
+      .select()
+      .single()
+    
+    if (companyError) {
+      console.error('Error creating company:', companyError)
+      throw new Error('Unable to create company')
+    }
+    
+    // Update user profile with company_id
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({ company_id: company.id })
+      .eq('id', profile.id)
+    
+    if (profileError) {
+      console.error('Error updating profile:', profileError)
+    }
+    
+    companyId = company.id
+  }
   
   const applicantData: ApplicantInsert = {
     first_name: formData.get('first_name') as string,
@@ -27,7 +61,7 @@ export async function createApplicant(formData: FormData) {
     location_preference: formData.get('location_preference') as string || null,
     latitude: parseFloat(formData.get('latitude') as string) || 40.7128,
     longitude: parseFloat(formData.get('longitude') as string) || -74.0060,
-    company_id: profile.company_id,
+    company_id: companyId,
     user_id: profile.id,
     status: 'pending',
   }
@@ -49,7 +83,7 @@ export async function createApplicant(formData: FormData) {
 
 export async function updateApplicant(id: string, formData: FormData) {
   const profile = await getUserProfile()
-  if (!profile || !profile.company_id) {
+  if (!profile) {
     throw new Error('Unauthorized')
   }
   
@@ -68,11 +102,19 @@ export async function updateApplicant(id: string, formData: FormData) {
     updated_at: new Date().toISOString(),
   }
   
-  const { error } = await supabase
+  // If user has a company_id, use it to filter. Otherwise, just filter by user_id
+  const query = supabase
     .from('applicants')
     .update(updateData)
     .eq('id', id)
-    .eq('company_id', profile.company_id)
+  
+  if (profile.company_id) {
+    query.eq('company_id', profile.company_id)
+  } else {
+    query.eq('user_id', profile.id)
+  }
+  
+  const { error } = await query
   
   if (error) {
     console.error('Error updating applicant:', error)
@@ -86,17 +128,25 @@ export async function updateApplicant(id: string, formData: FormData) {
 
 export async function deleteApplicant(id: string) {
   const profile = await getUserProfile()
-  if (!profile || !profile.company_id) {
+  if (!profile) {
     throw new Error('Unauthorized')
   }
   
   const supabase = createClient()
   
-  const { error } = await supabase
+  // If user has a company_id, use it to filter. Otherwise, just filter by user_id
+  const query = supabase
     .from('applicants')
     .delete()
     .eq('id', id)
-    .eq('company_id', profile.company_id)
+  
+  if (profile.company_id) {
+    query.eq('company_id', profile.company_id)
+  } else {
+    query.eq('user_id', profile.id)
+  }
+  
+  const { error } = await query
   
   if (error) {
     console.error('Error deleting applicant:', error)
