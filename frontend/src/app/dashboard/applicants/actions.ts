@@ -64,20 +64,21 @@ export async function createApplicant(formData: FormData) {
       }
     }
     
-    const applicantData: ApplicantInsert = {
-      first_name: formData.get('first_name') as string,
-      last_name: formData.get('last_name') as string,
+    // Match the actual Supabase schema
+    const applicantData = {
+      full_name: `${formData.get('first_name')} ${formData.get('last_name')}`,
       email: formData.get('email') as string,
       phone: formData.get('phone') as string || null,
       household_size: parseInt(formData.get('household_size') as string) || 1,
       income: parseFloat(formData.get('income') as string) || 0,
-      ami_percent: parseFloat(formData.get('ami_percent') as string) || 0,
-      location_preference: formData.get('location_preference') as string || null,
-      latitude: parseFloat(formData.get('latitude') as string) || 40.7128,
-      longitude: parseFloat(formData.get('longitude') as string) || -74.0060,
+      preferences: {
+        ami_percent: parseFloat(formData.get('ami_percent') as string) || 0,
+        location_preference: formData.get('location_preference') as string || null,
+        latitude: parseFloat(formData.get('latitude') as string) || 40.7128,
+        longitude: parseFloat(formData.get('longitude') as string) || -74.0060,
+      },
       company_id: companyId,
-      user_id: profile.id,
-      status: 'pending',
+      status: 'active', // Schema default is 'active' not 'pending'
     }
     
     const { data, error } = await supabase
