@@ -79,7 +79,8 @@ export async function createProject(formData: FormData) {
   }
   
   revalidatePath('/dashboard/projects')
-  redirect(`/dashboard/projects/${data.id}`)
+  // Redirect to success page to avoid loading issues
+  redirect('/dashboard/projects/success')
 }
 
 export async function updateProject(id: string, formData: FormData) {

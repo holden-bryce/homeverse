@@ -97,7 +97,8 @@ export async function createApplicant(formData: FormData) {
     }
     
     revalidatePath('/dashboard/applicants')
-    redirect(`/dashboard/applicants/${data.id}`)
+    // Redirect to success page instead of detail page to avoid loading issues
+    redirect('/dashboard/applicants/success')
   } catch (error) {
     console.error('Error in createApplicant:', error)
     throw error

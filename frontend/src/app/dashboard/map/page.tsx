@@ -122,17 +122,20 @@ const fallbackProjects = [
 export default function MapViewPage() {
   const router = useRouter()
   const { profile } = useAuth()
-  const [projects, setProjects] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const [projects, setProjects] = useState<any[]>(fallbackProjects) // Start with fallback data
+  const [loading, setLoading] = useState(false) // Don't block map rendering
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedAMI, setSelectedAMI] = useState('all')
   const [selectedStatus, setSelectedStatus] = useState('all')
   const [selectedProject, setSelectedProject] = useState<string | undefined>(undefined)
   const [showFilters, setShowFilters] = useState(false)
   const [mapStyle, setMapStyle] = useState('streets')
+  const [mapReady, setMapReady] = useState(false)
 
   // Load projects from Supabase
   useEffect(() => {
+    // Show map immediately with fallback data, then load real data
+    setMapReady(true)
     loadProjects()
   }, [])
 
@@ -342,26 +345,17 @@ export default function MapViewPage() {
           <div className="lg:col-span-3">
             <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
               <CardContent className="p-0">
-                {loading ? (
-                  <div className="h-[600px] flex items-center justify-center bg-gradient-to-br from-sage-50 to-cream-50 rounded-xl">
-                    <div className="text-center">
-                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sage-600 mx-auto mb-4"></div>
-                      <p className="text-gray-600">Loading projects...</p>
-                    </div>
-                  </div>
-                ) : (
-                  <ProjectMap
-                    projects={filteredProjects}
-                    height={600}
-                    selectedProject={selectedProject}
-                    onProjectSelect={(projectId) => {
-                      setSelectedProject(projectId === selectedProject ? undefined : projectId)
-                    }}
-                    onProjectHover={(projectId) => {
-                      console.log('Hovered project:', projectId)
-                    }}
-                  />
-                )}
+                <ProjectMap
+                  projects={filteredProjects}
+                  height={600}
+                  selectedProject={selectedProject}
+                  onProjectSelect={(projectId) => {
+                    setSelectedProject(projectId === selectedProject ? undefined : projectId)
+                  }}
+                  onProjectHover={(projectId) => {
+                    console.log('Hovered project:', projectId)
+                  }}
+                />
               </CardContent>
             </Card>
 
