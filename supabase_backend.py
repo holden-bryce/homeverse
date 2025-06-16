@@ -4,7 +4,7 @@ import os
 import logging
 from datetime import datetime
 from typing import Optional, Dict, List, Any
-from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, Form, Request, Header
+from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, Form, Request, Header, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr
@@ -385,6 +385,205 @@ async def logout(user: dict = Depends(get_current_user)):
     except Exception as e:
         logger.error(f"Logout error: {str(e)}")
         return {"message": "Logout completed"}
+
+
+@app.get("/api/v1/auth/me")
+async def get_current_user_profile(user=Depends(get_current_user)):
+    """Get current user profile with company info"""
+    return {
+        "id": user["id"],
+        "email": user["email"],
+        "role": user.get("role", "buyer"),
+        "full_name": user.get("full_name", ""),
+        "company": user.get("company", {})
+    }
+
+@app.get("/api/v1/users/settings")
+async def get_user_settings(user=Depends(get_current_user)):
+    """Get user settings and preferences"""
+    try:
+        # Get user preferences from profiles table
+        result = supabase.table('profiles').select('preferences').eq('id', user['id']).single().execute()
+        preferences = result.data.get('preferences', {}) if result.data else {}
+        
+        return {
+            "notifications": {
+                "email_new_applications": preferences.get("email_new_applications", True),
+                "email_status_updates": preferences.get("email_status_updates", True),
+                "email_weekly_report": preferences.get("email_weekly_report", False),
+                "sms_urgent_updates": preferences.get("sms_urgent_updates", False)
+            },
+            "privacy": {
+                "show_profile": preferences.get("show_profile", True),
+                "allow_messages": preferences.get("allow_messages", True)
+            },
+            "display": {
+                "theme": preferences.get("theme", "light"),
+                "language": preferences.get("language", "en"),
+                "timezone": preferences.get("timezone", "UTC")
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error getting user settings: {e}")
+        return {
+            "notifications": {
+                "email_new_applications": True,
+                "email_status_updates": True,
+                "email_weekly_report": False,
+                "sms_urgent_updates": False
+            },
+            "privacy": {
+                "show_profile": True,
+                "allow_messages": True
+            },
+            "display": {
+                "theme": "light",
+                "language": "en",
+                "timezone": "UTC"
+            }
+        }
+
+@app.patch("/api/v1/users/settings")
+async def update_user_settings(settings: dict, user=Depends(get_current_user)):
+    """Update user settings and preferences"""
+    try:
+        # Get current preferences
+        result = supabase.table('profiles').select('preferences').eq('id', user['id']).single().execute()
+        current_prefs = result.data.get('preferences', {}) if result.data else {}
+        
+        # Merge with new settings
+        if 'notifications' in settings:
+            current_prefs.update(settings['notifications'])
+        
+        # Update in database
+        supabase.table('profiles').update({
+            'preferences': current_prefs
+        }).eq('id', user['id']).execute()
+        
+        return {"message": "Settings updated successfully"}
+    except Exception as e:
+        logger.error(f"Error updating settings: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update settings")
+
+@app.get("/api/v1/analytics/heatmap")
+async def get_heatmap_data(user=Depends(get_current_user)):
+    """Get heatmap data for analytics"""
+    if user.get('role') not in ['lender', 'admin', 'developer']:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    try:
+        # Get all projects with their locations
+        projects = supabase.table('projects').select('*').execute()
+        
+        # Get all applicants with their desired locations
+        applicants = supabase.table('applicants').select('*').execute()
+        
+        # Format data for heatmap
+        heatmap_data = {
+            "projects": [
+                {
+                    "id": p["id"],
+                    "name": p["name"],
+                    "lat": p["location"]["lat"],
+                    "lng": p["location"]["lng"],
+                    "units": p["total_units"],
+                    "affordable_units": p["affordable_units"],
+                    "ami_percentage": p["ami_percentage"]
+                }
+                for p in projects.data or []
+                if p.get("location")
+            ],
+            "demand_zones": [
+                {
+                    "lat": a["desired_location"]["lat"],
+                    "lng": a["desired_location"]["lng"],
+                    "intensity": 1  # Could be calculated based on household size, income, etc.
+                }
+                for a in applicants.data or []
+                if a.get("desired_location")
+            ],
+            "statistics": {
+                "total_projects": len(projects.data) if projects.data else 0,
+                "total_applicants": len(applicants.data) if applicants.data else 0,
+                "total_units": sum(p["total_units"] for p in projects.data or []),
+                "total_affordable_units": sum(p["affordable_units"] for p in projects.data or [])
+            }
+        }
+        
+        return heatmap_data
+    except Exception as e:
+        logger.error(f"Error getting heatmap data: {e}")
+        return {
+            "projects": [],
+            "demand_zones": [],
+            "statistics": {
+                "total_projects": 0,
+                "total_applicants": 0,
+                "total_units": 0,
+                "total_affordable_units": 0
+            }
+        }
+
+@app.post("/api/v1/contact")
+async def submit_contact_form(
+    name: str = Form(...),
+    email: str = Form(...),
+    company: str = Form(None),
+    role: str = Form(None),
+    message: str = Form(...)
+):
+    """Submit contact form"""
+    try:
+        # Save to database
+        result = supabase.table('contact_submissions').insert({
+            "name": name,
+            "email": email,
+            "company": company,
+            "role": role,
+            "message": message
+        }).execute()
+        
+        # Send email notification if configured
+        if SENDGRID_API_KEY:
+            try:
+                from_email = From("noreply@homeverse.io")
+                to_email = To("holdenbryce06@gmail.com")
+                subject = f"New HomeVerse Contact Form Submission from {name}"
+                
+                html_content = f"""
+                <h2>New Contact Form Submission</h2>
+                <p><strong>Name:</strong> {name}</p>
+                <p><strong>Email:</strong> {email}</p>
+                <p><strong>Company:</strong> {company or 'Not provided'}</p>
+                <p><strong>Role:</strong> {role or 'Not provided'}</p>
+                <p><strong>Message:</strong></p>
+                <p>{message}</p>
+                """
+                
+                mail = Mail(from_email, to_email, subject, html_content)
+                sg = SendGridAPIClient(SENDGRID_API_KEY)
+                sg.send(mail)
+                
+                # Send auto-reply
+                auto_reply = Mail(
+                    from_email,
+                    To(email),
+                    "Thank you for contacting HomeVerse",
+                    f"""
+                    <h2>Thank you for reaching out!</h2>
+                    <p>Hi {name},</p>
+                    <p>We've received your message and will get back to you within 24-48 hours.</p>
+                    <p>Best regards,<br>The HomeVerse Team</p>
+                    """
+                )
+                sg.send(auto_reply)
+            except Exception as e:
+                logger.error(f"Error sending email: {e}")
+        
+        return {"message": "Contact form submitted successfully", "id": result.data[0]["id"]}
+    except Exception as e:
+        logger.error(f"Error submitting contact form: {e}")
+        raise HTTPException(status_code=500, detail="Failed to submit contact form")
 
 @app.post("/api/v1/users/complete-profile")
 async def complete_profile(user=Depends(get_current_user)):

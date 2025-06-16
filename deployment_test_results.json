@@ -1,0 +1,31 @@
+{
+  "test_run": "2025-06-12T14:48:39.539198",
+  "frontend_url": "https://homeverse-frontend.onrender.com",
+  "backend_url": "https://homeverse-api.onrender.com",
+  "results": [
+    {
+      "test": "Frontend Access",
+      "status": "PASS",
+      "details": "Site is accessible",
+      "timestamp": "2025-06-12T14:48:35.504790"
+    },
+    {
+      "test": "Login Page",
+      "status": "PASS",
+      "details": "Login page loads successfully",
+      "timestamp": "2025-06-12T14:48:35.600886"
+    },
+    {
+      "test": "Backend Health",
+      "status": "FAIL",
+      "details": "Status: 200, Response: {'status': 'unhealthy', 'database': 'disconnected', 'error': '{\\'message\\': \\'JSON could not be generated\\', \\'code\\': 400, \\'hint\\': \\'Refer to full message for details\\', \\'details\\': \"b\\'Project not specified.\\'\"}'}",
+      "timestamp": "2025-06-12T14:48:39.412376"
+    },
+    {
+      "test": "CORS Configuration",
+      "status": "PASS",
+      "details": "Origin allowed: https://homeverse-frontend.onrender.com",
+      "timestamp": "2025-06-12T14:48:39.532639"
+    }
+  ]
+}

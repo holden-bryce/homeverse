@@ -1,0 +1,104 @@
+[
+  {
+    "test": "Health Check",
+    "success": true,
+    "details": "Status: 200",
+    "timestamp": "2025-06-13T12:28:38.170598"
+  },
+  {
+    "test": "Login - developer",
+    "success": true,
+    "details": "",
+    "timestamp": "2025-06-13T12:28:38.676380"
+  },
+  {
+    "test": "Login - lender",
+    "success": true,
+    "details": "",
+    "timestamp": "2025-06-13T12:28:39.141770"
+  },
+  {
+    "test": "Login - buyer",
+    "success": true,
+    "details": "",
+    "timestamp": "2025-06-13T12:28:39.540028"
+  },
+  {
+    "test": "Login - applicant",
+    "success": true,
+    "details": "",
+    "timestamp": "2025-06-13T12:28:39.935221"
+  },
+  {
+    "test": "Login - admin",
+    "success": true,
+    "details": "",
+    "timestamp": "2025-06-13T12:28:40.345366"
+  },
+  {
+    "test": "Get Profile - developer",
+    "success": false,
+    "details": "",
+    "timestamp": "2025-06-13T12:28:40.546735"
+  },
+  {
+    "test": "Get Profile - lender",
+    "success": false,
+    "details": "",
+    "timestamp": "2025-06-13T12:28:40.729747"
+  },
+  {
+    "test": "Get Profile - buyer",
+    "success": false,
+    "details": "",
+    "timestamp": "2025-06-13T12:28:40.891201"
+  },
+  {
+    "test": "Get Profile - applicant",
+    "success": false,
+    "details": "",
+    "timestamp": "2025-06-13T12:28:41.089790"
+  },
+  {
+    "test": "Get Profile - admin",
+    "success": true,
+    "details": "",
+    "timestamp": "2025-06-13T12:28:41.326968"
+  },
+  {
+    "test": "Create Applicant",
+    "success": false,
+    "details": "Status: 401",
+    "timestamp": "2025-06-13T12:28:41.526494"
+  },
+  {
+    "test": "Create Project",
+    "success": false,
+    "details": "Status: 401",
+    "timestamp": "2025-06-13T12:28:41.700593"
+  },
+  {
+    "test": "Contact Form Submission",
+    "success": false,
+    "details": "",
+    "timestamp": "2025-06-13T12:28:41.704014"
+  },
+  {
+    "test": "Get Heatmap Data",
+    "success": false,
+    "details": "",
+    "timestamp": "2025-06-13T12:28:41.913706"
+  },
+  {
+    "test": "Get User Settings",
+    "success": false,
+    "details": "",
+    "timestamp": "2025-06-13T12:28:42.096712"
+  },
+  {
+    "test": "Update User Settings",
+    "success": false,
+    "details": "",
+    "timestamp": "2025-06-13T12:28:42.325872"
+  }
+]
