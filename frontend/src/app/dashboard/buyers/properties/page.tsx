@@ -50,7 +50,7 @@ export default async function BuyerPropertiesPage() {
                   </div>
                   <div className="flex items-center text-sm text-gray-600">
                     <DollarSign className="h-4 w-4 mr-2" />
-                    {project.ami_percentage}% AMI
+                    {project.affordable_units} affordable units
                   </div>
                 </div>
                 

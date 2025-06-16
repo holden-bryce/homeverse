@@ -18,28 +18,60 @@ export const getUserProfile = cache(async () => {
   
   const supabase = createClient()
   
-  // First, check if profile exists
-  const { data: profile, error } = await supabase
-    .from('profiles')
-    .select('*, company:companies(*)')
-    .eq('id', user.id)
-    .single()
-  
-  if (error || !profile) {
-    // Create profile if it doesn't exist
-    const { data: newProfile } = await supabase
+  try {
+    // First, check if profile exists
+    const { data: profile, error } = await supabase
       .from('profiles')
-      .insert({
-        id: user.id,
-        full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
-        role: user.user_metadata?.role || 'buyer',
-        company_id: user.user_metadata?.company_id || null
-      })
-      .select('*, company:companies(*)')
+      .select('*')
+      .eq('id', user.id)
       .single()
     
-    return newProfile
+    if (error || !profile) {
+      // Create profile if it doesn't exist
+      const { data: newProfile, error: insertError } = await supabase
+        .from('profiles')
+        .insert({
+          id: user.id,
+          full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+          role: user.user_metadata?.role || 'buyer',
+          company_id: user.user_metadata?.company_id || null
+        })
+        .select('*')
+        .single()
+      
+      if (insertError) {
+        console.error('Error creating profile:', insertError)
+        // Return a minimal profile object
+        return {
+          id: user.id,
+          email: user.email || '',
+          full_name: user.email?.split('@')[0] || 'User',
+          role: 'buyer',
+          company_id: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
+      }
+      
+      return newProfile
+    }
+    
+    // Add email from auth user if not in profile
+    return {
+      ...profile,
+      email: profile.email || user.email || ''
+    }
+  } catch (error) {
+    console.error('Error in getUserProfile:', error)
+    // Return a minimal profile object
+    return {
+      id: user.id,
+      email: user.email || '',
+      full_name: user.email?.split('@')[0] || 'User',
+      role: 'buyer',
+      company_id: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
   }
-  
-  return profile
 })
