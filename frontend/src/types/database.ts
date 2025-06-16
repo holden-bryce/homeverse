@@ -68,27 +68,35 @@ export interface Database {
         Row: {
           id: string
           company_id: string
-          full_name: string
-          email: string | null
+          user_id: string
+          first_name: string
+          last_name: string
+          email: string
           phone: string | null
-          income: number | null
-          household_size: number | null
-          preferences: Json
-          documents: Json
+          household_size: number
+          income: number
+          ami_percent: number
+          location_preference: string | null
+          latitude: number
+          longitude: number
           status: string
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
-          company_id?: string
-          full_name: string
-          email?: string | null
+          company_id: string
+          user_id: string
+          first_name: string
+          last_name: string
+          email: string
           phone?: string | null
-          income?: number | null
-          household_size?: number | null
-          preferences?: Json
-          documents?: Json
+          household_size?: number
+          income?: number
+          ami_percent?: number
+          location_preference?: string | null
+          latitude?: number
+          longitude?: number
           status?: string
           created_at?: string
           updated_at?: string
@@ -96,13 +104,17 @@ export interface Database {
         Update: {
           id?: string
           company_id?: string
-          full_name?: string
-          email?: string | null
+          user_id?: string
+          first_name?: string
+          last_name?: string
+          email?: string
           phone?: string | null
-          income?: number | null
-          household_size?: number | null
-          preferences?: Json
-          documents?: Json
+          household_size?: number
+          income?: number
+          ami_percent?: number
+          location_preference?: string | null
+          latitude?: number
+          longitude?: number
           status?: string
           created_at?: string
           updated_at?: string
@@ -112,29 +124,37 @@ export interface Database {
         Row: {
           id: string
           company_id: string
+          user_id: string
           name: string
           description: string | null
-          location: string | null
-          total_units: number | null
-          available_units: number | null
-          ami_percentage: number | null
-          amenities: Json
-          images: Json
+          address: string
+          city: string
+          state: string
+          zip_code: string
+          latitude: number
+          longitude: number
+          total_units: number
+          affordable_units: number
+          ami_levels: Json
           status: string
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
-          company_id?: string
+          company_id: string
+          user_id: string
           name: string
           description?: string | null
-          location?: string | null
-          total_units?: number | null
-          available_units?: number | null
-          ami_percentage?: number | null
-          amenities?: Json
-          images?: Json
+          address: string
+          city: string
+          state: string
+          zip_code: string
+          latitude?: number
+          longitude?: number
+          total_units: number
+          affordable_units: number
+          ami_levels?: Json
           status?: string
           created_at?: string
           updated_at?: string
@@ -142,14 +162,18 @@ export interface Database {
         Update: {
           id?: string
           company_id?: string
+          user_id?: string
           name?: string
           description?: string | null
-          location?: string | null
-          total_units?: number | null
-          available_units?: number | null
-          ami_percentage?: number | null
-          amenities?: Json
-          images?: Json
+          address?: string
+          city?: string
+          state?: string
+          zip_code?: string
+          latitude?: number
+          longitude?: number
+          total_units?: number
+          affordable_units?: number
+          ami_levels?: Json
           status?: string
           created_at?: string
           updated_at?: string

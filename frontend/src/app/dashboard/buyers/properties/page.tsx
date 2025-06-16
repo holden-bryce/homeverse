@@ -39,25 +39,19 @@ export default async function BuyerPropertiesPage() {
                 <CardTitle className="text-lg">{project.name}</CardTitle>
                 <CardDescription className="flex items-center">
                   <MapPin className="h-4 w-4 mr-1" />
-                  {project.location || 'Location TBD'}
+                  {project.city || 'Location TBD'}, {project.state || 'CA'}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <div className="flex items-center text-sm text-gray-600">
                     <Home className="h-4 w-4 mr-2" />
-                    {project.total_units || 0} total units
+                    {project.total_units} total units
                   </div>
                   <div className="flex items-center text-sm text-gray-600">
                     <DollarSign className="h-4 w-4 mr-2" />
-                    {project.available_units || 0} available units
+                    {project.affordable_units} affordable units
                   </div>
-                  {project.ami_percentage && (
-                    <div className="flex items-center text-sm text-gray-600">
-                      <DollarSign className="h-4 w-4 mr-2" />
-                      {project.ami_percentage}% AMI
-                    </div>
-                  )}
                 </div>
                 
                 {project.description && (
