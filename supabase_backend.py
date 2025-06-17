@@ -2,6 +2,8 @@
 """HomeVerse Backend with Supabase Integration"""
 import os
 import logging
+import math
+import uuid
 from datetime import datetime
 from typing import Optional, Dict, List, Any
 from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, Form, Request, Header, Form
@@ -122,6 +124,33 @@ class ContactSubmission(BaseModel):
     subject: str
     message: str
 
+class ApplicationCreate(BaseModel):
+    project_id: str
+    applicant_id: str
+    preferred_move_in_date: Optional[str] = None
+    additional_notes: Optional[str] = None
+    documents: Optional[List[str]] = []
+
+class ApplicationUpdate(BaseModel):
+    status: Optional[str] = None
+    developer_notes: Optional[str] = None
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[str] = None
+
+class InvestmentCreate(BaseModel):
+    project_id: str
+    amount: float
+    investment_type: str = "equity"  # equity, debt, grant
+    expected_return: Optional[float] = None
+    term_months: Optional[int] = None
+    notes: Optional[str] = None
+
+class InvestmentUpdate(BaseModel):
+    amount: Optional[float] = None
+    status: Optional[str] = None
+    actual_return: Optional[float] = None
+    notes: Optional[str] = None
+
 # Authentication Helpers
 async def get_current_user(authorization: str = Header(None)):
     """Get current user from JWT token with automatic profile creation"""
@@ -223,6 +252,107 @@ async def health_check():
             "database": "disconnected",
             "error": str(e)
         }
+
+# Matching Algorithm Functions
+def calculate_distance(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    """Calculate distance between two points using Haversine formula"""
+    R = 3961  # Earth radius in miles
+    
+    lat1_rad = math.radians(lat1)
+    lat2_rad = math.radians(lat2)
+    dlat = math.radians(lat2 - lat1)
+    dlng = math.radians(lng2 - lng1)
+    
+    a = (math.sin(dlat/2) * math.sin(dlat/2) + 
+         math.cos(lat1_rad) * math.cos(lat2_rad) * 
+         math.sin(dlng/2) * math.sin(dlng/2))
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    
+    return R * c
+
+def calculate_match_score(applicant: Dict, project: Dict) -> Dict:
+    """Calculate match score between applicant and project"""
+    score = 0
+    breakdown = {}
+    
+    # Income qualification (40% weight)
+    applicant_income = applicant.get('income', 0)
+    project_max_income = project.get('ami_percentage', 100) * 50000 / 100  # Rough AMI calculation
+    
+    if applicant_income <= project_max_income:
+        income_score = 40
+        breakdown['income'] = {'score': 40, 'qualified': True}
+    else:
+        # Partial score if close
+        ratio = project_max_income / applicant_income if applicant_income > 0 else 0
+        income_score = min(40, 40 * ratio)
+        breakdown['income'] = {'score': income_score, 'qualified': False}
+    
+    score += income_score
+    
+    # Location proximity (30% weight)
+    applicant_lat = applicant.get('latitude', 0)
+    applicant_lng = applicant.get('longitude', 0)
+    project_lat = project.get('latitude', 0)
+    project_lng = project.get('longitude', 0)
+    
+    if all([applicant_lat, applicant_lng, project_lat, project_lng]):
+        distance = calculate_distance(applicant_lat, applicant_lng, project_lat, project_lng)
+        
+        if distance <= 5:  # Within 5 miles
+            location_score = 30
+        elif distance <= 10:  # Within 10 miles
+            location_score = 20
+        elif distance <= 20:  # Within 20 miles
+            location_score = 10
+        else:
+            location_score = 0
+            
+        breakdown['location'] = {'score': location_score, 'distance': distance}
+    else:
+        location_score = 15  # Neutral score if no location data
+        breakdown['location'] = {'score': location_score, 'distance': None}
+    
+    score += location_score
+    
+    # Household size fit (20% weight)
+    household_size = applicant.get('household_size', 1)
+    total_units = project.get('total_units', 0)
+    
+    if total_units > 0:
+        # Prefer projects with multiple units for larger households
+        if household_size <= 2:
+            household_score = 20  # Any project works
+        elif household_size <= 4:
+            household_score = 20 if total_units >= 50 else 15  # Prefer larger developments
+        else:
+            household_score = 20 if total_units >= 100 else 10  # Need large developments
+    else:
+        household_score = 10
+    
+    breakdown['household'] = {'score': household_score, 'size': household_size}
+    score += household_score
+    
+    # Availability (10% weight)
+    available_units = project.get('affordable_units', 0)
+    project_status = project.get('status', 'planning')
+    
+    if project_status == 'active' and available_units > 0:
+        availability_score = 10
+    elif project_status == 'active':
+        availability_score = 5
+    else:
+        availability_score = 0
+    
+    breakdown['availability'] = {'score': availability_score, 'status': project_status, 'units': available_units}
+    score += availability_score
+    
+    return {
+        'total_score': round(score, 1),
+        'match_percentage': round(score, 1),  # Score is already out of 100
+        'breakdown': breakdown,
+        'recommendation': 'excellent' if score >= 80 else 'good' if score >= 60 else 'fair' if score >= 40 else 'poor'
+    }
 
 # Authentication Endpoints
 @app.post("/api/v1/auth/register")
@@ -1074,6 +1204,286 @@ async def delete_project_image(
     except Exception as e:
         logger.error(f"Error deleting image: {e}")
         raise HTTPException(status_code=500, detail="Failed to delete image")
+
+# Matching and Application Endpoints
+
+@app.get("/api/v1/applicants/{applicant_id}/matches")
+async def get_applicant_matches(applicant_id: str, user: dict = Depends(get_current_user)):
+    """Get matched projects for an applicant"""
+    try:
+        # Get applicant data
+        applicant = supabase.table('applicants').select('*').eq('id', applicant_id).single().execute()
+        if not applicant.data:
+            raise HTTPException(status_code=404, detail="Applicant not found")
+        
+        # Get all active projects
+        projects = supabase.table('projects').select('*').eq('status', 'active').execute()
+        
+        # Calculate matches
+        matches = []
+        for project in projects.data or []:
+            match_info = calculate_match_score(applicant.data, project)
+            matches.append({
+                'project': project,
+                'match_score': match_info['match_percentage'],
+                'recommendation': match_info['recommendation'],
+                'breakdown': match_info['breakdown']
+            })
+        
+        # Sort by match score
+        matches.sort(key=lambda x: x['match_score'], reverse=True)
+        
+        return {
+            'applicant_id': applicant_id,
+            'total_matches': len(matches),
+            'matches': matches[:20]  # Return top 20 matches
+        }
+    except Exception as e:
+        logger.error(f"Error getting matches: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get matches")
+
+@app.get("/api/v1/projects/{project_id}/matches")
+async def get_project_matches(project_id: str, user: dict = Depends(get_current_user)):
+    """Get matched applicants for a project"""
+    if user.get('role') not in ['developer', 'admin']:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    try:
+        # Get project data
+        project = supabase.table('projects').select('*').eq('id', project_id).single().execute()
+        if not project.data:
+            raise HTTPException(status_code=404, detail="Project not found")
+        
+        # Get all applicants
+        applicants = supabase.table('applicants').select('*').execute()
+        
+        # Calculate matches
+        matches = []
+        for applicant in applicants.data or []:
+            match_info = calculate_match_score(applicant, project.data)
+            matches.append({
+                'applicant': applicant,
+                'match_score': match_info['match_percentage'],
+                'recommendation': match_info['recommendation'],
+                'breakdown': match_info['breakdown']
+            })
+        
+        # Sort by match score and filter for good matches
+        matches.sort(key=lambda x: x['match_score'], reverse=True)
+        good_matches = [m for m in matches if m['match_score'] >= 50]  # Only show decent matches
+        
+        return {
+            'project_id': project_id,
+            'total_matches': len(good_matches),
+            'matches': good_matches[:50]  # Return top 50 matches
+        }
+    except Exception as e:
+        logger.error(f"Error getting project matches: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get project matches")
+
+# Application Management Endpoints
+
+@app.post("/api/v1/applications")
+async def create_application(application: ApplicationCreate, user: dict = Depends(get_current_user)):
+    """Create a new application"""
+    try:
+        application_data = application.dict()
+        application_data.update({
+            'id': str(uuid.uuid4()),
+            'company_id': user['company_id'],
+            'status': 'submitted',
+            'submitted_at': datetime.now().isoformat(),
+            'created_at': datetime.now().isoformat(),
+            'updated_at': datetime.now().isoformat()
+        })
+        
+        result = supabase.table('applications').insert(application_data).execute()
+        
+        # Log activity
+        supabase.table('activities').insert({
+            'company_id': user['company_id'],
+            'user_id': user['id'],
+            'action': 'created_application',
+            'resource_type': 'application',
+            'resource_id': result.data[0]['id'],
+            'details': {'project_id': application.project_id, 'applicant_id': application.applicant_id}
+        }).execute()
+        
+        return result.data[0]
+    except Exception as e:
+        logger.error(f"Create application error: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/v1/applications")
+async def get_applications(
+    user: dict = Depends(get_current_user),
+    status: Optional[str] = None,
+    project_id: Optional[str] = None,
+    applicant_id: Optional[str] = None
+):
+    """Get applications with optional filtering"""
+    try:
+        query = supabase.table('applications').select('*, projects(name), applicants(first_name, last_name)')
+        
+        if status:
+            query = query.eq('status', status)
+        if project_id:
+            query = query.eq('project_id', project_id)
+        if applicant_id:
+            query = query.eq('applicant_id', applicant_id)
+        
+        # Role-based filtering
+        if user.get('role') == 'applicant':
+            # Applicants can only see their own applications
+            query = query.eq('applicant_id', user['id'])
+        elif user.get('role') == 'developer':
+            # Developers can see applications for their company's projects
+            query = query.eq('company_id', user['company_id'])
+        elif user.get('role') not in ['admin', 'lender']:
+            query = query.eq('company_id', user['company_id'])
+        
+        result = query.order('created_at', desc=True).execute()
+        return {"data": result.data or [], "count": len(result.data or [])}
+    except Exception as e:
+        logger.error(f"Get applications error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to get applications")
+
+@app.patch("/api/v1/applications/{application_id}")
+@require_role(['developer', 'admin'])
+async def update_application(
+    application_id: str,
+    update_data: ApplicationUpdate,
+    user: dict = Depends(get_current_user)
+):
+    """Update application status (developers only)"""
+    try:
+        # Verify application exists
+        app = supabase.table('applications').select('*').eq('id', application_id).single().execute()
+        if not app.data:
+            raise HTTPException(status_code=404, detail="Application not found")
+        
+        update_dict = update_data.dict(exclude_none=True)
+        update_dict.update({
+            'updated_at': datetime.now().isoformat(),
+            'reviewed_by': user['id'],
+            'reviewed_at': datetime.now().isoformat()
+        })
+        
+        result = supabase.table('applications').update(update_dict).eq('id', application_id).execute()
+        
+        # Log activity
+        supabase.table('activities').insert({
+            'company_id': user['company_id'],
+            'user_id': user['id'],
+            'action': 'updated_application',
+            'resource_type': 'application',
+            'resource_id': application_id,
+            'details': {'status': update_data.status, 'notes': update_data.developer_notes}
+        }).execute()
+        
+        return result.data[0]
+    except Exception as e:
+        logger.error(f"Update application error: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+# Investment Management Endpoints
+
+@app.post("/api/v1/investments")
+@require_role(['lender', 'admin'])
+async def create_investment(investment: InvestmentCreate, user: dict = Depends(get_current_user)):
+    """Create a new investment (lenders only)"""
+    try:
+        investment_data = investment.dict()
+        investment_data.update({
+            'id': str(uuid.uuid4()),
+            'lender_id': user['id'],
+            'company_id': user['company_id'],
+            'status': 'active',
+            'invested_at': datetime.now().isoformat(),
+            'created_at': datetime.now().isoformat(),
+            'updated_at': datetime.now().isoformat()
+        })
+        
+        result = supabase.table('investments').insert(investment_data).execute()
+        
+        # Log activity
+        supabase.table('activities').insert({
+            'company_id': user['company_id'],
+            'user_id': user['id'],
+            'action': 'created_investment',
+            'resource_type': 'investment',
+            'resource_id': result.data[0]['id'],
+            'details': {'project_id': investment.project_id, 'amount': investment.amount}
+        }).execute()
+        
+        return result.data[0]
+    except Exception as e:
+        logger.error(f"Create investment error: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/v1/investments")
+async def get_investments(
+    user: dict = Depends(get_current_user),
+    project_id: Optional[str] = None,
+    status: Optional[str] = None
+):
+    """Get investments with optional filtering"""
+    try:
+        query = supabase.table('investments').select('*, projects(name, total_units), profiles(full_name)')
+        
+        if project_id:
+            query = query.eq('project_id', project_id)
+        if status:
+            query = query.eq('status', status)
+        
+        # Role-based filtering
+        if user.get('role') == 'lender':
+            query = query.eq('lender_id', user['id'])
+        elif user.get('role') == 'developer':
+            # Developers can see investments in their projects
+            query = query.eq('company_id', user['company_id'])
+        elif user.get('role') not in ['admin']:
+            query = query.eq('company_id', user['company_id'])
+        
+        result = query.order('created_at', desc=True).execute()
+        return {"data": result.data or [], "count": len(result.data or [])}
+    except Exception as e:
+        logger.error(f"Get investments error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to get investments")
+
+@app.get("/api/v1/lenders/portfolio")
+@require_role(['lender', 'admin'])
+async def get_lender_portfolio(user: dict = Depends(get_current_user)):
+    """Get lender's investment portfolio with analytics"""
+    try:
+        # Get all investments for this lender
+        investments = supabase.table('investments').select('*, projects(*)').eq('lender_id', user['id']).execute()
+        
+        portfolio_data = {
+            'total_investments': len(investments.data or []),
+            'total_amount': sum(inv['amount'] for inv in investments.data or []),
+            'active_investments': len([inv for inv in investments.data or [] if inv['status'] == 'active']),
+            'total_units': sum(inv['projects']['total_units'] for inv in investments.data or [] if inv.get('projects')),
+            'total_affordable_units': sum(inv['projects']['affordable_units'] for inv in investments.data or [] if inv.get('projects')),
+            'investments': investments.data or []
+        }
+        
+        # Calculate portfolio performance
+        total_expected_return = sum(
+            inv['amount'] * (inv.get('expected_return', 0) / 100) 
+            for inv in investments.data or []
+        )
+        
+        portfolio_data['expected_annual_return'] = total_expected_return
+        portfolio_data['expected_roi'] = (
+            total_expected_return / portfolio_data['total_amount'] * 100 
+            if portfolio_data['total_amount'] > 0 else 0
+        )
+        
+        return portfolio_data
+    except Exception as e:
+        logger.error(f"Get portfolio error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to get portfolio")
 
 # Health check for debugging
 @app.get("/api/v1/debug/tables")

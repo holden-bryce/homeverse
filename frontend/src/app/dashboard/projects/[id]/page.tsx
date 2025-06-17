@@ -20,10 +20,13 @@ import {
   CheckCircle,
   AlertCircle,
   Loader2,
-  Trash2
+  Trash2,
+  FileText
 } from 'lucide-react'
 import { useDeleteProject } from '@/lib/supabase/hooks'
 import { useConfirmationModal } from '@/components/ui/confirmation-modal'
+import { ApplicationModal } from '@/components/applications/application-modal'
+import { useAuth } from '@/providers/supabase-auth-provider'
 
 interface ProjectDetailProps {
   params: {
@@ -53,9 +56,18 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
   const [project, setProject] = useState<Project | null>(null)
   const [loading, setLoading] = useState(true)
   const [isLoading, setIsLoading] = useState(true)
+  const [showApplicationModal, setShowApplicationModal] = useState(false)
   
+  const { user, profile } = useAuth()
   const deleteProject = useDeleteProject()
   const { confirm, ConfirmationModal } = useConfirmationModal()
+
+  // Mock applicant data - in a real app, this would come from the current user's applicant profile
+  const currentApplicant = profile && user ? {
+    id: user.id, // Use user ID as applicant ID for now
+    full_name: profile.full_name || user.email?.split('@')[0] || 'User',
+    email: user.email
+  } : null
 
   const handleDeleteProject = () => {
     if (!project) return
@@ -267,23 +279,39 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
             </div>
           </div>
           <div className="flex gap-3">
-            <Button
-              variant="outline"
-              onClick={() => router.push(`/dashboard/projects/${project.id}/edit`)}
-              className="border-sage-200 text-sage-700 hover:bg-sage-50"
-            >
-              <Edit className="h-4 w-4 mr-2" />
-              Edit Project
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleDeleteProject}
-              className="border-red-500 text-red-600 hover:bg-red-50"
-              disabled={deleteProject.isPending}
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete Project
-            </Button>
+            {/* Show Apply button for all users except developers/admins of the same company */}
+            {currentApplicant && (
+              <Button
+                onClick={() => setShowApplicationModal(true)}
+                className="bg-teal-600 hover:bg-teal-700 text-white"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Apply Now
+              </Button>
+            )}
+            
+            {/* Show management buttons for developers/admins */}
+            {profile?.role && ['developer', 'admin'].includes(profile.role) && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => router.push(`/dashboard/projects/${project.id}/edit`)}
+                  className="border-sage-200 text-sage-700 hover:bg-sage-50"
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit Project
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleDeleteProject}
+                  className="border-red-500 text-red-600 hover:bg-red-50"
+                  disabled={deleteProject.isPending}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Project
+                </Button>
+              </>
+            )}
           </div>
         </div>
 
@@ -443,6 +471,17 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
         </div>
 
       </div>
+      
+      {/* Application Modal */}
+      {project && (
+        <ApplicationModal
+          isOpen={showApplicationModal}
+          onClose={() => setShowApplicationModal(false)}
+          project={project}
+          applicant={currentApplicant}
+        />
+      )}
+      
       {ConfirmationModal}
     </div>
   )

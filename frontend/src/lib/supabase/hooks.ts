@@ -509,3 +509,209 @@ export const useSubmitContact = () => {
     }
   })
 }
+
+// Matching hooks
+export const useApplicantMatches = (applicantId: string) => {
+  const { user } = useAuth()
+  
+  return useQuery({
+    queryKey: ['applicant-matches', applicantId],
+    queryFn: async () => {
+      const token = localStorage.getItem('token')
+      if (!token) throw new Error('No authentication token')
+      
+      const response = await fetch(`http://localhost:8000/api/v1/applicants/${applicantId}/matches`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      if (!response.ok) throw new Error('Failed to fetch matches')
+      return response.json()
+    },
+    enabled: !!applicantId && !!user
+  })
+}
+
+export const useProjectMatches = (projectId: string) => {
+  const { user } = useAuth()
+  
+  return useQuery({
+    queryKey: ['project-matches', projectId],
+    queryFn: async () => {
+      const token = localStorage.getItem('token')
+      if (!token) throw new Error('No authentication token')
+      
+      const response = await fetch(`http://localhost:8000/api/v1/projects/${projectId}/matches`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      if (!response.ok) throw new Error('Failed to fetch project matches')
+      return response.json()
+    },
+    enabled: !!projectId && !!user
+  })
+}
+
+// Application hooks
+export const useCreateApplication = () => {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: async (applicationData: any) => {
+      const token = localStorage.getItem('token')
+      if (!token) throw new Error('No authentication token')
+      
+      const response = await fetch('http://localhost:8000/api/v1/applications', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(applicationData)
+      })
+      
+      if (!response.ok) throw new Error('Failed to create application')
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['applications'] })
+    }
+  })
+}
+
+export const useApplications = (filters?: any) => {
+  const { user } = useAuth()
+  
+  return useQuery({
+    queryKey: ['applications', filters],
+    queryFn: async () => {
+      const token = localStorage.getItem('token')
+      if (!token) throw new Error('No authentication token')
+      
+      const params = new URLSearchParams()
+      if (filters?.status) params.append('status', filters.status)
+      if (filters?.project_id) params.append('project_id', filters.project_id)
+      if (filters?.applicant_id) params.append('applicant_id', filters.applicant_id)
+      
+      const response = await fetch(`http://localhost:8000/api/v1/applications?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      if (!response.ok) throw new Error('Failed to fetch applications')
+      return response.json()
+    },
+    enabled: !!user
+  })
+}
+
+export const useUpdateApplication = () => {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: async ({ applicationId, updateData }: { applicationId: string, updateData: any }) => {
+      const token = localStorage.getItem('token')
+      if (!token) throw new Error('No authentication token')
+      
+      const response = await fetch(`http://localhost:8000/api/v1/applications/${applicationId}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updateData)
+      })
+      
+      if (!response.ok) throw new Error('Failed to update application')
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['applications'] })
+    }
+  })
+}
+
+// Investment hooks
+export const useCreateInvestment = () => {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: async (investmentData: any) => {
+      const token = localStorage.getItem('token')
+      if (!token) throw new Error('No authentication token')
+      
+      const response = await fetch('http://localhost:8000/api/v1/investments', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(investmentData)
+      })
+      
+      if (!response.ok) throw new Error('Failed to create investment')
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['investments'] })
+      queryClient.invalidateQueries({ queryKey: ['portfolio'] })
+    }
+  })
+}
+
+export const useInvestments = (filters?: any) => {
+  const { user } = useAuth()
+  
+  return useQuery({
+    queryKey: ['investments', filters],
+    queryFn: async () => {
+      const token = localStorage.getItem('token')
+      if (!token) throw new Error('No authentication token')
+      
+      const params = new URLSearchParams()
+      if (filters?.project_id) params.append('project_id', filters.project_id)
+      if (filters?.status) params.append('status', filters.status)
+      
+      const response = await fetch(`http://localhost:8000/api/v1/investments?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      if (!response.ok) throw new Error('Failed to fetch investments')
+      return response.json()
+    },
+    enabled: !!user
+  })
+}
+
+export const useLenderPortfolio = () => {
+  const { user } = useAuth()
+  
+  return useQuery({
+    queryKey: ['portfolio'],
+    queryFn: async () => {
+      const token = localStorage.getItem('token')
+      if (!token) throw new Error('No authentication token')
+      
+      const response = await fetch('http://localhost:8000/api/v1/lenders/portfolio', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      if (!response.ok) throw new Error('Failed to fetch portfolio')
+      return response.json()
+    },
+    enabled: !!user && user.role === 'lender'
+  })
+}
