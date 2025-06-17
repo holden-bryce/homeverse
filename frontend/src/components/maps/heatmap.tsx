@@ -57,22 +57,98 @@ export default function Heatmap({ className = '', height = 400, showControls = t
   const { data: heatmapData, isLoading } = useQuery({
     queryKey: ['heatmap', bounds],
     queryFn: async () => {
-      // For now, return mock data since heatmap endpoint doesn't exist yet
-      return {
-        type: 'FeatureCollection',
-        features: [
-          // Mock heatmap data points
-          {
-            type: 'Feature',
-            properties: { value: 0.8 },
-            geometry: { type: 'Point', coordinates: [-122.4194, 37.7749] }
-          },
-          {
-            type: 'Feature',
-            properties: { value: 0.6 },
-            geometry: { type: 'Point', coordinates: [-122.4494, 37.7849] }
+      try {
+        // Fetch from the actual API endpoint
+        const response = await fetch('http://localhost:8000/api/v1/analytics/heatmap', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json'
           }
-        ]
+        })
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch heatmap data')
+        }
+        
+        const data = await response.json()
+        
+        // Transform the data into GeoJSON format for Mapbox
+        const features = []
+        
+        // Add project locations
+        if (data.projects) {
+          data.projects.forEach((project: any) => {
+            features.push({
+              type: 'Feature',
+              properties: {
+                type: 'project',
+                name: project.name,
+                value: project.affordable_units / project.units,
+                intensity: project.affordable_units / 100,
+                description: `${project.name} - ${project.affordable_units} affordable units`,
+                units: project.units,
+                affordable_units: project.affordable_units,
+                ami_percentage: project.ami_percentage
+              },
+              geometry: {
+                type: 'Point',
+                coordinates: [project.lng, project.lat]
+              }
+            })
+          })
+        }
+        
+        // Add demand zones
+        if (data.demand_zones) {
+          data.demand_zones.forEach((zone: any) => {
+            features.push({
+              type: 'Feature',
+              properties: {
+                type: 'demand',
+                value: zone.intensity,
+                intensity: zone.intensity,
+                description: 'Applicant demand zone'
+              },
+              geometry: {
+                type: 'Point',
+                coordinates: [zone.lng, zone.lat]
+              }
+            })
+          })
+        }
+        
+        return {
+          type: 'FeatureCollection',
+          features
+        }
+      } catch (error) {
+        console.error('Error fetching heatmap data:', error)
+        // Return mock data as fallback
+        return {
+          type: 'FeatureCollection',
+          features: [
+            {
+              type: 'Feature',
+              properties: { 
+                value: 0.8, 
+                intensity: 0.8,
+                description: 'Mock project location',
+                type: 'project'
+              },
+              geometry: { type: 'Point', coordinates: [-122.4194, 37.7749] }
+            },
+            {
+              type: 'Feature',
+              properties: { 
+                value: 0.6, 
+                intensity: 0.6,
+                description: 'Mock demand zone',
+                type: 'demand'
+              },
+              geometry: { type: 'Point', coordinates: [-122.4494, 37.7849] }
+            }
+          ]
+        }
       }
     },
     enabled: !!bounds

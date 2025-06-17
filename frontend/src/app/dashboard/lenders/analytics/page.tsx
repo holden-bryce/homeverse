@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -88,9 +89,17 @@ const marketTrends = [
 ]
 
 export default function LendersAnalyticsPage() {
+  const searchParams = useSearchParams()
   const [activeTab, setActiveTab] = useState('overview')
   const [timeframe, setTimeframe] = useState('6M')
   const [dataType, setDataType] = useState('investment_density')
+
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    if (tab && ['overview', 'heatmap', 'opportunities', 'trends'].includes(tab)) {
+      setActiveTab(tab)
+    }
+  }, [searchParams])
 
   // TODO: Replace with actual data hooks
   const portfolioStats = null

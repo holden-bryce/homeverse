@@ -565,7 +565,7 @@ export default function LendersPage() {
             title="Market Intelligence" 
             description="Regional market analysis and opportunities"
             actions={
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" onClick={() => router.push('/dashboard/lenders/analytics?tab=heatmap')}>
                 <MapPin className="mr-2 h-4 w-4" />
                 View Heatmap
               </Button>

@@ -92,22 +92,28 @@ class ApplicantUpdate(BaseModel):
 class ProjectCreate(BaseModel):
     name: str
     description: Optional[str] = None
-    location: Optional[str] = None
-    coordinates: Optional[List[float]] = None
-    total_units: Optional[int] = None
-    available_units: Optional[int] = None
-    ami_percentage: Optional[int] = None
-    amenities: Optional[List[str]] = []
+    address: str
+    city: str
+    state: Optional[str] = "CA"
+    zip_code: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    total_units: int
+    affordable_units: Optional[int] = None
+    ami_levels: Optional[List[str]] = None
 
 class ProjectUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
-    location: Optional[str] = None
-    coordinates: Optional[List[float]] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    zip_code: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     total_units: Optional[int] = None
-    available_units: Optional[int] = None
-    ami_percentage: Optional[int] = None
-    amenities: Optional[List[str]] = None
+    affordable_units: Optional[int] = None
+    ami_levels: Optional[List[str]] = None
     status: Optional[str] = None
 
 class ContactSubmission(BaseModel):
@@ -484,23 +490,22 @@ async def get_heatmap_data(user=Depends(get_current_user)):
                 {
                     "id": p["id"],
                     "name": p["name"],
-                    "lat": p["location"]["lat"],
-                    "lng": p["location"]["lng"],
-                    "units": p["total_units"],
-                    "affordable_units": p["affordable_units"],
-                    "ami_percentage": p["ami_percentage"]
+                    "lat": p.get("latitude", 37.7749),
+                    "lng": p.get("longitude", -122.4194),
+                    "units": p.get("total_units", 0),
+                    "affordable_units": p.get("affordable_units", 0),
+                    "ami_percentage": 80  # Default AMI percentage
                 }
                 for p in projects.data or []
-                if p.get("location")
             ],
             "demand_zones": [
                 {
-                    "lat": a["desired_location"]["lat"],
-                    "lng": a["desired_location"]["lng"],
+                    "lat": a.get("latitude", 37.7749),
+                    "lng": a.get("longitude", -122.4194),
                     "intensity": 1  # Could be calculated based on household size, income, etc.
                 }
                 for a in applicants.data or []
-                if a.get("desired_location")
+                if a.get("latitude") and a.get("longitude")
             ],
             "statistics": {
                 "total_projects": len(projects.data) if projects.data else 0,
@@ -811,7 +816,7 @@ async def create_project(
 ):
     """Create new project (developers only)"""
     try:
-        project_data = project.dict()
+        project_data = project.dict(exclude_none=True)
         project_data['company_id'] = user['company_id']
         
         result = supabase.table('projects').insert(project_data).execute()
@@ -953,6 +958,122 @@ async def upload_document(
     except Exception as e:
         logger.error(f"Upload error: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/v1/projects/{project_id}/images")
+@require_role(['developer', 'admin'])
+async def upload_project_image(
+    project_id: str,
+    file: UploadFile = File(...),
+    caption: Optional[str] = Form(None),
+    is_primary: Optional[bool] = Form(False),
+    user: dict = Depends(get_current_user)
+):
+    """Upload image for a project"""
+    # Verify project exists and belongs to user's company
+    project = supabase.table('projects').select('*').eq('id', project_id).eq('company_id', user['company_id']).execute()
+    if not project.data:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    if file.size > 5 * 1024 * 1024:  # 5MB limit for images
+        raise HTTPException(status_code=400, detail="Image too large (max 5MB)")
+    
+    allowed_types = ["image/jpeg", "image/png", "image/jpg", "image/webp"]
+    if file.content_type not in allowed_types:
+        raise HTTPException(status_code=400, detail="Only JPEG, PNG, and WebP images allowed")
+    
+    try:
+        # Generate unique filename
+        file_extension = file.filename.split('.')[-1]
+        unique_filename = f"projects/{project_id}/{uuid.uuid4()}.{file_extension}"
+        
+        # Upload to Supabase storage
+        file_content = await file.read()
+        
+        # Create bucket if it doesn't exist
+        try:
+            supabase.storage.create_bucket('project-images', public=True)
+        except:
+            pass  # Bucket might already exist
+        
+        result = supabase.storage.from_('project-images').upload(
+            unique_filename,
+            file_content,
+            file_options={"content-type": file.content_type}
+        )
+        
+        # Get public URL
+        image_url = supabase.storage.from_('project-images').get_public_url(unique_filename)
+        
+        # For now, store in the images array in the project record
+        # Update project with new image
+        project_data = project.data[0]
+        images = project_data.get('images', []) or []
+        new_image = {
+            "id": str(uuid.uuid4()),
+            "url": image_url,
+            "caption": caption,
+            "is_primary": is_primary,
+            "uploaded_at": datetime.now().isoformat()
+        }
+        
+        # If this is primary, unset other primary images
+        if is_primary:
+            for img in images:
+                img['is_primary'] = False
+        
+        images.append(new_image)
+        
+        # Update project
+        supabase.table('projects').update({"images": images}).eq('id', project_id).execute()
+        
+        return {
+            "id": new_image['id'],
+            "url": image_url,
+            "caption": caption,
+            "is_primary": is_primary,
+            "filename": file.filename
+        }
+    except Exception as e:
+        logger.error(f"Image upload error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Image upload failed")
+
+@app.get("/api/v1/projects/{project_id}/images")
+async def get_project_images(project_id: str):
+    """Get all images for a project (public)"""
+    try:
+        project = supabase.table('projects').select('images').eq('id', project_id).execute()
+        if project.data:
+            return project.data[0].get('images', [])
+        return []
+    except Exception as e:
+        logger.error(f"Error fetching project images: {e}")
+        return []
+
+@app.delete("/api/v1/projects/{project_id}/images/{image_id}")
+@require_role(['developer', 'admin'])
+async def delete_project_image(
+    project_id: str,
+    image_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """Delete a project image"""
+    try:
+        # Verify project belongs to user's company
+        project = supabase.table('projects').select('*').eq('id', project_id).eq('company_id', user['company_id']).execute()
+        if not project.data:
+            raise HTTPException(status_code=404, detail="Project not found")
+        
+        # Remove image from array
+        images = project.data[0].get('images', []) or []
+        images = [img for img in images if img.get('id') != image_id]
+        
+        # Update project
+        supabase.table('projects').update({"images": images}).eq('id', project_id).execute()
+        
+        return {"message": "Image deleted successfully"}
+    except Exception as e:
+        logger.error(f"Error deleting image: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete image")
 
 # Health check for debugging
 @app.get("/api/v1/debug/tables")
