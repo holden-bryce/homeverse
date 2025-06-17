@@ -118,7 +118,7 @@ export default function ApplicationsPage() {
     }
   }
 
-  const filteredApplications = applications.filter(app => {
+  const filteredApplications = applications.filter((app: Application) => {
     const matchesSearch = !searchTerm || 
       app.projects?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       app.applicants?.full_name?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -145,13 +145,13 @@ export default function ApplicationsPage() {
 
       {/* Filters */}
       <div className="flex gap-4 mb-6">
-        <div className="flex-1">
+        <div className="flex-1 relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
             placeholder="Search applications..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full"
-            icon={<Search className="h-4 w-4" />}
+            className="w-full pl-10"
           />
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
