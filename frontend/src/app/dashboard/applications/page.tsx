@@ -172,7 +172,7 @@ export default function ApplicationsPage() {
       {/* Applications List */}
       {filteredApplications.length > 0 ? (
         <div className="space-y-4">
-          {filteredApplications.map((application) => (
+          {filteredApplications.map((application: Application) => (
             <Card key={application.id} className="hover:shadow-lg transition-shadow">
               <CardContent className="p-6">
                 <div className="flex justify-between items-start">
