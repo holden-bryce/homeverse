@@ -345,12 +345,15 @@ export const useCreateProject = () => {
         company_id: companyId,
         name: projectData.name,
         description: projectData.description,
-        location: projectData.location || projectData.address,
-        total_units: projectData.total_units,
-        available_units: projectData.affordable_units || projectData.total_units,
-        ami_percentage: projectData.ami_levels ? parseInt(projectData.ami_levels) : null,
-        amenities: [],
-        images: [],
+        address: projectData.address,
+        city: projectData.city || 'San Francisco',  // Default city
+        state: projectData.state || 'CA',
+        zip_code: projectData.zip_code || '',
+        latitude: projectData.latitude || 37.7749,  // Default to SF coordinates
+        longitude: projectData.longitude || -122.4194,
+        total_units: parseInt(projectData.total_units) || 0,
+        affordable_units: parseInt(projectData.affordable_units) || 0,
+        ami_levels: projectData.ami_levels ? [projectData.ami_levels] : [],
         status: 'active'
       }
       
