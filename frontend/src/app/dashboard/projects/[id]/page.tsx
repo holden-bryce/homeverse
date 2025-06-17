@@ -478,7 +478,7 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
           isOpen={showApplicationModal}
           onClose={() => setShowApplicationModal(false)}
           project={project}
-          applicant={currentApplicant}
+          applicant={currentApplicant || undefined}
         />
       )}
       
