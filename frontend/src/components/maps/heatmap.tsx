@@ -73,7 +73,7 @@ export default function Heatmap({ className = '', height = 400, showControls = t
         const data = await response.json()
         
         // Transform the data into GeoJSON format for Mapbox
-        const features = []
+        const features: any[] = []
         
         // Add project locations
         if (data.projects) {
