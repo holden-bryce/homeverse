@@ -11,9 +11,11 @@ type ProjectInsert = Database['public']['Tables']['projects']['Insert']
 export async function createProject(formData: FormData) {
   console.log('=== Project Creation Debug ===')
   console.log('Form data entries:')
-  for (const [key, value] of formData.entries()) {
+  // Convert to array to avoid TypeScript iteration issues
+  const entries = Array.from(formData.entries())
+  entries.forEach(([key, value]) => {
     console.log(`  ${key}: ${value}`)
-  }
+  })
   
   try {
     const profile = await getUserProfile()
