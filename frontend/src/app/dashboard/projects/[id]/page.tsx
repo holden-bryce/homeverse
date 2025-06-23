@@ -298,7 +298,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
                 {profile && !canEdit && (
                   <ApplicationModal 
                     project={project} 
-                    applicant={null}
+                    applicant={undefined}
                     trigger={
                       <Button className="w-full bg-teal-600 hover:bg-teal-700 text-white">
                         <FileText className="h-4 w-4 mr-2" />
