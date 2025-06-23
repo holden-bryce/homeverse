@@ -18,8 +18,9 @@ interface ApplicantDetailProps {
 
 interface Applicant {
   id: string
-  first_name: string
-  last_name: string
+  full_name?: string
+  first_name?: string
+  last_name?: string
   email: string
   phone?: string
   household_size?: number
@@ -28,6 +29,11 @@ interface Applicant {
   location_preference?: string
   latitude?: number
   longitude?: number
+  preferences?: {
+    location_preference?: string
+    coordinates?: [number, number]
+    ami_percent?: number
+  }
   status: string
   created_at: string
 }
@@ -42,7 +48,7 @@ export default function ApplicantDetailPage({ params }: ApplicantDetailProps) {
   const handleDeleteApplicant = () => {
     if (!applicant) return
     
-    const applicantName = `${applicant.first_name} ${applicant.last_name}`.trim()
+    const applicantName = applicant.full_name || `${applicant.first_name || ''} ${applicant.last_name || ''}`.trim() || 'Unknown Applicant'
     confirm({
       title: 'Delete Applicant',
       description: `Are you sure you want to delete ${applicantName}? This action cannot be undone and will permanently remove all their data, applications, and matching history.`,
@@ -126,7 +132,7 @@ export default function ApplicantDetailPage({ params }: ApplicantDetailProps) {
           </Button>
           <div>
             <h1 className="text-3xl font-bold tracking-tight">
-              {applicant.first_name} {applicant.last_name}
+              {applicant.full_name || `${applicant.first_name || ''} ${applicant.last_name || ''}`.trim() || 'Unknown Applicant'}
             </h1>
             <p className="text-muted-foreground">Applicant Profile</p>
           </div>
@@ -202,10 +208,10 @@ export default function ApplicantDetailPage({ params }: ApplicantDetailProps) {
                 <p className="text-sm text-muted-foreground">{formatCurrency(applicant.income)}</p>
               </div>
             )}
-            {applicant.ami_percent && (
+            {(applicant.ami_percent || applicant.preferences?.ami_percent) && (
               <div>
                 <p className="text-sm font-medium">AMI Percentage</p>
-                <p className="text-sm text-muted-foreground">{applicant.ami_percent}%</p>
+                <p className="text-sm text-muted-foreground">{applicant.ami_percent || applicant.preferences?.ami_percent}%</p>
               </div>
             )}
           </CardContent>
@@ -220,17 +226,21 @@ export default function ApplicantDetailPage({ params }: ApplicantDetailProps) {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {applicant.location_preference && (
+            {(applicant.location_preference || applicant.preferences?.location_preference) && (
               <div>
                 <p className="text-sm font-medium">Preferred Location</p>
-                <p className="text-sm text-muted-foreground">{applicant.location_preference}</p>
+                <p className="text-sm text-muted-foreground">{applicant.location_preference || applicant.preferences?.location_preference}</p>
               </div>
             )}
-            {applicant.latitude && applicant.longitude && (
+            {((applicant.latitude && applicant.longitude) || applicant.preferences?.coordinates) && (
               <div>
                 <p className="text-sm font-medium">Coordinates</p>
                 <p className="text-sm text-muted-foreground">
-                  {applicant.latitude.toFixed(4)}, {applicant.longitude.toFixed(4)}
+                  {applicant.latitude && applicant.longitude
+                    ? `${applicant.latitude.toFixed(4)}, ${applicant.longitude.toFixed(4)}`
+                    : applicant.preferences?.coordinates
+                    ? `${applicant.preferences.coordinates[0].toFixed(4)}, ${applicant.preferences.coordinates[1].toFixed(4)}`
+                    : ''}
                 </p>
               </div>
             )}

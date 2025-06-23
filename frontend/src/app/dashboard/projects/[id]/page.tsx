@@ -189,6 +189,13 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
                     <p className="text-gray-900">{project.description}</p>
                   </div>
                 )}
+                
+                {project.price_range && (
+                  <div>
+                    <h3 className="font-semibold text-sm text-gray-600 mb-1">Price Range</h3>
+                    <p className="text-gray-900">{project.price_range}</p>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
@@ -231,6 +238,46 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
                     </div>
                   </div>
                 )}
+                
+                {project.unit_types && project.unit_types.length > 0 && (
+                  <div>
+                    <h3 className="font-semibold text-sm text-gray-600 mb-2">Unit Types</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {project.unit_types.map((type: string) => (
+                        <Badge key={type} variant="secondary" className="bg-cream-100 text-cream-800 rounded-full">
+                          {type}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {project.amenities && project.amenities.length > 0 && (
+                  <div>
+                    <h3 className="font-semibold text-sm text-gray-600 mb-2">Amenities</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {project.amenities.map((amenity: string) => (
+                        <Badge key={amenity} variant="outline" className="rounded-full">
+                          {amenity}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {project.transit_notes && (
+                  <div>
+                    <h3 className="font-semibold text-sm text-gray-600 mb-1">Transit & Transportation</h3>
+                    <p className="text-gray-900">{project.transit_notes}</p>
+                  </div>
+                )}
+                
+                {project.school_district && (
+                  <div>
+                    <h3 className="font-semibold text-sm text-gray-600 mb-1">School District</h3>
+                    <p className="text-gray-900">{project.school_district}</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -240,6 +287,41 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
               images={project.images || []} 
               canEdit={canEdit}
             />
+            
+            {/* Contact Information */}
+            {(project.contact_email || project.contact_phone || project.website) && (
+              <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+                <CardHeader>
+                  <CardTitle>Contact Information</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {project.contact_email && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-600">Email:</span>
+                      <a href={`mailto:${project.contact_email}`} className="text-sage-600 hover:underline">
+                        {project.contact_email}
+                      </a>
+                    </div>
+                  )}
+                  {project.contact_phone && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-600">Phone:</span>
+                      <a href={`tel:${project.contact_phone}`} className="text-sage-600 hover:underline">
+                        {project.contact_phone}
+                      </a>
+                    </div>
+                  )}
+                  {project.website && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-600">Website:</span>
+                      <a href={project.website} target="_blank" rel="noopener noreferrer" className="text-sage-600 hover:underline">
+                        {project.website}
+                      </a>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {/* Sidebar */}

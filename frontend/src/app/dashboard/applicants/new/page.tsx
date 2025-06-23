@@ -34,27 +34,17 @@ export default function NewApplicantPage() {
           <CardContent>
             <form action={createApplicant} className="space-y-6">
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                <div>
-                  <Label htmlFor="first_name">First Name *</Label>
+                <div className="sm:col-span-2">
+                  <Label htmlFor="full_name">Full Name *</Label>
                   <Input
-                    id="first_name"
-                    name="first_name"
+                    id="full_name"
+                    name="full_name"
                     required
-                    placeholder="John"
+                    placeholder="John Doe"
                     className="mt-1"
                   />
                 </div>
 
-                <div>
-                  <Label htmlFor="last_name">Last Name *</Label>
-                  <Input
-                    id="last_name"
-                    name="last_name"
-                    required
-                    placeholder="Doe"
-                    className="mt-1"
-                  />
-                </div>
 
                 <div>
                   <Label htmlFor="email">Email *</Label>

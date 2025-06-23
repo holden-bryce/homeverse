@@ -162,9 +162,9 @@ export default function MapViewPage() {
           // Handle coordinates - PostgreSQL returns [lng, lat], but our component expects [lat, lng]
           let coords = [37.7749, -122.4194]; // Default SF
           if (project.coordinates && Array.isArray(project.coordinates) && project.coordinates.length === 2) {
-            // Swap from [lng, lat] to [lat, lng] if needed
-            const [first, second] = project.coordinates;
-            coords = [second, first]; // PostgreSQL gives [lng, lat], we need [lat, lng]
+            // PostgreSQL stores as [lng, lat], Mapbox/Leaflet expect [lat, lng]
+            const [lng, lat] = project.coordinates;
+            coords = [lat, lng];
           }
           
           console.log(`Project ${project.name} coordinates:`, project.coordinates, '→', coords);

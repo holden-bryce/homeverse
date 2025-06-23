@@ -64,10 +64,15 @@ export async function createApplicant(formData: FormData) {
       }
     }
     
-    // Match the ACTUAL Supabase schema (first_name, last_name, ami_percent, etc.)
+    // Match the ACTUAL Supabase schema - split full_name into first/last
+    const fullName = formData.get('full_name') as string || ''
+    const nameParts = fullName.trim().split(' ')
+    const firstName = nameParts[0] || ''
+    const lastName = nameParts.slice(1).join(' ') || ''
+    
     const applicantData = {
-      first_name: formData.get('first_name') as string,
-      last_name: formData.get('last_name') as string,
+      first_name: firstName,
+      last_name: lastName,
       email: formData.get('email') as string,
       phone: formData.get('phone') as string || null,
       household_size: parseInt(formData.get('household_size') as string) || 1,
@@ -113,9 +118,15 @@ export async function updateApplicant(id: string, formData: FormData) {
   
   const supabase = createClient()
   
+  // Split full_name into first/last
+  const fullName = formData.get('full_name') as string || ''
+  const nameParts = fullName.trim().split(' ')
+  const firstName = nameParts[0] || ''
+  const lastName = nameParts.slice(1).join(' ') || ''
+  
   const updateData = {
-    first_name: formData.get('first_name') as string,
-    last_name: formData.get('last_name') as string,
+    first_name: firstName,
+    last_name: lastName,
     email: formData.get('email') as string,
     phone: formData.get('phone') as string || null,
     household_size: parseInt(formData.get('household_size') as string) || 1,

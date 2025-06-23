@@ -19,8 +19,7 @@ interface EditApplicantProps {
 }
 
 const applicantSchema = z.object({
-  first_name: z.string().min(2, 'First name must be at least 2 characters'),
-  last_name: z.string().min(2, 'Last name must be at least 2 characters'),
+  full_name: z.string().min(2, 'Full name must be at least 2 characters'),
   email: z.string().email('Invalid email address'),
   phone: z.string().optional(),
   household_size: z.number().min(1).max(10).optional(),

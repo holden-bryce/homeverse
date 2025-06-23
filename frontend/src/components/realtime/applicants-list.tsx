@@ -88,14 +88,14 @@ export function RealtimeApplicantsList({ initialApplicants, companyId }: Realtim
           {applicants.map((applicant) => (
             <tr key={applicant.id} className="border-b hover:bg-gray-50 transition-colors">
               <td className="py-3 px-4">
-                {applicant.first_name} {applicant.last_name}
+                {applicant.full_name || `${applicant.first_name || ''} ${applicant.last_name || ''}`.trim() || 'No Name'}
               </td>
               <td className="py-3 px-4">{applicant.email}</td>
               <td className="py-3 px-4">{applicant.phone || '-'}</td>
               <td className="py-3 px-4">
-                ${applicant.income.toLocaleString()}
+                {applicant.income ? `$${applicant.income.toLocaleString()}` : '-'}
               </td>
-              <td className="py-3 px-4">{applicant.ami_percent}%</td>
+              <td className="py-3 px-4">{applicant.ami_percent || '-'}%</td>
               <td className="py-3 px-4">
                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                   applicant.status === 'approved' 

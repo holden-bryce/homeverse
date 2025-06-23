@@ -590,23 +590,36 @@ export const useApplications = (filters?: any) => {
   return useQuery({
     queryKey: ['applications', filters],
     queryFn: async () => {
-      const token = localStorage.getItem('token')
-      if (!token) throw new Error('No authentication token')
+      const supabase = createClient()
       
-      const params = new URLSearchParams()
-      if (filters?.status) params.append('status', filters.status)
-      if (filters?.project_id) params.append('project_id', filters.project_id)
-      if (filters?.applicant_id) params.append('applicant_id', filters.applicant_id)
+      // Build query with filters
+      let query = supabase
+        .from('applications')
+        .select(`
+          *,
+          projects(name, address, city, state),
+          applicants(full_name, email, phone)
+        `)
+        .order('submitted_at', { ascending: false })
       
-      const response = await fetch(`http://localhost:8000/api/v1/applications?${params}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      })
+      if (filters?.status) {
+        query = query.eq('status', filters.status)
+      }
+      if (filters?.project_id) {
+        query = query.eq('project_id', filters.project_id)
+      }
+      if (filters?.applicant_id) {
+        query = query.eq('applicant_id', filters.applicant_id)
+      }
       
-      if (!response.ok) throw new Error('Failed to fetch applications')
-      return response.json()
+      const { data, error } = await query
+      
+      if (error) {
+        console.error('Error fetching applications:', error)
+        throw error
+      }
+      
+      return { data }
     },
     enabled: !!user
   })
@@ -614,23 +627,36 @@ export const useApplications = (filters?: any) => {
 
 export const useUpdateApplication = () => {
   const queryClient = useQueryClient()
+  const { user } = useAuth()
   
   return useMutation({
     mutationFn: async ({ applicationId, updateData }: { applicationId: string, updateData: any }) => {
-      const token = localStorage.getItem('token')
-      if (!token) throw new Error('No authentication token')
+      const supabase = createClient()
       
-      const response = await fetch(`http://localhost:8000/api/v1/applications/${applicationId}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(updateData)
-      })
+      // Add metadata for review actions
+      const updates: any = {
+        ...updateData,
+        updated_at: new Date().toISOString()
+      }
       
-      if (!response.ok) throw new Error('Failed to update application')
-      return response.json()
+      if (updateData.status === 'under_review' || updateData.status === 'approved' || updateData.status === 'rejected') {
+        updates.reviewed_by = user?.id
+        updates.reviewed_at = new Date().toISOString()
+      }
+      
+      const { data, error } = await supabase
+        .from('applications')
+        .update(updates)
+        .eq('id', applicationId)
+        .select()
+        .single()
+      
+      if (error) {
+        console.error('Error updating application:', error)
+        throw new Error('Failed to update application')
+      }
+      
+      return data
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['applications'] })
