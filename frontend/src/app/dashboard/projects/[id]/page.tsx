@@ -23,7 +23,6 @@ import {
   FileText
 } from 'lucide-react'
 import { ProjectImages } from '@/components/projects/project-images'
-import { ApplicationModal } from '@/components/applications/application-modal'
 import { deleteProject } from '../actions'
 
 interface ProjectDetailPageProps {
@@ -296,16 +295,12 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
               <CardContent className="space-y-3">
                 {/* Apply button for buyers/applicants */}
                 {profile && !canEdit && (
-                  <ApplicationModal 
-                    project={project} 
-                    applicant={undefined}
-                    trigger={
-                      <Button className="w-full bg-teal-600 hover:bg-teal-700 text-white">
-                        <FileText className="h-4 w-4 mr-2" />
-                        Apply Now
-                      </Button>
-                    }
-                  />
+                  <Link href={`/dashboard/buyers/apply/${project.id}`} className="block">
+                    <Button className="w-full bg-teal-600 hover:bg-teal-700 text-white">
+                      <FileText className="h-4 w-4 mr-2" />
+                      Apply Now
+                    </Button>
+                  </Link>
                 )}
                 
                 {/* View Applications for developers */}
