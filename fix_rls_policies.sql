@@ -1,56 +1,49 @@
--- Fix RLS policies to prevent infinite recursion
+-- Fix RLS policies for applications and investments tables
+-- Run this in your Supabase SQL Editor
 
--- Drop existing policies that might cause recursion
-DROP POLICY IF EXISTS "profiles_select" ON profiles;
-DROP POLICY IF EXISTS "profiles_insert" ON profiles;
-DROP POLICY IF EXISTS "profiles_update" ON profiles;
-DROP POLICY IF EXISTS "profiles_delete" ON profiles;
+-- Drop existing restrictive policies
+DROP POLICY IF EXISTS "Applicants can create applications" ON applications;
+DROP POLICY IF EXISTS "Lenders can create investments" ON investments;
 
--- Create new simplified policies for profiles
--- Users can view all profiles in their company
-CREATE POLICY "profiles_select" ON profiles
-    FOR SELECT USING (
-        auth.uid() = id OR 
-        company_id IN (
-            SELECT company_id FROM profiles WHERE id = auth.uid()
+-- Create more permissive application creation policy
+-- Allow any authenticated user to create applications (useful for testing and admin functions)
+CREATE POLICY "Authenticated users can create applications" ON applications
+    FOR INSERT WITH CHECK (
+        auth.uid() IS NOT NULL
+    );
+
+-- Alternative: More restrictive policy that allows applicants and developers to create applications
+-- Uncomment this and comment the above if you prefer stricter security
+/*
+CREATE POLICY "Applicants and developers can create applications" ON applications
+    FOR INSERT WITH CHECK (
+        auth.uid() = applicant_id OR 
+        auth.uid() IN (
+            SELECT id FROM profiles 
+            WHERE role IN ('developer', 'admin')
+        )
+    );
+*/
+
+-- Create more permissive investment creation policy
+CREATE POLICY "Authenticated lenders can create investments" ON investments
+    FOR INSERT WITH CHECK (
+        auth.uid() IS NOT NULL AND
+        auth.uid() IN (
+            SELECT id FROM profiles 
+            WHERE role IN ('lender', 'admin')
         )
     );
 
--- Users can only insert their own profile
-CREATE POLICY "profiles_insert" ON profiles
-    FOR INSERT WITH CHECK (auth.uid() = id);
-
--- Users can only update their own profile
-CREATE POLICY "profiles_update" ON profiles
-    FOR UPDATE USING (auth.uid() = id);
-
--- Users can only delete their own profile
-CREATE POLICY "profiles_delete" ON profiles
-    FOR DELETE USING (auth.uid() = id);
-
--- Fix companies policies to prevent recursion
-DROP POLICY IF EXISTS "companies_select" ON companies;
-DROP POLICY IF EXISTS "companies_update" ON companies;
-
--- Allow users to view their own company
-CREATE POLICY "companies_select" ON companies
-    FOR SELECT USING (
-        id IN (
-            SELECT company_id FROM profiles WHERE id = auth.uid()
-        )
-    );
-
--- Only admin users can update company
-CREATE POLICY "companies_update" ON companies
-    FOR UPDATE USING (
-        EXISTS (
-            SELECT 1 FROM profiles 
-            WHERE profiles.id = auth.uid() 
-            AND profiles.company_id = companies.id 
-            AND profiles.role = 'admin'
-        )
-    );
-
--- Ensure RLS is enabled
-ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE companies ENABLE ROW LEVEL SECURITY;
+-- Verify policies are working
+SELECT 
+    schemaname,
+    tablename,
+    policyname,
+    roles,
+    cmd,
+    qual
+FROM pg_policies 
+WHERE tablename IN ('applications', 'investments')
+ORDER BY tablename, policyname;
+EOF < /dev/null

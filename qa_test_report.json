@@ -1,0 +1,140 @@
+{
+  "test_run": "2025-06-23T11:51:45.133275",
+  "summary": {
+    "passed": 11,
+    "failed": 8,
+    "warnings": 2,
+    "tests": [
+      {
+        "name": "Backend Health Check",
+        "status": "PASS",
+        "details": "Backend is healthy",
+        "timestamp": "2025-06-23T11:51:41.885374"
+      },
+      {
+        "name": "Login: developer",
+        "status": "PASS",
+        "details": "User: developer@test.com",
+        "timestamp": "2025-06-23T11:51:42.345155"
+      },
+      {
+        "name": "Get Current User: developer",
+        "status": "PASS",
+        "details": "",
+        "timestamp": "2025-06-23T11:51:42.534928"
+      },
+      {
+        "name": "Login: lender",
+        "status": "PASS",
+        "details": "User: lender@test.com",
+        "timestamp": "2025-06-23T11:51:42.884565"
+      },
+      {
+        "name": "Get Current User: lender",
+        "status": "PASS",
+        "details": "",
+        "timestamp": "2025-06-23T11:51:43.085549"
+      },
+      {
+        "name": "Login: buyer",
+        "status": "PASS",
+        "details": "User: buyer@test.com",
+        "timestamp": "2025-06-23T11:51:43.446741"
+      },
+      {
+        "name": "Get Current User: buyer",
+        "status": "PASS",
+        "details": "",
+        "timestamp": "2025-06-23T11:51:43.604452"
+      },
+      {
+        "name": "Login: applicant",
+        "status": "PASS",
+        "details": "User: applicant@test.com",
+        "timestamp": "2025-06-23T11:51:43.992046"
+      },
+      {
+        "name": "Get Current User: applicant",
+        "status": "PASS",
+        "details": "",
+        "timestamp": "2025-06-23T11:51:44.138498"
+      },
+      {
+        "name": "Login: admin",
+        "status": "PASS",
+        "details": "User: admin@test.com",
+        "timestamp": "2025-06-23T11:51:44.510422"
+      },
+      {
+        "name": "Get Current User: admin",
+        "status": "PASS",
+        "details": "",
+        "timestamp": "2025-06-23T11:51:44.685090"
+      },
+      {
+        "name": "Create Applicant",
+        "status": "FAIL",
+        "details": "Status: 401, Response: {\"detail\":\"Authentication failed\"}",
+        "timestamp": "2025-06-23T11:51:44.896019"
+      },
+      {
+        "name": "Create Project",
+        "status": "FAIL",
+        "details": "Status: 401, Response: {\"detail\":\"Authentication failed\"}",
+        "timestamp": "2025-06-23T11:51:45.119692"
+      },
+      {
+        "name": "Application Workflow",
+        "status": "SKIP",
+        "details": "No test project available",
+        "timestamp": "2025-06-23T11:51:45.119787"
+      },
+      {
+        "name": "Investment Functionality",
+        "status": "SKIP",
+        "details": "No test project available",
+        "timestamp": "2025-06-23T11:51:45.119793"
+      },
+      {
+        "name": "Developer Analytics",
+        "status": "FAIL",
+        "details": "Status: 404",
+        "timestamp": "2025-06-23T11:51:45.121592"
+      },
+      {
+        "name": "Lender Analytics",
+        "status": "FAIL",
+        "details": "Status: 404",
+        "timestamp": "2025-06-23T11:51:45.123382"
+      },
+      {
+        "name": "Contact Form Submission",
+        "status": "FAIL",
+        "details": "Status: 422",
+        "timestamp": "2025-06-23T11:51:45.125426"
+      },
+      {
+        "name": "Update User Profile",
+        "status": "FAIL",
+        "details": "Status: 404",
+        "timestamp": "2025-06-23T11:51:45.127045"
+      },
+      {
+        "name": "Get Map Projects",
+        "status": "FAIL",
+        "details": "Status: 404",
+        "timestamp": "2025-06-23T11:51:45.131155"
+      },
+      {
+        "name": "Export Portfolio Data",
+        "status": "FAIL",
+        "details": "Status: 404",
+        "timestamp": "2025-06-23T11:51:45.133197"
+      }
+    ]
+  },
+  "environment": {
+    "backend_url": "http://localhost:8000",
+    "frontend_url": "http://localhost:3000"
+  }
+}
