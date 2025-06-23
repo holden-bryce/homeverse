@@ -9,8 +9,16 @@ import type { Database } from '@/types/database'
 type ProjectInsert = Database['public']['Tables']['projects']['Insert']
 
 export async function createProject(formData: FormData) {
+  console.log('=== Project Creation Debug ===')
+  console.log('Form data entries:')
+  for (const [key, value] of formData.entries()) {
+    console.log(`  ${key}: ${value}`)
+  }
+  
   try {
     const profile = await getUserProfile()
+    console.log('User profile:', profile)
+    
     if (!profile) {
       throw new Error('Unauthorized - no user profile')
     }
@@ -82,6 +90,8 @@ export async function createProject(formData: FormData) {
       status: 'planning',
     }
     
+    console.log('Project data to insert:', JSON.stringify(projectData, null, 2))
+    
     const { data, error } = await supabase
       .from('projects')
       .insert([projectData])
@@ -98,8 +108,7 @@ export async function createProject(formData: FormData) {
     }
     
     revalidatePath('/dashboard/projects')
-    // Redirect to success page to avoid loading issues
-    redirect('/dashboard/projects/success')
+    redirect('/dashboard/projects')
   } catch (error) {
     console.error('Error in createProject:', error)
     throw error

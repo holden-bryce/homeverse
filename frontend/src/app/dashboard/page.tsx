@@ -1,5 +1,6 @@
 import { Suspense } from 'react'
 import { getUserProfile } from '@/lib/auth/server'
+import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Users, Home, FileText, TrendingUp } from 'lucide-react'
 import { cookies } from 'next/headers'
@@ -7,15 +8,65 @@ import { cookies } from 'next/headers'
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 async function getDashboardStats() {
-  const cookieStore = cookies()
-  const token = cookieStore.get('access_token')?.value
+  const profile = await getUserProfile()
+  if (!profile || !profile.company_id) {
+    return {
+      applicants: { total: 0, pending: 0, approved: 0 },
+      projects: { total: 0 },
+      matches: { total: 0 }
+    }
+  }
+
+  const supabase = createClient()
 
   try {
-    // For now, return mock data until analytics endpoints are implemented
+    // Get real data from Supabase
+    // Get applicants count
+    const { count: totalApplicants } = await supabase
+      .from('applicants')
+      .select('*', { count: 'exact', head: true })
+      .eq('company_id', profile.company_id)
+
+    // Get applicants by status
+    const { count: pendingApplicants } = await supabase
+      .from('applicants')
+      .select('*', { count: 'exact', head: true })
+      .eq('company_id', profile.company_id)
+      .eq('status', 'pending')
+
+    const { count: approvedApplicants } = await supabase
+      .from('applicants')
+      .select('*', { count: 'exact', head: true })
+      .eq('company_id', profile.company_id)
+      .eq('status', 'approved')
+
+    // Get projects count
+    const { count: totalProjects } = await supabase
+      .from('projects')
+      .select('*', { count: 'exact', head: true })
+      .eq('company_id', profile.company_id)
+
+    // Get applications/matches count (if the table exists)
+    let totalMatches = 0
+    try {
+      const { count } = await supabase
+        .from('applications')
+        .select('*', { count: 'exact', head: true })
+        .eq('company_id', profile.company_id)
+      totalMatches = count || 0
+    } catch (e) {
+      // Table might not exist yet
+      console.log('Applications table not found')
+    }
+
     return {
-      applicants: { total: 12, pending: 5, approved: 7 },
-      projects: { total: 8 },
-      matches: { total: 24 }
+      applicants: { 
+        total: totalApplicants || 0, 
+        pending: pendingApplicants || 0, 
+        approved: approvedApplicants || 0 
+      },
+      projects: { total: totalProjects || 0 },
+      matches: { total: totalMatches }
     }
   } catch (error) {
     console.error('Error fetching dashboard stats:', error)
