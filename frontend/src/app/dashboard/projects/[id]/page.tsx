@@ -1,11 +1,11 @@
-'use client'
-
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense } from 'react'
+import { notFound } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+import { getUserProfile } from '@/lib/auth/server'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { toast } from '@/components/ui/toast'
+import { Button } from '@/components/ui/button'
+import Link from 'next/link'
 import { 
   ArrowLeft, 
   Edit, 
@@ -19,189 +19,93 @@ import {
   Clock,
   CheckCircle,
   AlertCircle,
-  Loader2,
   Trash2,
   FileText
 } from 'lucide-react'
-import { useDeleteProject } from '@/lib/supabase/hooks'
-import { useConfirmationModal } from '@/components/ui/confirmation-modal'
+import { ProjectImages } from '@/components/projects/project-images'
 import { ApplicationModal } from '@/components/applications/application-modal'
-import { useAuth } from '@/providers/supabase-auth-provider'
+import { deleteProject } from '../actions'
 
-interface ProjectDetailProps {
+interface ProjectDetailPageProps {
   params: {
     id: string
   }
 }
 
-interface Project {
-  id: string
-  name: string
-  developer?: string
-  location?: string
-  latitude?: number
-  longitude?: number
-  total_units?: number
-  affordable_units?: number
-  ami_levels?: string
-  status?: string
-  address?: string
-  description?: string
-  completion_date?: string
-  created_at: string
+async function getProject(id: string) {
+  const supabase = createClient()
+  
+  const { data: project, error } = await supabase
+    .from('projects')
+    .select('*, companies(name)')
+    .eq('id', id)
+    .single()
+    
+  if (error || !project) {
+    return null
+  }
+  
+  return project
 }
 
-export default function ProjectDetailPage({ params }: ProjectDetailProps) {
-  const router = useRouter()
-  const [project, setProject] = useState<Project | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [isLoading, setIsLoading] = useState(true)
-  const [showApplicationModal, setShowApplicationModal] = useState(false)
+async function ProjectActions({ project, profile }: { project: any, profile: any }) {
+  const canEdit = profile?.role && ['developer', 'admin'].includes(profile.role) && 
+                  profile.company_id === project.company_id
+
+  if (!canEdit) return null
+
+  return (
+    <>
+      <Link href={`/dashboard/projects/${project.id}/edit`}>
+        <Button
+          variant="outline"
+          className="border-sage-200 text-sage-700 hover:bg-sage-50"
+        >
+          <Edit className="h-4 w-4 mr-2" />
+          Edit
+        </Button>
+      </Link>
+      
+      <form action={async () => {
+        'use server'
+        await deleteProject(project.id)
+      }}>
+        <Button
+          type="submit"
+          variant="outline"
+          className="border-red-200 text-red-700 hover:bg-red-50"
+        >
+          <Trash2 className="h-4 w-4 mr-2" />
+          Delete
+        </Button>
+      </form>
+    </>
+  )
+}
+
+function ProjectDetailSkeleton() {
+  return (
+    <div className="p-6 space-y-6">
+      <div className="animate-pulse">
+        <div className="h-8 w-64 bg-gray-200 rounded mb-4" />
+        <div className="h-6 w-48 bg-gray-200 rounded" />
+      </div>
+    </div>
+  )
+}
+
+export default async function ProjectDetailPage({ params }: ProjectDetailPageProps) {
+  const [project, profile] = await Promise.all([
+    getProject(params.id),
+    getUserProfile()
+  ])
   
-  const { user, profile } = useAuth()
-  const deleteProject = useDeleteProject()
-  const { confirm, ConfirmationModal } = useConfirmationModal()
-
-  // Mock applicant data - in a real app, this would come from the current user's applicant profile
-  const currentApplicant = profile && user ? {
-    id: user.id, // Use user ID as applicant ID for now
-    full_name: profile.full_name || user.email?.split('@')[0] || 'User',
-    email: user.email
-  } : null
-
-  const handleDeleteProject = () => {
-    if (!project) return
-    
-    confirm({
-      title: 'Delete Project',
-      description: `Are you sure you want to delete "${project.name}"? This action cannot be undone and will permanently remove all project data including applications, analytics, and matching history.`,
-      variant: 'danger',
-      confirmText: 'Delete Project',
-      onConfirm: async () => {
-        try {
-          await deleteProject.mutateAsync(project.id)
-          toast({
-            title: 'Project Deleted',
-            description: `${project.name} has been successfully deleted.`,
-            variant: 'success'
-          })
-          router.push('/dashboard/projects')
-        } catch (error) {
-          toast({
-            title: 'Error',
-            description: 'Failed to delete project. Please try again.',
-            variant: 'destructive'
-          })
-          throw error // Re-throw to keep modal open on error
-        }
-      }
-    })
+  if (!project) {
+    notFound()
   }
 
-  useEffect(() => {
-    const fetchProject = async () => {
-      try {
-        const token = localStorage.getItem('auth_token') || document.cookie.split('auth_token=')[1]?.split(';')[0]
-        
-        if (!token) {
-          toast({
-            variant: 'destructive',
-            title: 'Authentication Error',
-            description: 'Please log in again to continue.',
-          })
-          router.push('/auth/login')
-          return
-        }
-
-        // First try to get specific project from API
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/projects/${params.id}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        })
-
-        if (response.ok) {
-          const project = await response.json()
-          setProject(project)
-        } else {
-          // Fallback to demo data
-          const demoProjects = [
-            {
-              id: '1',
-              name: 'Sunset Gardens',
-              developer: 'Green Valley Development',
-              location: 'San Francisco, CA',
-              latitude: 37.7749,
-              longitude: -122.4194,
-              total_units: 120,
-              affordable_units: 96,
-              ami_levels: '30-80%',
-              completion_date: '2024-12-15',
-              status: 'active',
-              address: '123 Sunset Boulevard, San Francisco, CA 94102',
-              created_at: '2024-01-15T10:00:00Z',
-              description: 'A sustainable affordable housing development featuring 120 units with modern amenities and green building certifications. Located in the heart of San Francisco with easy access to public transportation.',
-            },
-            {
-              id: '2',
-              name: 'Riverside Commons',
-              developer: 'Urban Housing Partners',
-              location: 'Oakland, CA',
-              latitude: 37.7849,
-              longitude: -122.4094,
-              total_units: 85,
-              affordable_units: 68,
-              ami_levels: '50-120%',
-              completion_date: '2025-03-20',
-              status: 'construction',
-              address: '456 River Street, Oakland, CA 94607',
-              created_at: '2024-02-01T14:30:00Z',
-              description: 'Contemporary mixed-income housing development with community amenities including a fitness center, community garden, and childcare facilities.',
-            },
-            {
-              id: '3',
-              name: 'Harbor View Apartments',
-              developer: 'Coastal Development LLC',
-              location: 'San Jose, CA',
-              latitude: 37.7649,
-              longitude: -122.4294,
-              total_units: 200,
-              affordable_units: 160,
-              ami_levels: '30-60%',
-              status: 'planning',
-              address: '789 Harbor Street, San Jose, CA 95113',
-              created_at: '2024-02-10T09:15:00Z',
-              description: 'Large-scale affordable housing development planned for families and seniors, featuring universal design principles and on-site supportive services.',
-            }
-          ]
-          
-          const demoProject = demoProjects.find(proj => proj.id === params.id)
-          if (demoProject) {
-            setProject(demoProject)
-          } else {
-            toast({
-              variant: 'destructive',
-              title: 'Not Found',
-              description: 'Project not found.',
-            })
-            router.push('/dashboard/projects')
-            return
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching project:', error)
-        toast({
-          variant: 'destructive',
-          title: 'Error',
-          description: 'Failed to load project details.',
-        })
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchProject()
-  }, [params.id, router])
+  const canEdit = profile?.role && ['developer', 'admin'].includes(profile.role) && 
+                  profile.company_id === project.company_id
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -233,30 +137,9 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
     }
   }
 
-  const getAffordabilityRate = () => {
-    if (project?.total_units && project?.affordable_units) {
-      return Math.round((project.affordable_units / project.total_units) * 100)
-    }
-    return null
-  }
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    )
-  }
-
-  if (!project) {
-    return (
-      <div className="text-center py-8">
-        <p>Project not found</p>
-      </div>
-    )
-  }
-
-  const affordabilityRate = getAffordabilityRate()
+  const affordabilityRate = project.total_units && project.affordable_units
+    ? Math.round((project.affordable_units / project.total_units) * 100)
+    : null
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-sage-50 via-white to-cream-50">
@@ -264,225 +147,180 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => router.back()}
-              className="border-sage-200 text-sage-700 hover:bg-sage-50"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
+            <Link href="/dashboard/projects">
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-sage-200 text-sage-700 hover:bg-sage-50"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
+              </Button>
+            </Link>
             <div>
               <h1 className="text-3xl font-bold text-gray-900">{project.name}</h1>
-              <p className="text-gray-600 mt-1">{project.developer}</p>
+              <p className="text-gray-600 mt-1">{project.companies?.name}</p>
             </div>
           </div>
           <div className="flex gap-3">
-            {/* Show Apply button for all users except developers/admins of the same company */}
-            {currentApplicant && (
-              <Button
-                onClick={() => setShowApplicationModal(true)}
-                className="bg-teal-600 hover:bg-teal-700 text-white"
-              >
-                <FileText className="h-4 w-4 mr-2" />
-                Apply Now
-              </Button>
-            )}
-            
-            {/* Show management buttons for developers/admins */}
-            {profile?.role && ['developer', 'admin'].includes(profile.role) && (
-              <>
-                <Button
-                  variant="outline"
-                  onClick={() => router.push(`/dashboard/projects/${project.id}/edit`)}
-                  className="border-sage-200 text-sage-700 hover:bg-sage-50"
-                >
-                  <Edit className="h-4 w-4 mr-2" />
-                  Edit Project
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={handleDeleteProject}
-                  className="border-red-500 text-red-600 hover:bg-red-50"
-                  disabled={deleteProject.isPending}
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete Project
-                </Button>
-              </>
-            )}
+            <Suspense fallback={null}>
+              <ProjectActions project={project} profile={profile} />
+            </Suspense>
           </div>
         </div>
 
-        {/* Status and Key Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Status</p>
-                  <div className="flex items-center gap-2 mt-2">
-                    {getStatusIcon(project.status || 'active')}
-                    <Badge className={`${getStatusColor(project.status || 'active')} rounded-full border capitalize`}>
-                      {project.status || 'active'}
-                    </Badge>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Main Content */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Overview Card */}
+            <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Project Overview</CardTitle>
+                  <Badge className={`${getStatusColor(project.status || 'planning')} rounded-full px-3`}>
+                    <span className="mr-1.5">{getStatusIcon(project.status || 'planning')}</span>
+                    {project.status || 'Planning'}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {project.description && (
+                  <div>
+                    <h3 className="font-semibold text-sm text-gray-600 mb-1">Description</h3>
+                    <p className="text-gray-900">{project.description}</p>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <h3 className="font-semibold text-sm text-gray-600 mb-1">Location</h3>
+                    <div className="flex items-start space-x-2">
+                      <MapPin className="h-4 w-4 text-sage-600 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-gray-900">{project.address}</p>
+                        <p className="text-gray-600 text-sm">
+                          {project.city}, {project.state} {project.zip_code}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="font-semibold text-sm text-gray-600 mb-1">Unit Information</h3>
+                    <div className="space-y-1">
+                      <div className="flex items-center space-x-2">
+                        <Building2 className="h-4 w-4 text-sage-600" />
+                        <span className="text-gray-900">{project.total_units} total units</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Users className="h-4 w-4 text-sage-600" />
+                        <span className="text-gray-900">{project.affordable_units} affordable units</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
 
-          <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Total Units</p>
-                  <p className="text-2xl font-bold text-gray-900 mt-1">{project.total_units}</p>
-                </div>
-                <div className="h-12 w-12 bg-sage-100 rounded-full flex items-center justify-center">
-                  <Building2 className="h-6 w-6 text-sage-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                {project.ami_levels && project.ami_levels.length > 0 && (
+                  <div>
+                    <h3 className="font-semibold text-sm text-gray-600 mb-2">AMI Levels</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {project.ami_levels.map((level: string) => (
+                        <Badge key={level} variant="secondary" className="bg-sage-100 text-sage-800 rounded-full">
+                          {level} AMI
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-          <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Affordable Units</p>
-                  <p className="text-2xl font-bold text-gray-900 mt-1">
-                    {project.affordable_units || 'N/A'}
-                  </p>
-                </div>
-                <div className="h-12 w-12 bg-sage-100 rounded-full flex items-center justify-center">
-                  <DollarSign className="h-6 w-6 text-sage-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+            {/* Images Section */}
+            <ProjectImages 
+              projectId={project.id} 
+              images={project.images || []} 
+              canEdit={canEdit}
+            />
+          </div>
 
-          <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">AMI Levels</p>
-                  <p className="text-lg font-bold text-gray-900 mt-1">
-                    {project.ami_levels || 'N/A'}
-                  </p>
-                  {affordabilityRate !== null && (
-                    <p className="text-sm text-gray-500">{affordabilityRate}% affordable</p>
-                  )}
-                </div>
-                <div className="h-12 w-12 bg-sage-100 rounded-full flex items-center justify-center">
-                  <TrendingUp className="h-6 w-6 text-sage-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Statistics Card */}
+            <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <TrendingUp className="mr-2 h-5 w-5 text-sage-600" />
+                  Key Metrics
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {affordabilityRate !== null && (
+                  <div>
+                    <div className="flex justify-between items-baseline mb-2">
+                      <span className="text-sm text-gray-600">Affordability Rate</span>
+                      <span className="text-2xl font-bold text-sage-600">{affordabilityRate}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-sage-600 h-2 rounded-full transition-all duration-500"
+                        style={{ width: `${affordabilityRate}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Project Details */}
-          <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle>Project Information</CardTitle>
-              <CardDescription>Basic project details and specifications</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Developer</p>
-                  <p className="text-gray-900">{project.developer || 'Not specified'}</p>
+                <div className="pt-4 border-t space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Total Units</span>
+                    <span className="font-semibold">{project.total_units}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Affordable Units</span>
+                    <span className="font-semibold">{project.affordable_units}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Market Rate Units</span>
+                    <span className="font-semibold">
+                      {(project.total_units || 0) - (project.affordable_units || 0)}
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Total Units</p>
-                  <p className="text-gray-900">{project.total_units || 'Not specified'}</p>
-                </div>
-              </div>
+              </CardContent>
+            </Card>
 
-              <div>
-                <p className="text-sm font-medium text-gray-600">Location</p>
-                <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-gray-400" />
-                  <p className="text-gray-900">
-                    {project.address || project.location || 
-                      (project.latitude && project.longitude ? 
-                        `${project.latitude.toFixed(4)}, ${project.longitude.toFixed(4)}` : 
-                        'Not specified')}
-                  </p>
-                </div>
-              </div>
-
-              <div>
-                <p className="text-sm font-medium text-gray-600">AMI Levels</p>
-                <Badge className="bg-cream-100 text-cream-800 border border-cream-200 rounded-full">
-                  {project.ami_levels || 'Not specified'}
-                </Badge>
-              </div>
-
-              <div>
-                <p className="text-sm font-medium text-gray-600">Completion Date</p>
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-gray-400" />
-                  <p className="text-gray-900">
-                    {project.completion_date ? 
-                      new Date(project.completion_date).toLocaleDateString() : 
-                      'TBD'
+            {/* Actions Card */}
+            <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+              <CardHeader>
+                <CardTitle>Actions</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {/* Apply button for buyers/applicants */}
+                {profile && !canEdit && (
+                  <ApplicationModal 
+                    project={project} 
+                    applicant={null}
+                    trigger={
+                      <Button className="w-full bg-teal-600 hover:bg-teal-700 text-white">
+                        <FileText className="h-4 w-4 mr-2" />
+                        Apply Now
+                      </Button>
                     }
-                  </p>
-                </div>
-              </div>
-
-              <div>
-                <p className="text-sm font-medium text-gray-600">Created</p>
-                <p className="text-gray-900">
-                  {new Date(project.created_at).toLocaleDateString()}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Description & Requirements */}
-          <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle>Description & Requirements</CardTitle>
-              <CardDescription>Project overview and affordability details</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <p className="text-sm font-medium text-gray-600 mb-2">Project Description</p>
-                <p className="text-gray-900 leading-relaxed">
-                  {project.description || 'No description available.'}
-                </p>
-              </div>
-
-              <div>
-                <p className="text-sm font-medium text-gray-600 mb-2">Affordable Units</p>
-                <p className="text-gray-900 leading-relaxed">
-                  {project.affordable_units ? 
-                    `${project.affordable_units} out of ${project.total_units} units (${affordabilityRate}%)` : 
-                    'No affordable units specified.'}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+                  />
+                )}
+                
+                {/* View Applications for developers */}
+                {canEdit && (
+                  <Link href={`/dashboard/applications?project_id=${project.id}`} className="block">
+                    <Button variant="outline" className="w-full">
+                      View Applications
+                    </Button>
+                  </Link>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </div>
-
       </div>
-      
-      {/* Application Modal */}
-      {project && (
-        <ApplicationModal
-          isOpen={showApplicationModal}
-          onClose={() => setShowApplicationModal(false)}
-          project={project}
-          applicant={currentApplicant || undefined}
-        />
-      )}
-      
-      {ConfirmationModal}
     </div>
   )
 }

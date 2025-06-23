@@ -163,6 +163,147 @@ export async function updateProject(id: string, formData: FormData) {
   redirect(`/dashboard/projects/${id}`)
 }
 
+export async function uploadProjectImage(
+  projectId: string,
+  formData: FormData
+) {
+  const profile = await getUserProfile()
+  if (!profile) {
+    throw new Error('Unauthorized')
+  }
+  
+  const supabase = createClient()
+  
+  // Verify project belongs to user's company
+  const { data: project } = await supabase
+    .from('projects')
+    .select('*')
+    .eq('id', projectId)
+    .eq('company_id', profile.company_id)
+    .single()
+    
+  if (!project) {
+    throw new Error('Project not found or unauthorized')
+  }
+  
+  const file = formData.get('file') as File
+  if (!file) {
+    throw new Error('No file provided')
+  }
+  
+  // Validate file type
+  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+  if (!allowedTypes.includes(file.type)) {
+    throw new Error('Invalid file type. Only JPEG, PNG, and WebP allowed.')
+  }
+  
+  // Validate file size (5MB max)
+  if (file.size > 5 * 1024 * 1024) {
+    throw new Error('File too large. Maximum size is 5MB.')
+  }
+  
+  try {
+    // Generate unique filename
+    const fileExt = file.name.split('.').pop()
+    const fileName = `${projectId}/${Date.now()}.${fileExt}`
+    const filePath = `projects/${fileName}`
+    
+    // Upload to Supabase Storage
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('project-images')
+      .upload(filePath, file, {
+        contentType: file.type,
+        upsert: false
+      })
+      
+    if (uploadError) {
+      console.error('Upload error:', uploadError)
+      throw new Error('Failed to upload image')
+    }
+    
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('project-images')
+      .getPublicUrl(filePath)
+    
+    // Update project with new image
+    const images = project.images || []
+    const newImage = {
+      id: crypto.randomUUID(),
+      url: publicUrl,
+      caption: formData.get('caption') as string || null,
+      is_primary: images.length === 0 || formData.get('is_primary') === 'true',
+      uploaded_at: new Date().toISOString()
+    }
+    
+    // If this is primary, unset other primary images
+    if (newImage.is_primary) {
+      images.forEach(img => { img.is_primary = false })
+    }
+    
+    images.push(newImage)
+    
+    // Update project
+    const { error: updateError } = await supabase
+      .from('projects')
+      .update({ images })
+      .eq('id', projectId)
+      
+    if (updateError) {
+      // Try to delete uploaded file
+      await supabase.storage.from('project-images').remove([filePath])
+      throw new Error('Failed to update project')
+    }
+    
+    revalidatePath(`/dashboard/projects/${projectId}`)
+    return { success: true, image: newImage }
+  } catch (error) {
+    console.error('Image upload error:', error)
+    throw error
+  }
+}
+
+export async function deleteProjectImage(
+  projectId: string,
+  imageId: string
+) {
+  const profile = await getUserProfile()
+  if (!profile) {
+    throw new Error('Unauthorized')
+  }
+  
+  const supabase = createClient()
+  
+  // Verify project belongs to user's company
+  const { data: project } = await supabase
+    .from('projects')
+    .select('*')
+    .eq('id', projectId)
+    .eq('company_id', profile.company_id)
+    .single()
+    
+  if (!project) {
+    throw new Error('Project not found or unauthorized')
+  }
+  
+  // Remove image from array
+  const images = project.images || []
+  const updatedImages = images.filter(img => img.id !== imageId)
+  
+  // Update project
+  const { error } = await supabase
+    .from('projects')
+    .update({ images: updatedImages })
+    .eq('id', projectId)
+    
+  if (error) {
+    throw new Error('Failed to delete image')
+  }
+  
+  revalidatePath(`/dashboard/projects/${projectId}`)
+  return { success: true }
+}
+
 export async function deleteProject(id: string) {
   const profile = await getUserProfile()
   if (!profile) {
