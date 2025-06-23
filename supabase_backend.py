@@ -75,20 +75,28 @@ class RegisterRequest(BaseModel):
     company_key: Optional[str] = "demo-company-2024"
 
 class ApplicantCreate(BaseModel):
-    full_name: str
+    first_name: str
+    last_name: str
     email: Optional[str] = None
     phone: Optional[str] = None
     income: Optional[float] = None
     household_size: Optional[int] = None
-    preferences: Optional[Dict] = {}
+    ami_percent: Optional[float] = None
+    location_preference: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
 
 class ApplicantUpdate(BaseModel):
-    full_name: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
     income: Optional[float] = None
     household_size: Optional[int] = None
-    preferences: Optional[Dict] = None
+    ami_percent: Optional[float] = None
+    location_preference: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     status: Optional[str] = None
 
 class ProjectCreate(BaseModel):
@@ -818,7 +826,7 @@ async def create_applicant(
             'action': 'created_applicant',
             'resource_type': 'applicant',
             'resource_id': result.data[0]['id'],
-            'details': {'applicant_name': applicant.full_name}
+            'details': {'applicant_name': f"{applicant.first_name} {applicant.last_name}"}
         }).execute()
         
         return result.data[0]

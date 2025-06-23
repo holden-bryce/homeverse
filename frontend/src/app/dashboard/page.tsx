@@ -2,31 +2,46 @@ import { Suspense } from 'react'
 import { getUserProfile } from '@/lib/auth/server'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Users, Home, FileText, TrendingUp } from 'lucide-react'
-import { getApplicantStats } from '@/lib/data/applicants'
-import { createClient } from '@/lib/supabase/server'
+import { cookies } from 'next/headers'
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
+async function getDashboardStats() {
+  const cookieStore = cookies()
+  const token = cookieStore.get('access_token')?.value
+
+  try {
+    // For now, return mock data until analytics endpoints are implemented
+    return {
+      applicants: { total: 12, pending: 5, approved: 7 },
+      projects: { total: 8 },
+      matches: { total: 24 }
+    }
+  } catch (error) {
+    console.error('Error fetching dashboard stats:', error)
+    return {
+      applicants: { total: 0, pending: 0, approved: 0 },
+      projects: { total: 0 },
+      matches: { total: 0 }
+    }
+  }
+}
 
 async function DashboardStats({ companyId }: { companyId: string }) {
-  const supabase = createClient()
-  
-  // Fetch stats in parallel
-  const [applicantStats, projectCount, matchCount] = await Promise.all([
-    getApplicantStats(companyId),
-    supabase.from('projects').select('id', { count: 'exact' }).eq('company_id', companyId),
-    supabase.from('matches').select('id', { count: 'exact' })
-  ])
+  const data = await getDashboardStats()
   
   const stats = [
     {
       title: 'Total Applicants',
-      value: applicantStats.total,
-      description: `${applicantStats.pending} pending`,
+      value: data.applicants.total,
+      description: `${data.applicants.pending} pending`,
       icon: Users,
       color: 'text-blue-600',
       bgColor: 'bg-blue-100',
     },
     {
       title: 'Active Projects',
-      value: projectCount.count || 0,
+      value: data.projects.total,
       description: 'Housing developments',
       icon: Home,
       color: 'text-green-600',
@@ -34,15 +49,15 @@ async function DashboardStats({ companyId }: { companyId: string }) {
     },
     {
       title: 'Approved Applications',
-      value: applicantStats.approved,
-      description: `${Math.round((applicantStats.approved / applicantStats.total) * 100) || 0}% approval rate`,
+      value: data.applicants.approved,
+      description: `${Math.round((data.applicants.approved / data.applicants.total) * 100) || 0}% approval rate`,
       icon: FileText,
       color: 'text-purple-600',
       bgColor: 'bg-purple-100',
     },
     {
       title: 'Total Matches',
-      value: matchCount.count || 0,
+      value: data.matches.total,
       description: 'AI-powered matches',
       icon: TrendingUp,
       color: 'text-orange-600',

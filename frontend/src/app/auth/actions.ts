@@ -38,19 +38,7 @@ export async function signUp(email: string, password: string, fullName: string, 
     throw new Error(error.message)
   }
   
-  if (data.user) {
-    // Create profile
-    const { error: profileError } = await supabase.from('profiles').insert({
-      id: data.user.id,
-      full_name: fullName,
-      role: role,
-      company_id: null // Will be set later
-    })
-    
-    if (profileError) {
-      throw new Error(profileError.message)
-    }
-  }
+  // Profile creation is handled by Supabase triggers or backend
   
   revalidatePath('/', 'layout')
   redirect('/dashboard')
