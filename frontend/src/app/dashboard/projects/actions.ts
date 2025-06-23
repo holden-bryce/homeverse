@@ -238,7 +238,7 @@ export async function uploadProjectImage(
     
     // If this is primary, unset other primary images
     if (newImage.is_primary) {
-      images.forEach(img => { img.is_primary = false })
+      images.forEach((img: any) => { img.is_primary = false })
     }
     
     images.push(newImage)
@@ -288,7 +288,7 @@ export async function deleteProjectImage(
   
   // Remove image from array
   const images = project.images || []
-  const updatedImages = images.filter(img => img.id !== imageId)
+  const updatedImages = images.filter((img: any) => img.id !== imageId)
   
   // Update project
   const { error } = await supabase

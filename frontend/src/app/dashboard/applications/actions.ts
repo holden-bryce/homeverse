@@ -5,7 +5,7 @@ import { getUserProfile } from '@/lib/auth/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
-export async function submitApplication(formData: FormData) {
+export async function createApplication(formData: FormData) {
   try {
     const profile = await getUserProfile()
     if (!profile) {
@@ -14,25 +14,53 @@ export async function submitApplication(formData: FormData) {
     
     const supabase = createClient()
     
-    // Convert form field names from camelCase to snake_case
+    // Get or create applicant record for this user
+    let applicantId = null
+    
+    // Check if user already has an applicant record
+    const { data: existingApplicant } = await supabase
+      .from('applicants')
+      .select('id')
+      .eq('email', formData.get('email') as string)
+      .eq('company_id', profile.company_id)
+      .single()
+    
+    if (existingApplicant) {
+      applicantId = existingApplicant.id
+    } else {
+      // Create applicant record
+      const fullName = formData.get('full_name') as string || profile.full_name
+      const { data: newApplicant, error: applicantError } = await supabase
+        .from('applicants')
+        .insert({
+          company_id: profile.company_id,
+          full_name: fullName,
+          email: formData.get('email') as string || profile.email,
+          phone: formData.get('phone') as string,
+          income: parseFloat(formData.get('annual_income') as string) || 0,
+          household_size: parseInt(formData.get('household_size') as string) || 1,
+          status: 'active'
+        })
+        .select()
+        .single()
+      
+      if (applicantError) {
+        console.error('Error creating applicant:', applicantError)
+        throw new Error(`Failed to create applicant: ${applicantError.message}`)
+      }
+      
+      applicantId = newApplicant.id
+    }
+    
+    // Create application
     const applicationData = {
       project_id: formData.get('project_id') as string,
-      applicant_id: profile.id, // User applying as themselves
-      first_name: formData.get('firstName') as string,
-      last_name: formData.get('lastName') as string,
-      email: formData.get('email') as string,
-      phone: formData.get('phone') as string,
-      household_size: parseInt(formData.get('householdSize') as string) || 1,
-      annual_income: parseFloat(formData.get('annualIncome') as string) || 0,
-      preferred_unit_type: formData.get('preferredUnitType') as string,
-      move_in_date: formData.get('moveInDate') as string || null,
-      employment_status: formData.get('employmentStatus') as string || null,
-      current_address: formData.get('currentAddress') as string || null,
-      emergency_contact: formData.get('emergencyContact') as string || null,
-      emergency_phone: formData.get('emergencyPhone') as string || null,
-      additional_info: formData.get('additionalInfo') as string || null,
+      applicant_id: applicantId,
+      company_id: profile.company_id,
+      preferred_move_in_date: formData.get('preferred_move_in_date') as string || null,
+      additional_notes: formData.get('additional_notes') as string || null,
       status: 'submitted',
-      submitted_at: new Date().toISOString(),
+      submitted_at: new Date().toISOString()
     }
     
     const { data, error } = await supabase
@@ -42,55 +70,101 @@ export async function submitApplication(formData: FormData) {
       .single()
     
     if (error) {
-      console.error('Error submitting application:', error)
-      throw new Error(`Failed to submit application: ${error.message}`)
+      console.error('Error creating application:', error)
+      throw new Error(`Failed to create application: ${error.message}`)
     }
     
     if (!data) {
-      throw new Error('No data returned after submitting application')
+      throw new Error('No data returned after creating application')
     }
     
     revalidatePath('/dashboard/applications')
     revalidatePath('/dashboard/buyers')
     
-    // Redirect based on user role
-    if (profile.role === 'buyer' || profile.role === 'applicant') {
-      redirect('/dashboard/buyers?tab=applications')
-    } else {
-      redirect('/dashboard/applications')
-    }
+    // Redirect to success page
+    redirect('/dashboard/buyers?tab=applications&success=true')
   } catch (error) {
-    console.error('Error in submitApplication:', error)
+    console.error('Error in createApplication:', error)
     throw error
   }
 }
 
-export async function updateApplicationStatus(id: string, status: string) {
+export async function updateApplicationStatus(
+  applicationId: string,
+  status: string,
+  notes?: string
+) {
   const profile = await getUserProfile()
   if (!profile) {
     throw new Error('Unauthorized')
   }
   
   // Only developers and admins can update application status
-  if (profile.role !== 'developer' && profile.role !== 'admin') {
-    throw new Error('Unauthorized to update application status')
+  if (!['developer', 'admin'].includes(profile.role)) {
+    throw new Error('Insufficient permissions')
   }
   
   const supabase = createClient()
   
+  const updateData: any = {
+    status,
+    updated_at: new Date().toISOString()
+  }
+  
+  if (status === 'reviewed' || status === 'approved' || status === 'rejected') {
+    updateData.reviewed_by = profile.id
+    updateData.reviewed_at = new Date().toISOString()
+  }
+  
+  if (notes) {
+    updateData.developer_notes = notes
+  }
+  
   const { error } = await supabase
     .from('applications')
-    .update({ 
-      status,
-      updated_at: new Date().toISOString() 
-    })
-    .eq('id', id)
+    .update(updateData)
+    .eq('id', applicationId)
+    .eq('company_id', profile.company_id)
   
   if (error) {
-    console.error('Error updating application status:', error)
+    console.error('Error updating application:', error)
     throw new Error(error.message)
   }
   
   revalidatePath('/dashboard/applications')
-  revalidatePath(`/dashboard/applications/${id}`)
+  return { success: true }
+}
+
+export async function deleteApplication(id: string) {
+  const profile = await getUserProfile()
+  if (!profile) {
+    throw new Error('Unauthorized')
+  }
+  
+  const supabase = createClient()
+  
+  // Check if user owns the application or is admin
+  const { data: application } = await supabase
+    .from('applications')
+    .select('applicant_id')
+    .eq('id', id)
+    .single()
+    
+  if (!application) {
+    throw new Error('Application not found')
+  }
+  
+  // Delete the application
+  const { error } = await supabase
+    .from('applications')
+    .delete()
+    .eq('id', id)
+  
+  if (error) {
+    console.error('Error deleting application:', error)
+    throw new Error(error.message)
+  }
+  
+  revalidatePath('/dashboard/applications')
+  redirect('/dashboard/applications')
 }

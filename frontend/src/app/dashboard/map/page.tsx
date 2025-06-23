@@ -19,7 +19,8 @@ import {
   Layers,
   RotateCcw,
   Maximize2,
-  Settings
+  Settings,
+  Thermometer
 } from 'lucide-react'
 import { ProjectMap } from '@/components/maps/project-map'
 import { supabase } from '@/lib/supabase'
@@ -131,6 +132,8 @@ export default function MapViewPage() {
   const [showFilters, setShowFilters] = useState(false)
   const [mapStyle, setMapStyle] = useState('streets')
   const [mapReady, setMapReady] = useState(false)
+  const [showHeatmap, setShowHeatmap] = useState(false)
+  const [heatmapType, setHeatmapType] = useState<'demand' | 'supply' | 'gap_analysis'>('demand')
 
   // Load projects from Supabase
   useEffect(() => {
@@ -329,10 +332,20 @@ export default function MapViewPage() {
                     </SelectContent>
                   </Select>
 
-                  <Button variant="outline" className="w-full">
-                    <Settings className="mr-2 h-4 w-4" />
-                    Advanced Filters
-                  </Button>
+                  <div className="flex space-x-2">
+                    <Button 
+                      variant={showHeatmap ? "default" : "outline"} 
+                      className="flex-1"
+                      onClick={() => setShowHeatmap(!showHeatmap)}
+                    >
+                      <Thermometer className="mr-2 h-4 w-4" />
+                      Heatmap
+                    </Button>
+                    <Button variant="outline" className="flex-1">
+                      <Settings className="mr-2 h-4 w-4" />
+                      Filters
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>
@@ -355,6 +368,9 @@ export default function MapViewPage() {
                   onProjectHover={(projectId) => {
                     console.log('Hovered project:', projectId)
                   }}
+                  showHeatmap={showHeatmap}
+                  heatmapType={heatmapType}
+                  onHeatmapToggle={setShowHeatmap}
                 />
               </CardContent>
             </Card>

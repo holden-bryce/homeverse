@@ -6,6 +6,8 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { useQuery } from '@tanstack/react-query'
+import { analyticsAPI } from '@/lib/api-client-browser'
 import { 
   Building2, 
   MapPin, 
@@ -14,7 +16,9 @@ import {
   Eye,
   Heart,
   Star,
-  X
+  X,
+  Layers,
+  Thermometer
 } from 'lucide-react'
 
 // Mock Mapbox token - in production this would come from environment variables
@@ -44,6 +48,9 @@ interface ProjectMapProps {
   showControls?: boolean
   center?: [number, number]
   zoom?: number
+  showHeatmap?: boolean
+  heatmapType?: 'demand' | 'supply' | 'gap_analysis'
+  onHeatmapToggle?: (enabled: boolean) => void
 }
 
 export function ProjectMap({
@@ -54,13 +61,35 @@ export function ProjectMap({
   height = 400,
   showControls = true,
   center = [-122.4194, 37.7749], // San Francisco Bay Area
-  zoom = 10
+  zoom = 10,
+  showHeatmap = false,
+  heatmapType = 'demand',
+  onHeatmapToggle
 }: ProjectMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<mapboxgl.Map | null>(null)
   const markers = useRef<{ [key: string]: mapboxgl.Marker }>({})
   const [selectedProjectData, setSelectedProjectData] = useState<Project | null>(null)
   const [popupPosition, setPopupPosition] = useState<{ x: number; y: number } | null>(null)
+  const [mapBounds, setMapBounds] = useState<{
+    north: number; south: number; east: number; west: number;
+  } | null>(null)
+
+  // Fetch heatmap data
+  const { data: heatmapData, isLoading: heatmapLoading } = useQuery({
+    queryKey: ['heatmap', mapBounds, heatmapType],
+    queryFn: async () => {
+      if (!mapBounds) return null
+      
+      const bounds = `${mapBounds.south},${mapBounds.west},${mapBounds.north},${mapBounds.east}`
+      return analyticsAPI.getHeatmapData({
+        data_type: heatmapType,
+        bounds: bounds
+      })
+    },
+    enabled: showHeatmap && !!mapBounds,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  })
 
   useEffect(() => {
     if (map.current || !mapContainer.current) return
@@ -123,6 +152,13 @@ export function ProjectMap({
       map.current!.on('load', () => {
         console.log('Mapbox map loaded, adding markers...')
         addProjectMarkers()
+        
+        // Update bounds when map moves
+        map.current!.on('moveend', updateMapBounds)
+        map.current!.on('zoomend', updateMapBounds)
+        
+        // Set initial bounds
+        updateMapBounds()
       })
 
       // Add error handling for map events
@@ -137,6 +173,20 @@ export function ProjectMap({
     }
 
   }, [center, zoom, height, showControls]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const updateMapBounds = () => {
+    if (!map.current) return
+    
+    const bounds = map.current.getBounds()
+    if (bounds) {
+      setMapBounds({
+        north: bounds.getNorth(),
+        south: bounds.getSouth(),
+        east: bounds.getEast(),
+        west: bounds.getWest()
+      })
+    }
+  }
 
   const addProjectMarkers = () => {
     if (!map.current) return
@@ -310,6 +360,209 @@ export function ProjectMap({
     }, 100)
   }
 
+  const addHeatmapLayer = () => {
+    if (!map.current || !heatmapData || !map.current.isStyleLoaded()) return
+
+    try {
+      // Remove existing heatmap layers
+      if (map.current.getLayer('heatmap-layer')) {
+        map.current.removeLayer('heatmap-layer')
+      }
+      if (map.current.getLayer('heatmap-points')) {
+        map.current.removeLayer('heatmap-points')
+      }
+      if (map.current.getSource('heatmap-source')) {
+        map.current.removeSource('heatmap-source')
+      }
+
+      // Transform data to GeoJSON format
+      const features: any[] = []
+      
+      // Add project locations
+      if (heatmapData.projects) {
+        heatmapData.projects.forEach((project: any) => {
+          features.push({
+            type: 'Feature',
+            properties: {
+              type: 'project',
+              name: project.name,
+              value: project.affordable_units / Math.max(project.units, 1),
+              intensity: Math.min(project.affordable_units / 50, 1), // Normalize to 0-1
+              description: `${project.name} - ${project.affordable_units} affordable units`,
+              units: project.units,
+              affordable_units: project.affordable_units,
+            },
+            geometry: {
+              type: 'Point',
+              coordinates: [project.lng, project.lat]
+            }
+          })
+        })
+      }
+
+      // Add demand zones
+      if (heatmapData.demand_zones) {
+        heatmapData.demand_zones.forEach((zone: any) => {
+          features.push({
+            type: 'Feature',
+            properties: {
+              type: 'demand',
+              value: zone.intensity,
+              intensity: zone.intensity,
+              description: 'Applicant demand zone'
+            },
+            geometry: {
+              type: 'Point',
+              coordinates: [zone.lng, zone.lat]
+            }
+          })
+        })
+      }
+
+      const geojsonData = {
+        type: 'FeatureCollection',
+        features
+      }
+
+      console.log('Adding heatmap layer with', features.length, 'features')
+
+      // Add source
+      map.current.addSource('heatmap-source', {
+        type: 'geojson',
+        data: geojsonData as any
+      })
+
+      // Add heatmap layer
+      map.current.addLayer({
+        id: 'heatmap-layer',
+        type: 'heatmap',
+        source: 'heatmap-source',
+        maxzoom: 15,
+        paint: {
+          'heatmap-weight': [
+            'interpolate',
+            ['linear'],
+            ['get', 'intensity'],
+            0, 0,
+            1, 1
+          ],
+          'heatmap-intensity': [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            0, 1,
+            9, 3,
+            15, 5
+          ],
+          'heatmap-color': [
+            'interpolate',
+            ['linear'],
+            ['heatmap-density'],
+            0, 'rgba(13,148,136,0)',
+            0.2, 'rgba(103,207,169,0.4)',
+            0.4, 'rgba(209,229,240,0.6)',
+            0.6, 'rgba(253,219,199,0.8)',
+            0.8, 'rgba(239,138,98,0.9)',
+            1, 'rgba(178,24,43,1)'
+          ],
+          'heatmap-radius': [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            0, 20,
+            9, 40,
+            15, 60
+          ],
+          'heatmap-opacity': 0.7
+        }
+      }, 'waterway-label') // Insert below labels
+
+      // Add circle layer for higher zoom levels  
+      map.current.addLayer({
+        id: 'heatmap-points',
+        type: 'circle',
+        source: 'heatmap-source',
+        minzoom: 14,
+        paint: {
+          'circle-radius': [
+            'interpolate',
+            ['linear'],
+            ['get', 'intensity'],
+            0, 4,
+            1, 12
+          ],
+          'circle-color': [
+            'case',
+            ['==', ['get', 'type'], 'project'],
+            '#0d9488',
+            '#f59e0b'
+          ],
+          'circle-stroke-color': 'white',
+          'circle-stroke-width': 2,
+          'circle-opacity': 0.8
+        }
+      }, 'waterway-label')
+
+      // Add click handlers for heatmap points
+      map.current.on('click', 'heatmap-points', (e: any) => {
+        const coordinates = e.features[0].geometry.coordinates.slice()
+        const properties = e.features[0].properties
+
+        new mapboxgl.Popup()
+          .setLngLat(coordinates)
+          .setHTML(`
+            <div class="p-3">
+              <h3 class="font-semibold text-sm">${properties.description || 'Data Point'}</h3>
+              <p class="text-xs text-gray-600 mt-1">Type: ${properties.type}</p>
+              <p class="text-xs text-gray-600">Intensity: ${(properties.intensity * 100).toFixed(1)}%</p>
+              ${properties.units ? `<p class="text-xs text-gray-600">Units: ${properties.units}</p>` : ''}
+            </div>
+          `)
+          .addTo(map.current!)
+      })
+
+      map.current.on('mouseenter', 'heatmap-points', () => {
+        map.current!.getCanvas().style.cursor = 'pointer'
+      })
+
+      map.current.on('mouseleave', 'heatmap-points', () => {
+        map.current!.getCanvas().style.cursor = ''
+      })
+
+    } catch (error) {
+      console.error('Error adding heatmap layer:', error)
+    }
+  }
+
+  const removeHeatmapLayer = () => {
+    if (!map.current) return
+
+    try {
+      if (map.current.getLayer('heatmap-layer')) {
+        map.current.removeLayer('heatmap-layer')
+      }
+      if (map.current.getLayer('heatmap-points')) {
+        map.current.removeLayer('heatmap-points')
+      }
+      if (map.current.getSource('heatmap-source')) {
+        map.current.removeSource('heatmap-source')
+      }
+    } catch (error) {
+      console.error('Error removing heatmap layer:', error)
+    }
+  }
+
+  // Update heatmap when data or visibility changes
+  useEffect(() => {
+    if (!map.current || !map.current.isStyleLoaded()) return
+
+    if (showHeatmap && heatmapData) {
+      addHeatmapLayer()
+    } else {
+      removeHeatmapLayer()
+    }
+  }, [showHeatmap, heatmapData]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Update markers when projects change
   useEffect(() => {
     if (map.current && map.current.loaded()) {
@@ -430,9 +683,44 @@ export function ProjectMap({
       {/* Map Controls */}
       {showControls && (
         <div className="absolute top-4 right-4 z-40 space-y-2">
+          {/* Heatmap Controls */}
+          <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-lg">
+            <CardContent className="p-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium">Heatmap</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-6 px-2"
+                  onClick={() => onHeatmapToggle?.(!showHeatmap)}
+                >
+                  <Thermometer className="h-3 w-3 mr-1" />
+                  {showHeatmap ? 'Hide' : 'Show'}
+                </Button>
+              </div>
+              {showHeatmap && (
+                <div className="space-y-1">
+                  <div className="text-xs text-gray-600">
+                    {heatmapLoading ? 'Loading...' : `${heatmapData?.statistics?.total_projects || 0} projects`}
+                  </div>
+                  <div className="flex items-center space-x-2 text-xs">
+                    <div className="w-3 h-3 bg-teal-500 rounded-full"></div>
+                    <span>Project Supply</span>
+                  </div>
+                  <div className="flex items-center space-x-2 text-xs">
+                    <div className="w-3 h-3 bg-amber-500 rounded-full"></div>
+                    <span>Applicant Demand</span>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Project Legend */}
           <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-lg">
             <CardContent className="p-2">
               <div className="space-y-1">
+                <div className="text-xs font-medium mb-1">Project Status</div>
                 <div className="flex items-center space-x-2 text-xs">
                   <div className="w-3 h-3 bg-green-500 rounded-full"></div>
                   <span>Accepting Applications</span>

@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { ActivityDetailModal } from '@/components/ui/activity-modal'
 import { 
   DollarSign, 
@@ -29,7 +30,8 @@ import {
   Percent,
   PieChart,
   TrendingDown,
-  Activity
+  Activity,
+  ChevronDown
 } from 'lucide-react'
 import { useActivities } from '@/lib/supabase/hooks'
 import { useQuery } from '@tanstack/react-query'
@@ -357,6 +359,40 @@ export default function LendersPage() {
     metadata: activity.metadata
   })) : mockActivityFeed
 
+  const handleExport = async (type: 'portfolio' | 'investments' | 'performance', format: 'csv' | 'json') => {
+    try {
+      const { createClient } = await import('@/lib/supabase')
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (!session?.access_token) {
+        console.error('No authentication session found')
+        return
+      }
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/lenders/export/${type}?format=${format}`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error('Export failed')
+      }
+
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${type}-${new Date().toISOString().split('T')[0]}.${format}`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Export error:', error)
+    }
+  }
+
   const handleActivityClick = (activity: any) => {
     setSelectedActivity(activity.id)
     setIsActivityModalOpen(true)
@@ -374,10 +410,35 @@ export default function LendersPage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Button variant="outline" className="border-sage-200 text-sage-700 hover:bg-sage-50 rounded-full">
-              <Download className="mr-2 h-4 w-4" />
-              Export Reports
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="border-sage-200 text-sage-700 hover:bg-sage-50 rounded-full">
+                  <Download className="mr-2 h-4 w-4" />
+                  Export Data
+                  <ChevronDown className="ml-2 h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={() => handleExport('portfolio', 'csv')}>
+                  Portfolio Data (CSV)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExport('portfolio', 'json')}>
+                  Portfolio Data (JSON)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExport('investments', 'csv')}>
+                  Investments (CSV)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExport('investments', 'json')}>
+                  Investments (JSON)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExport('performance', 'csv')}>
+                  Performance Report (CSV)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExport('performance', 'json')}>
+                  Performance Report (JSON)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button className="bg-sage-600 hover:bg-sage-700 text-white rounded-full px-6">
               <FileText className="mr-2 h-4 w-4" />
               Generate CRA Report
@@ -415,23 +476,7 @@ export default function LendersPage() {
             {
               label: 'Export Portfolio Data',
               icon: <Download className="mr-2 h-4 w-4" />,
-              onClick: () => {
-                // Generate and download portfolio data
-                const portfolioData = {
-                  investments: mockInvestments,
-                  stats: portfolioStats,
-                  craMetrics: mockCRAMetrics,
-                  exportedAt: new Date().toISOString(),
-                  exportedBy: 'lender@test.com'
-                }
-                const blob = new Blob([JSON.stringify(portfolioData, null, 2)], { type: 'application/json' })
-                const url = URL.createObjectURL(blob)
-                const a = document.createElement('a')
-                a.href = url
-                a.download = `portfolio-data-${new Date().toISOString().split('T')[0]}.json`
-                a.click()
-                URL.revokeObjectURL(url)
-              },
+              onClick: () => handleExport('portfolio', 'csv'),
               variant: 'outline'
             },
             {
@@ -590,7 +635,11 @@ export default function LendersPage() {
                   <Filter className="mr-2 h-4 w-4" />
                   Filter
                 </Button>
-                <Button variant="outline" size="sm">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => handleExport('investments', 'csv')}
+                >
                   <Download className="mr-2 h-4 w-4" />
                   Export
                 </Button>
@@ -740,7 +789,11 @@ export default function LendersPage() {
             title="CRA Compliance Trend" 
             description="Historical compliance performance over time"
             actions={
-              <Button variant="outline" size="sm">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => handleExport('performance', 'csv')}
+              >
                 <Download className="mr-2 h-4 w-4" />
                 Export Report
               </Button>

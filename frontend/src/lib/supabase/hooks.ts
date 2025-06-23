@@ -638,6 +638,112 @@ export const useUpdateApplication = () => {
   })
 }
 
+// Settings hooks
+export const useUserSettings = () => {
+  const { user } = useAuth()
+  
+  return useQuery({
+    queryKey: ['user-settings', user?.id],
+    queryFn: async () => {
+      const token = localStorage.getItem('token')
+      if (!token) throw new Error('No authentication token')
+      
+      const response = await fetch('http://localhost:8000/api/v1/users/settings', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      if (!response.ok) throw new Error('Failed to fetch user settings')
+      return response.json()
+    },
+    enabled: !!user
+  })
+}
+
+export const useUpdateUserSettings = () => {
+  const queryClient = useQueryClient()
+  const { user } = useAuth()
+  
+  return useMutation({
+    mutationFn: async (settings: any) => {
+      const token = localStorage.getItem('token')
+      if (!token) throw new Error('No authentication token')
+      
+      const response = await fetch('http://localhost:8000/api/v1/users/settings', {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(settings)
+      })
+      
+      if (!response.ok) throw new Error('Failed to update settings')
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-settings', user?.id] })
+    }
+  })
+}
+
+export const useUpdateUserProfile = () => {
+  const queryClient = useQueryClient()
+  const { user } = useAuth()
+  
+  return useMutation({
+    mutationFn: async (profileData: any) => {
+      const token = localStorage.getItem('token')
+      if (!token) throw new Error('No authentication token')
+      
+      const response = await fetch('http://localhost:8000/api/v1/users/me', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(profileData)
+      })
+      
+      if (!response.ok) throw new Error('Failed to update profile')
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user', user?.id] })
+      queryClient.invalidateQueries({ queryKey: ['user-settings', user?.id] })
+    }
+  })
+}
+
+export const useUpdateCompanySettings = () => {
+  const queryClient = useQueryClient()
+  const { profile } = useAuth()
+  
+  return useMutation({
+    mutationFn: async (companyData: any) => {
+      const token = localStorage.getItem('token')
+      if (!token) throw new Error('No authentication token')
+      
+      const response = await fetch('http://localhost:8000/api/v1/company/settings', {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(companyData)
+      })
+      
+      if (!response.ok) throw new Error('Failed to update company settings')
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['company', profile?.company_id] })
+    }
+  })
+}
+
 // Investment hooks
 export const useCreateInvestment = () => {
   const queryClient = useQueryClient()

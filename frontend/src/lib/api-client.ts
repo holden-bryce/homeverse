@@ -161,8 +161,18 @@ export const analyticsAPI = {
     return apiClient('/api/v1/analytics/lender/overview')
   },
 
-  async getHeatmapData() {
-    return apiClient('/api/v1/analytics/heatmap')
+  async getHeatmapData(params: { 
+    data_type?: string; 
+    bounds?: string; 
+  } = {}) {
+    const searchParams = new URLSearchParams()
+    if (params.data_type) searchParams.append('data_type', params.data_type)
+    if (params.bounds) searchParams.append('bounds', params.bounds)
+    
+    const query = searchParams.toString()
+    const endpoint = query ? `/api/v1/analytics/heatmap?${query}` : '/api/v1/analytics/heatmap'
+    
+    return apiClient(endpoint)
   },
 }
 

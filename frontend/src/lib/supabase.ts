@@ -16,6 +16,9 @@ export const supabase = createBrowserClient(
   supabaseAnonKey
 )
 
+// Export createClient function for compatibility
+export const createClient = () => supabase
+
 // Auth helpers
 export const signIn = async (email: string, password: string) => {
   const { data, error } = await supabase.auth.signInWithPassword({

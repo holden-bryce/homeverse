@@ -15,60 +15,47 @@ import {
   Calendar,
   MapPin,
   DollarSign,
-  Home
+  Home,
+  Loader2,
+  User
 } from 'lucide-react'
+import { useApplications } from '@/lib/supabase/hooks'
+import { useAuth } from '@/providers/supabase-auth-provider'
 
-// Mock applications data
-const mockApplications = [
-  {
-    id: '1',
-    propertyName: 'Sunset Gardens',
-    location: 'San Francisco, CA',
-    status: 'under_review',
-    submittedDate: '2024-01-10',
-    lastUpdate: '2024-01-12',
-    position: 15,
-    totalApplicants: 150,
-    monthlyRent: 1800,
-    applicationId: 'SG-2024-001',
-  },
-  {
-    id: '2',
-    propertyName: 'Mission Bay Towers',
-    location: 'San Francisco, CA',
-    status: 'approved',
-    submittedDate: '2023-12-28',
-    lastUpdate: '2024-01-05',
-    offerExpires: '2024-01-20',
-    monthlyRent: 1650,
-    applicationId: 'MB-2024-002',
-  },
-  {
-    id: '3',
-    propertyName: 'Harbor View Apartments',
-    location: 'San Jose, CA',
-    status: 'waitlisted',
-    submittedDate: '2023-12-15',
-    lastUpdate: '2023-12-20',
-    position: 45,
-    totalApplicants: 200,
-    monthlyRent: 2500,
-    applicationId: 'HV-2023-003',
-  },
-]
+interface Application {
+  id: string
+  project_id: string
+  applicant_id: string
+  status: string
+  preferred_move_in_date?: string
+  additional_notes?: string
+  submitted_at: string
+  reviewed_at?: string
+  reviewed_by?: string
+  developer_notes?: string
+  projects?: {
+    name: string
+    city?: string
+    state?: string
+    total_units?: number
+    affordable_units?: number
+  }
+  applicants?: {
+    first_name?: string
+    last_name?: string
+  }
+}
 
 export default function ApplicationsPage() {
   const router = useRouter()
-  const [applications, setApplications] = useState(mockApplications)
-
-  useEffect(() => {
-    // Load applications from localStorage
-    const savedApplications = JSON.parse(localStorage.getItem('applications') || '[]')
-    if (savedApplications.length > 0) {
-      // Combine saved applications with mock data
-      setApplications([...savedApplications, ...mockApplications])
-    }
-  }, [])
+  const { profile, user } = useAuth()
+  
+  // Fetch applications for the current user (if they're an applicant)
+  const { data: applicationsData, isLoading } = useApplications({
+    applicant_id: profile?.role === 'applicant' ? user?.id : undefined
+  })
+  
+  const applications = applicationsData?.data || []
 
   const getApplicationStatusColor = (status: string) => {
     switch (status) {
@@ -76,10 +63,12 @@ export default function ApplicationsPage() {
         return 'bg-green-100 text-green-800 border-green-200'
       case 'under_review':
         return 'bg-teal-100 text-teal-800 border-teal-200'
-      case 'waitlisted':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200'
+      case 'submitted':
+        return 'bg-blue-100 text-blue-800 border-blue-200'
       case 'rejected':
         return 'bg-red-100 text-red-800 border-red-200'
+      case 'withdrawn':
+        return 'bg-gray-100 text-gray-800 border-gray-200'
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200'
     }
@@ -91,13 +80,23 @@ export default function ApplicationsPage() {
         return <CheckCircle className="h-4 w-4" />
       case 'under_review':
         return <Clock className="h-4 w-4" />
-      case 'waitlisted':
-        return <Clock className="h-4 w-4" />
+      case 'submitted':
+        return <FileText className="h-4 w-4" />
       case 'rejected':
+        return <AlertCircle className="h-4 w-4" />
+      case 'withdrawn':
         return <AlertCircle className="h-4 w-4" />
       default:
         return <FileText className="h-4 w-4" />
     }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    )
   }
 
   return (
@@ -147,13 +146,13 @@ export default function ApplicationsPage() {
               </CardContent>
             </Card>
           ) : (
-            applications.map(app => (
+            applications.map((app: Application) => (
               <Card key={app.id} className="hover:shadow-lg transition-shadow">
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-xl font-semibold">{app.propertyName}</h3>
+                        <h3 className="text-xl font-semibold">{app.projects?.name || 'Unknown Project'}</h3>
                         <Badge className={`${getApplicationStatusColor(app.status)} border rounded-full`}>
                           {getApplicationStatusIcon(app.status)}
                           <span className="ml-1 capitalize">{app.status.replace('_', ' ')}</span>
@@ -163,15 +162,15 @@ export default function ApplicationsPage() {
                       <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
                         <div className="flex items-center gap-1">
                           <MapPin className="h-4 w-4" />
-                          <span>{app.location}</span>
+                          <span>{app.projects?.city || 'N/A'}, {app.projects?.state || 'CA'}</span>
                         </div>
                         <div className="flex items-center gap-1">
-                          <DollarSign className="h-4 w-4" />
-                          <span>${app.monthlyRent}/mo</span>
+                          <Home className="h-4 w-4" />
+                          <span>{app.projects?.affordable_units || 0} affordable units</span>
                         </div>
                         <div className="flex items-center gap-1">
                           <FileText className="h-4 w-4" />
-                          <span>ID: {app.applicationId}</span>
+                          <span>ID: {app.id.slice(0, 8)}</span>
                         </div>
                       </div>
 
@@ -179,33 +178,49 @@ export default function ApplicationsPage() {
                         <div>
                           <span className="text-gray-500">Submitted:</span>
                           <span className="ml-2 font-medium">
-                            {new Date(app.submittedDate).toLocaleDateString()}
+                            {new Date(app.submitted_at).toLocaleDateString()}
                           </span>
                         </div>
                         <div>
                           <span className="text-gray-500">Last Update:</span>
                           <span className="ml-2 font-medium">
-                            {new Date(app.lastUpdate).toLocaleDateString()}
+                            {new Date(app.reviewed_at || app.submitted_at).toLocaleDateString()}
                           </span>
                         </div>
                       </div>
 
                       {/* Status-specific information */}
-                      {app.position && (
-                        <div className="flex items-center gap-2 mt-3 p-3 bg-teal-50 rounded-lg">
-                          <Clock className="h-4 w-4 text-teal-500" />
-                          <span className="text-sm text-teal-700">
-                            Position #{app.position} {app.totalApplicants && `of ${app.totalApplicants} applicants`}
+                      {app.status === 'approved' && (
+                        <div className="flex items-center gap-2 mt-3 p-3 bg-green-50 rounded-lg">
+                          <CheckCircle className="h-4 w-4 text-green-500" />
+                          <span className="text-sm text-green-700 font-medium">
+                            🎉 Application Approved! Please proceed with next steps.
                           </span>
                         </div>
                       )}
                       
-                      {app.offerExpires && (
-                        <div className="flex items-center gap-2 mt-3 p-3 bg-green-50 rounded-lg">
-                          <CheckCircle className="h-4 w-4 text-green-500" />
-                          <span className="text-sm text-green-700 font-medium">
-                            🎉 Approved! Offer expires: {new Date(app.offerExpires).toLocaleDateString()}
+                      {app.status === 'under_review' && (
+                        <div className="flex items-center gap-2 mt-3 p-3 bg-teal-50 rounded-lg">
+                          <Clock className="h-4 w-4 text-teal-500" />
+                          <span className="text-sm text-teal-700">
+                            Your application is currently under review. We'll notify you of any updates.
                           </span>
+                        </div>
+                      )}
+                      
+                      {app.additional_notes && (
+                        <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                          <p className="text-sm text-gray-700">
+                            <span className="font-medium">Your Notes:</span> {app.additional_notes}
+                          </p>
+                        </div>
+                      )}
+                      
+                      {app.developer_notes && (
+                        <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                          <p className="text-sm text-blue-700">
+                            <span className="font-medium">Developer Notes:</span> {app.developer_notes}
+                          </p>
                         </div>
                       )}
                     </div>
@@ -218,7 +233,7 @@ export default function ApplicationsPage() {
                       onClick={() => {
                         toast({
                           title: "Application Details",
-                          description: `Viewing details for ${app.propertyName}`,
+                          description: `Viewing details for ${app.projects?.name || 'project'}`,
                         })
                       }}
                     >
@@ -232,13 +247,13 @@ export default function ApplicationsPage() {
                         className="bg-green-600 hover:bg-green-700"
                         onClick={() => {
                           toast({
-                            title: "Accept Offer",
-                            description: "Redirecting to lease signing...",
+                            title: "Next Steps",
+                            description: "Please contact the developer to proceed with lease signing.",
                           })
                         }}
                       >
                         <CheckCircle className="h-4 w-4 mr-2" />
-                        Accept Offer
+                        Next Steps
                       </Button>
                     )}
                     
@@ -258,13 +273,29 @@ export default function ApplicationsPage() {
                       </Button>
                     )}
                     
+                    {app.status === 'submitted' && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          toast({
+                            title: "Application Submitted",
+                            description: "Your application is waiting for review.",
+                          })
+                        }}
+                      >
+                        <FileText className="h-4 w-4 mr-2" />
+                        Pending Review
+                      </Button>
+                    )}
+                    
                     <Button 
                       variant="outline" 
                       size="sm"
-                      onClick={() => router.push(`/dashboard/buyers/properties/${app.id}`)}
+                      onClick={() => router.push(`/dashboard/projects/${app.project_id}`)}
                     >
                       <Home className="h-4 w-4 mr-2" />
-                      View Property
+                      View Project
                     </Button>
                   </div>
                 </CardContent>

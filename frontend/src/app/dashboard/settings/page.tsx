@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from '@/components/ui/toast'
+import { UserSettings, SettingsFormData } from '@/types/settings'
 import { 
   User,
   Building2,
@@ -30,12 +31,16 @@ import {
   Phone,
   MapPin
 } from 'lucide-react'
-import { useCurrentUser, useCurrentCompany } from '@/lib/supabase/hooks'
+import { useCurrentUser, useCurrentCompany, useUserSettings, useUpdateUserSettings, useUpdateUserProfile, useUpdateCompanySettings } from '@/lib/supabase/hooks'
 
 export default function SettingsPage() {
   const router = useRouter()
   const { data: user } = useCurrentUser()
   const { data: company } = useCurrentCompany()
+  const { data: userSettings, isLoading: settingsLoading, error: settingsError } = useUserSettings()
+  const updateSettingsMutation = useUpdateUserSettings()
+  const updateProfileMutation = useUpdateUserProfile()
+  const updateCompanyMutation = useUpdateCompanySettings()
   
   // User Profile State
   const [userProfile, setUserProfile] = useState({
@@ -85,6 +90,52 @@ export default function SettingsPage() {
 
   const [activeTab, setActiveTab] = useState('profile')
   const [isSaving, setIsSaving] = useState(false)
+  const [isInitialized, setIsInitialized] = useState(false)
+
+  // Initialize settings from backend data
+  useEffect(() => {
+    if (user && company && userSettings && !isInitialized) {
+      // Update user profile with loaded data
+      setUserProfile({
+        firstName: user.full_name?.split(' ')[0] || user.email?.split('@')[0] || '',
+        lastName: user.full_name?.split(' ').slice(1).join(' ') || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        title: user.title || '',
+        department: user.department || '',
+        timezone: userSettings.display?.timezone || 'America/Los_Angeles',
+        language: userSettings.display?.language || 'en',
+      })
+
+      // Update company settings
+      setCompanySettings({
+        name: company.name || '',
+        address: company.address || '',
+        city: company.city || '',
+        state: company.state || '',
+        zipCode: company.zip_code || '',
+        phone: company.phone || '',
+        website: company.website || '',
+        description: company.description || '',
+        plan: company.plan || 'trial',
+        seats: company.seats || 5,
+      })
+
+      // Update notification settings from backend
+      setNotificationSettings({
+        emailNotifications: userSettings.notifications?.email_new_applications !== false,
+        pushNotifications: false, // Not implemented yet
+        newMatches: userSettings.notifications?.email_new_matches !== false,
+        projectUpdates: userSettings.notifications?.email_project_updates !== false,
+        applicationUpdates: userSettings.notifications?.email_application_updates !== false,
+        systemMaintenance: userSettings.notifications?.email_system_maintenance !== false,
+        weeklyReports: userSettings.notifications?.email_weekly_report !== false,
+        monthlyReports: userSettings.notifications?.email_monthly_report !== false,
+      })
+
+      setIsInitialized(true)
+    }
+  }, [user, company, userSettings, isInitialized])
 
   const handleUserProfileChange = (field: string, value: string) => {
     setUserProfile(prev => ({ ...prev, [field]: value }))
@@ -105,24 +156,70 @@ export default function SettingsPage() {
   const handleSave = async (section: string) => {
     setIsSaving(true)
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    const settingsData = {
-      userProfile,
-      companySettings,
-      notificationSettings,
-      securitySettings,
-      updatedAt: new Date().toISOString(),
+    try {
+      if (section === 'Profile') {
+        // Update user profile
+        await updateProfileMutation.mutateAsync({
+          full_name: `${userProfile.firstName} ${userProfile.lastName}`.trim(),
+          phone: userProfile.phone,
+          timezone: userProfile.timezone,
+          language: userProfile.language,
+        })
+        
+        // Update settings for profile-related preferences
+        await updateSettingsMutation.mutateAsync({
+          display: {
+            timezone: userProfile.timezone,
+            language: userProfile.language,
+            theme: userSettings?.display?.theme || 'light'
+          }
+        })
+      } else if (section === 'Notifications') {
+        // Update notification preferences
+        await updateSettingsMutation.mutateAsync({
+          notifications: {
+            email_new_applications: notificationSettings.emailNotifications,
+            email_status_updates: notificationSettings.applicationUpdates,
+            email_new_matches: notificationSettings.newMatches,
+            email_project_updates: notificationSettings.projectUpdates,
+            email_application_updates: notificationSettings.applicationUpdates,
+            email_system_maintenance: notificationSettings.systemMaintenance,
+            email_weekly_report: notificationSettings.weeklyReports,
+            email_monthly_report: notificationSettings.monthlyReports,
+            sms_urgent_updates: false // Not implemented yet
+          }
+        })
+      } else if (section === 'Company') {
+        // Update company settings
+        await updateCompanyMutation.mutateAsync({
+          name: companySettings.name,
+          address: companySettings.address,
+          city: companySettings.city,
+          state: companySettings.state,
+          zip_code: companySettings.zipCode,
+          phone: companySettings.phone,
+          website: companySettings.website,
+          description: companySettings.description,
+        })
+      } else if (section === 'Security') {
+        // Security settings would need separate endpoints
+        console.log('Security settings update not implemented yet:', securitySettings)
+      }
+      
+      toast({
+        title: "Settings saved",
+        description: `${section} settings have been updated successfully.`,
+      })
+    } catch (error) {
+      console.error('Error saving settings:', error)
+      toast({
+        title: "Error saving settings",
+        description: error instanceof Error ? error.message : "Failed to save settings",
+        variant: "destructive"
+      })
+    } finally {
+      setIsSaving(false)
     }
-    
-    localStorage.setItem('appSettings', JSON.stringify(settingsData))
-    
-    setIsSaving(false)
-    toast({
-      title: "Settings saved",
-      description: `${section} settings have been updated successfully.`,
-    })
   }
 
   const handleExportData = () => {
@@ -146,6 +243,39 @@ export default function SettingsPage() {
       title: "Data exported",
       description: "Your settings have been exported successfully.",
     })
+  }
+
+  // Show loading state
+  if (settingsLoading || !isInitialized) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-sage-50 via-white to-cream-50">
+        <div className="p-6 max-w-6xl mx-auto space-y-6">
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sage-600"></div>
+            <span className="ml-2 text-gray-600">Loading settings...</span>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Show error state
+  if (settingsError) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-sage-50 via-white to-cream-50">
+        <div className="p-6 max-w-6xl mx-auto space-y-6">
+          <div className="flex justify-center items-center h-64">
+            <div className="text-center">
+              <p className="text-red-600 mb-2">Error loading settings</p>
+              <p className="text-gray-600 text-sm">{settingsError.message}</p>
+              <Button onClick={() => window.location.reload()} className="mt-4">
+                Try Again
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (

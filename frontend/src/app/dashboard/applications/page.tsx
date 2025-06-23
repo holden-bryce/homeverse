@@ -40,7 +40,6 @@ interface Application {
   applicants?: {
     first_name?: string
     last_name?: string
-    full_name?: string
   }
 }
 
@@ -119,9 +118,12 @@ export default function ApplicationsPage() {
   }
 
   const filteredApplications = applications.filter((app: Application) => {
+    const applicantName = app.applicants ? 
+      `${app.applicants.first_name || ''} ${app.applicants.last_name || ''}`.trim() : ''
+    
     const matchesSearch = !searchTerm || 
       app.projects?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      app.applicants?.full_name?.toLowerCase().includes(searchTerm.toLowerCase())
+      applicantName.toLowerCase().includes(searchTerm.toLowerCase())
     
     return matchesSearch
   })
@@ -194,9 +196,9 @@ export default function ApplicationsPage() {
                       <div className="flex items-center gap-2">
                         <User className="h-4 w-4" />
                         <span>
-                          {application.applicants?.full_name || 
-                           `${application.applicants?.first_name || ''} ${application.applicants?.last_name || ''}`.trim() ||
-                           'Unknown Applicant'}
+                          {application.applicants ? 
+                           `${application.applicants.first_name || ''} ${application.applicants.last_name || ''}`.trim() ||
+                           'Unknown Applicant' : 'Unknown Applicant'}
                         </span>
                       </div>
                       

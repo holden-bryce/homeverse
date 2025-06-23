@@ -1,348 +1,279 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useFormStatus } from 'react-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select } from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { useProjects } from '@/lib/supabase/hooks'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
-import { formatCurrency } from '@/lib/utils'
-import { ArrowLeft, Building2, MapPin, DollarSign, TrendingUp, Calendar, Users } from 'lucide-react'
-import type { InvestmentForm } from '@/types'
+import { createInvestment } from '../../actions'
+import { 
+  ArrowLeft, 
+  Building2, 
+  MapPin, 
+  DollarSign, 
+  TrendingUp, 
+  Calendar, 
+  Users,
+  Loader2
+} from 'lucide-react'
+import Link from 'next/link'
+import { createClient } from '@/lib/supabase'
+
+interface Project {
+  id: string
+  name: string
+  companies?: { name: string }
+  address: string
+  city: string
+  state: string
+  total_units: number
+  affordable_units: number
+  ami_levels?: string[]
+  status: string
+}
+
+// Removed server-side function
+
+function SubmitButton() {
+  const { pending } = useFormStatus()
+  
+  return (
+    <Button 
+      type="submit"
+      disabled={pending}
+      className="bg-sage-600 hover:bg-sage-700 text-white rounded-full px-8"
+    >
+      {pending ? (
+        <>
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          Creating...
+        </>
+      ) : (
+        'Create Investment'
+      )}
+    </Button>
+  )
+}
 
 export default function NewInvestmentPage() {
-  const router = useRouter()
-  const queryClient = useQueryClient()
-  const [formData, setFormData] = useState<InvestmentForm>({
-    project_id: '',
-    investment_amount: 0,
-    expected_roi: 0,
-    units_funded: 0,
-    completion_date: '',
-    risk_level: 'medium',
-    ami_target: '30-80%'
-  })
-  const [selectedProject, setSelectedProject] = useState<any>(null)
+  const [projects, setProjects] = useState<Project[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const { data: projects = [], isLoading: projectsLoading } = useProjects()
+  useEffect(() => {
+    async function fetchProjects() {
+      try {
+        const supabase = createClient()
+        const { data } = await supabase
+          .from('projects')
+          .select('*, companies(name)')
+          .eq('status', 'active')
+          .order('created_at', { ascending: false })
+        
+        setProjects(data || [])
+      } catch (error) {
+        console.error('Error fetching projects:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchProjects()
+  }, [])
   
-  const createInvestment = useMutation({
-    mutationFn: async (data: InvestmentForm) => {
-      // For now, just return mock data since investments table doesn't exist yet
-      return { id: Date.now().toString(), ...data }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['investments'] })
-    }
-  })
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    try {
-      await createInvestment.mutateAsync(formData)
-      router.push('/dashboard/lenders/investments')
-    } catch (error) {
-      console.error('Failed to create investment:', error)
-    }
-  }
-
-  const handleProjectSelect = (projectId: string) => {
-    const project = projects.find(p => p.id === projectId)
-    setSelectedProject(project)
-    setFormData(prev => ({
-      ...prev,
-      project_id: projectId,
-      ami_target: project ? `${project.ami_min}-${project.ami_max}%` : prev.ami_target
-    }))
-  }
-
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center space-x-4">
-        <Button 
-          variant="ghost" 
-          onClick={() => router.back()}
-          className="p-2"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">New Investment</h1>
-          <p className="text-gray-600 mt-1">
-            Create a new investment in an affordable housing project
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-sage-50 via-white to-cream-50">
+      <div className="p-6 max-w-4xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex items-center space-x-4">
+          <Link href="/dashboard/lenders/investments" className="group">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="rounded-full hover:bg-sage-100"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2 group-hover:-translate-x-1 transition-transform" />
+              Back to Investments
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">New Investment</h1>
+            <p className="text-gray-600 mt-1">
+              Invest in affordable housing projects
+            </p>
+          </div>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Form */}
-        <div className="lg:col-span-2 space-y-6">
-          <Card className="border-0 shadow-lg">
+        <form action={createInvestment} className="space-y-6">
+          {/* Basic Information */}
+          <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
             <CardHeader>
-              <CardTitle>Investment Details</CardTitle>
+              <CardTitle className="flex items-center">
+                <DollarSign className="mr-2 h-5 w-5 text-sage-600" />
+                Investment Details
+              </CardTitle>
               <CardDescription>
-                Enter the details for your new investment
+                Enter the details for your investment
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Project Selection */}
-                <div className="space-y-2">
-                  <Label htmlFor="project">Select Project</Label>
-                  <Select
-                    value={formData.project_id}
-                    onValueChange={handleProjectSelect}
-                    required
-                  >
-                    <option value="">Choose a project...</option>
-                    {projects.map((project) => (
-                      <option key={project.id} value={project.id}>
-                        {project.name} - {project.developer_name}
-                      </option>
-                    ))}
-                  </Select>
+            <CardContent className="space-y-4">
+              {/* Project Selection */}
+              <div>
+                <Label htmlFor="project_id">Select Project*</Label>
+                <select
+                  id="project_id"
+                  name="project_id"
+                  required
+                  className="w-full mt-1 rounded-lg border-sage-200 focus:border-sage-500 focus:ring-sage-500"
+                >
+                  <option value="">Choose a project...</option>
+                  {projects.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.name} - {project.city}, {project.state} ({project.affordable_units} affordable units)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Investment Amount */}
+              <div>
+                <Label htmlFor="amount">Investment Amount ($)*</Label>
+                <Input
+                  id="amount"
+                  name="amount"
+                  type="number"
+                  min="1000"
+                  step="1000"
+                  required
+                  className="rounded-lg border-sage-200"
+                  placeholder="e.g., 500000"
+                />
+              </div>
+
+              {/* Investment Type */}
+              <div>
+                <Label htmlFor="investment_type">Investment Type*</Label>
+                <select
+                  id="investment_type"
+                  name="investment_type"
+                  required
+                  className="w-full mt-1 rounded-lg border-sage-200 focus:border-sage-500 focus:ring-sage-500"
+                >
+                  <option value="">Choose type...</option>
+                  <option value="equity">Equity</option>
+                  <option value="debt">Debt</option>
+                  <option value="grant">Grant</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Expected Return */}
+                <div>
+                  <Label htmlFor="expected_return">Expected Return (%)</Label>
+                  <Input
+                    id="expected_return"
+                    name="expected_return"
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    className="rounded-lg border-sage-200"
+                    placeholder="e.g., 8.5"
+                  />
                 </div>
 
-                {/* Investment Amount */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="investment_amount">Investment Amount ($)</Label>
-                    <Input
-                      id="investment_amount"
-                      type="number"
-                      min="0"
-                      step="1000"
-                      value={formData.investment_amount || ''}
-                      onChange={(e) => setFormData(prev => ({
-                        ...prev,
-                        investment_amount: Number(e.target.value)
-                      }))}
-                      placeholder="e.g., 2500000"
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="expected_roi">Expected ROI (%)</Label>
-                    <Input
-                      id="expected_roi"
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.1"
-                      value={formData.expected_roi || ''}
-                      onChange={(e) => setFormData(prev => ({
-                        ...prev,
-                        expected_roi: Number(e.target.value)
-                      }))}
-                      placeholder="e.g., 8.5"
-                      required
-                    />
-                  </div>
+                {/* Term */}
+                <div>
+                  <Label htmlFor="term_months">Term (months)</Label>
+                  <Input
+                    id="term_months"
+                    name="term_months"
+                    type="number"
+                    min="1"
+                    className="rounded-lg border-sage-200"
+                    placeholder="e.g., 60"
+                  />
                 </div>
+              </div>
 
-                {/* Units and Completion */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="units_funded">Units Funded</Label>
-                    <Input
-                      id="units_funded"
-                      type="number"
-                      min="1"
-                      value={formData.units_funded || ''}
-                      onChange={(e) => setFormData(prev => ({
-                        ...prev,
-                        units_funded: Number(e.target.value)
-                      }))}
-                      placeholder="e.g., 48"
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="completion_date">Expected Completion</Label>
-                    <Input
-                      id="completion_date"
-                      type="date"
-                      value={formData.completion_date}
-                      onChange={(e) => setFormData(prev => ({
-                        ...prev,
-                        completion_date: e.target.value
-                      }))}
-                      required
-                    />
-                  </div>
-                </div>
-
-                {/* Risk Level and AMI Target */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="risk_level">Risk Level</Label>
-                    <Select
-                      value={formData.risk_level}
-                      onValueChange={(value) => setFormData(prev => ({
-                        ...prev,
-                        risk_level: value as 'low' | 'medium' | 'high'
-                      }))}
-                    >
-                      <option value="low">Low Risk</option>
-                      <option value="medium">Medium Risk</option>
-                      <option value="high">High Risk</option>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="ami_target">AMI Target Range</Label>
-                    <Input
-                      id="ami_target"
-                      value={formData.ami_target}
-                      onChange={(e) => setFormData(prev => ({
-                        ...prev,
-                        ami_target: e.target.value
-                      }))}
-                      placeholder="e.g., 30-80%"
-                      required
-                    />
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="flex justify-end space-x-3 pt-6 border-t">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    onClick={() => router.back()}
-                  >
-                    Cancel
-                  </Button>
-                  <Button 
-                    type="submit" 
-                    className="bg-sage-600 hover:bg-sage-700"
-                    disabled={createInvestment.isPending}
-                  >
-                    {createInvestment.isPending ? 'Creating...' : 'Create Investment'}
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Project Preview */}
-        <div className="space-y-6">
-          <Card className="border-0 shadow-lg">
-            <CardHeader>
-              <CardTitle>Project Preview</CardTitle>
-              <CardDescription>
-                Details of the selected project
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {selectedProject ? (
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="font-semibold text-lg">{selectedProject.name}</h3>
-                    <p className="text-sm text-gray-600">{selectedProject.developer_name}</p>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="flex items-center space-x-2 text-sm">
-                      <MapPin className="h-4 w-4 text-gray-400" />
-                      <span>Location: {selectedProject.location[0]}, {selectedProject.location[1]}</span>
-                    </div>
-
-                    <div className="flex items-center space-x-2 text-sm">
-                      <Building2 className="h-4 w-4 text-gray-400" />
-                      <span>{selectedProject.unit_count} total units</span>
-                    </div>
-
-                    <div className="flex items-center space-x-2 text-sm">
-                      <TrendingUp className="h-4 w-4 text-gray-400" />
-                      <span>AMI Range: {selectedProject.ami_min}% - {selectedProject.ami_max}%</span>
-                    </div>
-
-                    <div className="flex items-center space-x-2 text-sm">
-                      <Calendar className="h-4 w-4 text-gray-400" />
-                      <span>Est. Delivery: {selectedProject.est_delivery}</span>
-                    </div>
-                  </div>
-
-                  <div className="pt-3 border-t">
-                    <Badge className={`${
-                      selectedProject.status === 'active' ? 'bg-green-100 text-green-800' :
-                      selectedProject.status === 'planning' ? 'bg-teal-100 text-teal-800' :
-                      'bg-gray-100 text-gray-800'
-                    } rounded-full`}>
-                      {selectedProject.status}
-                    </Badge>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <Building2 className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                  <p>Select a project to see details</p>
-                </div>
-              )}
+              {/* Notes */}
+              <div>
+                <Label htmlFor="notes">Investment Notes</Label>
+                <textarea
+                  id="notes"
+                  name="notes"
+                  rows={4}
+                  className="w-full mt-1 rounded-lg border-sage-200 focus:border-sage-500 focus:ring-sage-500"
+                  placeholder="Any additional notes or requirements..."
+                />
+              </div>
             </CardContent>
           </Card>
 
-          {/* Investment Summary */}
-          {formData.investment_amount > 0 && (
-            <Card className="border-0 shadow-lg">
-              <CardHeader>
-                <CardTitle>Investment Summary</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Investment Amount</span>
-                    <span className="font-medium">{formatCurrency(formData.investment_amount)}</span>
-                  </div>
-                  
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Expected ROI</span>
-                    <span className="font-medium">{formData.expected_roi}%</span>
-                  </div>
+          {/* Submit Button */}
+          <div className="flex justify-end space-x-4">
+            <Link href="/dashboard/lenders/investments">
+              <Button variant="outline" className="rounded-full">
+                Cancel
+              </Button>
+            </Link>
+            <SubmitButton />
+          </div>
+        </form>
 
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Units Funded</span>
-                    <span className="font-medium">{formData.units_funded}</span>
-                  </div>
-
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Risk Level</span>
-                    <Badge className={`${
-                      formData.risk_level === 'low' ? 'bg-green-100 text-green-800' :
-                      formData.risk_level === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
-                    } rounded-full`}>
-                      {formData.risk_level}
-                    </Badge>
-                  </div>
-
-                  {formData.investment_amount > 0 && formData.expected_roi > 0 && (
-                    <div className="pt-3 border-t">
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium text-gray-900">Projected Annual Return</span>
-                        <span className="font-bold text-sage-600">
-                          {formatCurrency(formData.investment_amount * (formData.expected_roi / 100))}
+        {/* Available Projects Info */}
+        <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Building2 className="mr-2 h-5 w-5 text-sage-600" />
+              Available Projects
+            </CardTitle>
+            <CardDescription>
+              Projects currently seeking investment
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {projects.map((project) => (
+                <div key={project.id} className="p-4 rounded-lg border border-sage-200 hover:border-sage-300 transition-colors">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="font-semibold text-gray-900">{project.name}</h3>
+                      <p className="text-sm text-gray-600 mt-1">
+                        <MapPin className="inline-block h-3 w-3 mr-1" />
+                        {project.address}, {project.city}, {project.state}
+                      </p>
+                      <div className="flex items-center gap-4 mt-2 text-sm">
+                        <span>
+                          <Building2 className="inline-block h-3 w-3 mr-1 text-sage-600" />
+                          {project.total_units} total units
+                        </span>
+                        <span>
+                          <Users className="inline-block h-3 w-3 mr-1 text-sage-600" />
+                          {project.affordable_units} affordable
                         </span>
                       </div>
                     </div>
+                    <Badge className="bg-sage-100 text-sage-800 rounded-full">
+                      {project.status}
+                    </Badge>
+                  </div>
+                  {project.ami_levels && project.ami_levels.length > 0 && (
+                    <div className="mt-2 flex gap-2">
+                      {project.ami_levels.map((level) => (
+                        <Badge key={level} variant="secondary" className="text-xs rounded-full">
+                          {level} AMI
+                        </Badge>
+                      ))}
+                    </div>
                   )}
                 </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )

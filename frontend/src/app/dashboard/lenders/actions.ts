@@ -19,15 +19,18 @@ export async function createInvestment(formData: FormData) {
     
     const supabase = createClient()
     
-    // Prepare investment data
+    // Prepare investment data matching the backend schema
     const investmentData = {
       project_id: formData.get('project_id') as string,
       lender_id: profile.id,
+      company_id: profile.company_id,
       amount: parseFloat(formData.get('amount') as string) || 0,
-      investment_type: formData.get('investment_type') as string || 'loan', // You'll need to check valid types
-      interest_rate: parseFloat(formData.get('interest_rate') as string) || 0,
+      investment_type: formData.get('investment_type') as string || 'equity',
+      expected_return: parseFloat(formData.get('expected_return') as string) || 0,
       term_months: parseInt(formData.get('term_months') as string) || 0,
-      status: 'pending',
+      notes: formData.get('notes') as string || null,
+      status: 'active',
+      invested_at: new Date().toISOString()
     }
     
     const { data, error } = await supabase
