@@ -350,7 +350,7 @@ export default function PropertyDetailPage() {
             
             {/* Image dots */}
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-              {property.images.map((_, index) => (
+              {property.images.map((_: any, index: number) => (
                 <button
                   key={index}
                   onClick={() => setCurrentImageIndex(index)}
@@ -478,7 +478,7 @@ export default function PropertyDetailPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {property.applicationProcess.map((step, index) => (
+                      {property.applicationProcess.map((step: any, index: number) => (
                         <div key={index} className="flex items-start gap-4">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
                             step.completed ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
@@ -503,7 +503,7 @@ export default function PropertyDetailPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-2 gap-4">
-                      {property.amenities.map((amenity, index) => (
+                      {property.amenities.map((amenity: any, index: number) => (
                         <div key={index} className="flex items-center gap-3">
                           <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
                             amenity.included ? 'bg-green-100' : 'bg-gray-100'
@@ -553,7 +553,7 @@ export default function PropertyDetailPage() {
                     <div>
                       <h4 className="font-semibold mb-3">Nearby Transit</h4>
                       <div className="space-y-2">
-                        {property.nearbyTransit.map((transit, index) => (
+                        {property.nearbyTransit.map((transit: any, index: number) => (
                           <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                             <div className="flex items-center gap-3">
                               <Train className="h-5 w-5 text-gray-600" />
@@ -571,7 +571,7 @@ export default function PropertyDetailPage() {
                     <div>
                       <h4 className="font-semibold mb-3">Nearby Schools</h4>
                       <div className="space-y-2">
-                        {property.schools.map((school, index) => (
+                        {property.schools.map((school: any, index: number) => (
                           <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                             <div className="flex items-center gap-3">
                               <GraduationCap className="h-5 w-5 text-gray-600" />
@@ -597,7 +597,7 @@ export default function PropertyDetailPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {property.incomeRequirements.map((req, index) => (
+                      {property.incomeRequirements.map((req: any, index: number) => (
                         <div key={index} className="p-4 border rounded-lg">
                           <div className="flex items-center justify-between mb-2">
                             <Badge variant="outline">{req.ami} AMI</Badge>
@@ -656,7 +656,7 @@ export default function PropertyDetailPage() {
                   </CardHeader>
                   <CardContent>
                     <ul className="space-y-2">
-                      {property.requiredDocuments.map((doc, index) => (
+                      {property.requiredDocuments.map((doc: any, index: number) => (
                         <li key={index} className="flex items-start gap-2">
                           <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
                           <span className="text-gray-600">{doc}</span>
