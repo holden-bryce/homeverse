@@ -71,8 +71,7 @@ export default function EditApplicantPage({ params }: EditApplicantProps) {
           const demoApplicants = [
             {
               id: "demo_app_001",
-              first_name: "Maria",
-              last_name: "Rodriguez",
+              full_name: "Maria Rodriguez",
               email: "maria.rodriguez@email.com",
               phone: "(555) 123-4567",
               household_size: 3,
@@ -84,8 +83,7 @@ export default function EditApplicantPage({ params }: EditApplicantProps) {
             },
             {
               id: "demo_app_002", 
-              first_name: "James",
-              last_name: "Chen",
+              full_name: "James Chen",
               email: "james.chen@email.com",
               phone: "(555) 234-5678",
               household_size: 2,
@@ -209,28 +207,15 @@ export default function EditApplicantPage({ params }: EditApplicantProps) {
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="first_name">First Name *</Label>
+                <Label htmlFor="full_name">Full Name *</Label>
                 <Input
-                  id="first_name"
-                  {...register('first_name')}
-                  placeholder="John"
-                  className={errors.first_name ? 'border-red-500' : ''}
+                  id="full_name"
+                  {...register('full_name')}
+                  placeholder="John Doe"
+                  className={errors.full_name ? 'border-red-500' : ''}
                 />
-                {errors.first_name && (
-                  <p className="text-sm text-red-500 mt-1">{errors.first_name.message}</p>
-                )}
-              </div>
-              
-              <div>
-                <Label htmlFor="last_name">Last Name *</Label>
-                <Input
-                  id="last_name"
-                  {...register('last_name')}
-                  placeholder="Doe"
-                  className={errors.last_name ? 'border-red-500' : ''}
-                />
-                {errors.last_name && (
-                  <p className="text-sm text-red-500 mt-1">{errors.last_name.message}</p>
+                {errors.full_name && (
+                  <p className="text-sm text-red-500 mt-1">{errors.full_name.message}</p>
                 )}
               </div>
             </div>

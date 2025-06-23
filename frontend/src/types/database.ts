@@ -68,56 +68,56 @@ export interface Database {
         Row: {
           id: string
           company_id: string
-          user_id: string
-          first_name: string
-          last_name: string
+          user_id?: string | null
+          full_name: string
           email: string
           phone: string | null
-          household_size: number
-          income: number
-          ami_percent: number
-          location_preference: string | null
-          latitude: number
-          longitude: number
+          household_size?: number | null
+          income?: number | null
+          ami_percent?: number | null
+          location_preference?: string | null
+          latitude?: number | null
+          longitude?: number | null
           status: string
           created_at: string
           updated_at: string
+          preferences?: Json | null
         }
         Insert: {
           id?: string
           company_id: string
-          user_id: string
-          first_name: string
-          last_name: string
+          user_id?: string | null
+          full_name: string
           email: string
           phone?: string | null
-          household_size?: number
-          income?: number
-          ami_percent?: number
+          household_size?: number | null
+          income?: number | null
+          ami_percent?: number | null
           location_preference?: string | null
-          latitude?: number
-          longitude?: number
+          latitude?: number | null
+          longitude?: number | null
           status?: string
           created_at?: string
           updated_at?: string
+          preferences?: Json | null
         }
         Update: {
           id?: string
           company_id?: string
-          user_id?: string
-          first_name?: string
-          last_name?: string
+          user_id?: string | null
+          full_name?: string
           email?: string
           phone?: string | null
-          household_size?: number
-          income?: number
-          ami_percent?: number
+          household_size?: number | null
+          income?: number | null
+          ami_percent?: number | null
           location_preference?: string | null
-          latitude?: number
-          longitude?: number
+          latitude?: number | null
+          longitude?: number | null
           status?: string
           created_at?: string
           updated_at?: string
+          preferences?: Json | null
         }
       }
       projects: {

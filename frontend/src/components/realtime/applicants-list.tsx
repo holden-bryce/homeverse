@@ -88,7 +88,7 @@ export function RealtimeApplicantsList({ initialApplicants, companyId }: Realtim
           {applicants.map((applicant) => (
             <tr key={applicant.id} className="border-b hover:bg-gray-50 transition-colors">
               <td className="py-3 px-4">
-                {applicant.full_name || `${applicant.first_name || ''} ${applicant.last_name || ''}`.trim() || 'No Name'}
+                {applicant.full_name || 'No Name'}
               </td>
               <td className="py-3 px-4">{applicant.email}</td>
               <td className="py-3 px-4">{applicant.phone || '-'}</td>

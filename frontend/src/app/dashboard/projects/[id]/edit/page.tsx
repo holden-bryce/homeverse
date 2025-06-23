@@ -142,7 +142,7 @@ export default function ProjectEditPage() {
               description: 'Modern affordable housing in the heart of San Francisco with excellent transit access.',
               total_units: 120,
               affordable_units: 96,
-              ami_levels: '30-80%',
+              ami_levels: ['30-80%'],
               completion_date: '2024-12-15',
               created_at: '2024-01-15T10:00:00Z'
             },
@@ -157,7 +157,7 @@ export default function ProjectEditPage() {
               description: 'Family-friendly community near top-rated schools and public transportation.',
               total_units: 85,
               affordable_units: 68,
-              ami_levels: '50-120%',
+              ami_levels: ['50-120%'],
               completion_date: '2025-03-20',
               created_at: '2024-02-01T14:30:00Z'
             },
@@ -176,7 +176,7 @@ export default function ProjectEditPage() {
               developer_name: demoProject.developer,
               total_units: demoProject.total_units.toString(),
               affordable_units: demoProject.affordable_units.toString(),
-              ami_levels: demoProject.ami_levels ? [demoProject.ami_levels] : [],
+              ami_levels: demoProject.ami_levels || [],
               unit_types: [],
               price_range: '',
               completion_date: demoProject.completion_date,
@@ -496,8 +496,8 @@ export default function ProjectEditPage() {
                   <Label htmlFor="ami_levels">AMI Levels</Label>
                   <Input
                     id="ami_levels"
-                    value={formData.ami_levels}
-                    onChange={(e) => handleInputChange('ami_levels', e.target.value)}
+                    value={Array.isArray(formData.ami_levels) ? formData.ami_levels.join(', ') : formData.ami_levels}
+                    onChange={(e) => handleInputChange('ami_levels', e.target.value ? [e.target.value] : [])}
                     className="mt-1"
                     placeholder="30-80%"
                   />
