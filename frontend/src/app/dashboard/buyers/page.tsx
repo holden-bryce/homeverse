@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase'
 import { PropertySearchMap } from '@/components/buyer-portal/search/PropertySearchMap'
 import { PropertyCard } from '@/components/buyer-portal/search/PropertyCard'
 import { SearchFilters } from '@/components/buyer-portal/search/SearchFilters'
@@ -25,6 +26,61 @@ import {
   Bookmark,
   Bell
 } from 'lucide-react'
+
+// Transform database project to buyer-friendly property format
+function transformProjectToProperty(project: any) {
+  // Estimate rent based on AMI levels and location
+  const estimateRent = (amiLevels: string[], city: string) => {
+    const basePrices: Record<string, number> = {
+      'San Francisco': 3500,
+      'Oakland': 2800,
+      'San Jose': 3200,
+      'Berkeley': 3000,
+      'Fremont': 2500
+    }
+    
+    const basePrice = basePrices[city] || 2800
+    const hasLowAMI = amiLevels.some(level => level.includes('30') || level.includes('50'))
+    
+    return hasLowAMI ? Math.round(basePrice * 0.5) : Math.round(basePrice * 0.7)
+  }
+  
+  // Estimate bedrooms based on total units
+  const estimateBedrooms = (totalUnits: number) => {
+    if (totalUnits < 50) return 1
+    if (totalUnits < 150) return 2
+    return 3
+  }
+
+  const rent = estimateRent(project.ami_levels || [], project.city)
+  const bedrooms = estimateBedrooms(project.total_units)
+  
+  return {
+    id: project.id,
+    name: project.name,
+    address: project.address,
+    location: `${project.city}, ${project.state}`,
+    coordinates: [project.latitude || 37.7749, project.longitude || -122.4194] as [number, number],
+    images: project.images?.length > 0 ? project.images.map((img: any) => img.url) : [
+      'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=600&fit=crop'
+    ],
+    monthlyRent: rent,
+    bedrooms: bedrooms,
+    bathrooms: bedrooms === 1 ? 1 : 2,
+    sqft: bedrooms * 400 + 250, // Estimate sqft
+    amiLevels: project.ami_levels?.join(', ') || 'Contact for details',
+    availableUnits: project.affordable_units,
+    totalUnits: project.total_units,
+    status: project.status === 'active' ? 'Available' : project.status === 'planning' ? 'Coming Soon' : 'Available',
+    completionDate: project.completion_date || '2024-12-31',
+    matchScore: Math.floor(Math.random() * 20) + 80, // Mock score for now
+    developer: project.companies?.name || 'Affordable Housing Developer',
+    amenities: ['Parking', 'Laundry', 'Community Room', 'Affordable Housing'],
+    description: project.description
+  }
+}
 
 // Enhanced mock data with Zillow-style properties
 const mockProperties = [
@@ -207,14 +263,47 @@ export default function ZillowStyleBuyerPortal() {
   const [searchTerm, setSearchTerm] = useState('')
   const [activeTab, setActiveTab] = useState('discover')
   const [favorites, setFavorites] = useState<string[]>([])
-  const [properties, setProperties] = useState(mockProperties)
-  const [filteredProperties, setFilteredProperties] = useState(mockProperties)
+  const [properties, setProperties] = useState<any[]>([])
+  const [filteredProperties, setFilteredProperties] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [showFilters, setShowFilters] = useState(false)
 
   // Load favorites from localStorage on mount
   useEffect(() => {
     const savedFavorites = JSON.parse(localStorage.getItem('favorites') || '[]')
     setFavorites(savedFavorites)
+  }, [])
+
+  // Fetch real projects from database
+  useEffect(() => {
+    async function fetchProjects() {
+      try {
+        setLoading(true)
+        const supabase = createClient()
+        
+        const { data: projects, error } = await supabase
+          .from('projects')
+          .select('*, companies(name)')
+          .eq('status', 'active')
+          .order('created_at', { ascending: false })
+        
+        if (error) {
+          console.error('Error fetching projects:', error)
+          return
+        }
+
+        // Transform database projects to buyer-friendly properties
+        const transformedProperties = projects.map(transformProjectToProperty)
+        setProperties(transformedProperties)
+        setFilteredProperties(transformedProperties)
+      } catch (error) {
+        console.error('Error fetching projects:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchProjects()
   }, [])
 
   const handleSearch = (e: React.FormEvent) => {
@@ -369,13 +458,22 @@ export default function ZillowStyleBuyerPortal() {
       <div className="flex-1">
         {activeTab === 'discover' && (
           <div className="h-[calc(100vh-180px)]">
-            <PropertySearchMap
-              properties={filteredProperties}
-              onFiltersChange={handleFilterChange}
-              onPropertySelect={(property) => {
-                router.push(`/dashboard/buyers/properties/${property.id}`)
-              }}
-            />
+            {loading ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600">Loading properties...</p>
+                </div>
+              </div>
+            ) : (
+              <PropertySearchMap
+                properties={filteredProperties}
+                onFiltersChange={handleFilterChange}
+                onPropertySelect={(property) => {
+                  router.push(`/dashboard/buyers/properties/${property.id}`)
+                }}
+              />
+            )}
           </div>
         )}
 

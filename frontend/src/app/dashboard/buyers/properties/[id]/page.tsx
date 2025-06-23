@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
+import { createClient } from '@/lib/supabase'
 import Image from 'next/image'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -39,87 +40,122 @@ import {
   X
 } from 'lucide-react'
 
-// Mock property data - in real app, fetch from API
-const mockProperty = {
-  id: '1',
-  name: 'Sunset Gardens',
-  address: '1234 Sunset Blvd, San Francisco, CA 94122',
-  location: 'San Francisco, CA',
-  coordinates: [37.7749, -122.4194] as [number, number],
-  images: [
-    'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800&h=600&fit=crop',
-    'https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=800&h=600&fit=crop',
-    'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=600&fit=crop',
-    'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&h=600&fit=crop',
-    'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&h=600&fit=crop',
-  ],
-  monthlyRent: 1800,
-  securityDeposit: 3600,
-  applicationFee: 50,
-  bedrooms: 2,
-  bathrooms: 1,
-  sqft: 850,
-  amiLevels: '30-80%',
-  availableUnits: 24,
-  totalUnits: 120,
-  status: 'Available',
-  completionDate: '2024-12-15',
-  matchScore: 94,
-  developer: 'Urban Housing LLC',
-  propertyManager: 'Bay Area Property Management',
-  yearBuilt: 2024,
-  amenities: [
-    { name: 'Parking', icon: Car, included: true },
-    { name: 'In-Unit Laundry', icon: Home, included: true },
-    { name: 'Fitness Center', icon: Dumbbell, included: true },
-    { name: 'Pet Friendly', icon: Heart, included: true },
-    { name: 'Pool', icon: Home, included: false },
-    { name: 'Doorman', icon: Users, included: false },
-  ],
-  description: `Sunset Gardens offers modern, affordable housing in the heart of San Francisco. This newly constructed community features spacious units with contemporary finishes, energy-efficient appliances, and access to excellent public transportation.
-
-Located in the vibrant Sunset District, residents enjoy easy access to Golden Gate Park, Ocean Beach, and numerous shops and restaurants. The property is designed with families in mind, offering a children's playground, community garden, and regular resident events.
-
-All units feature modern kitchens with stainless steel appliances, hardwood-style flooring, and large windows providing abundant natural light. Select units offer private balconies or patios.`,
-  nearbyTransit: [
-    { type: 'Muni', lines: ['N-Judah', '7-Haight'], distance: '0.2 miles' },
-    { type: 'BART', station: 'Civic Center', distance: '3.5 miles' },
-  ],
-  schools: [
-    { name: 'Sunset Elementary', rating: 8, distance: '0.5 miles' },
-    { name: 'AP Giannini Middle School', rating: 7, distance: '0.8 miles' },
-    { name: 'Lincoln High School', rating: 8, distance: '1.2 miles' },
-  ],
-  walkScore: 92,
-  transitScore: 95,
-  bikeScore: 88,
-  neighborhood: {
-    description: 'The Sunset District is known for its foggy weather, diverse community, and excellent Asian cuisine. Home to Golden Gate Park and Ocean Beach.',
-    demographics: {
-      medianIncome: 85000,
-      population: 85000,
-      medianAge: 38,
+// Transform database project to buyer-friendly property format
+function transformProjectToProperty(project: any) {
+  // Estimate rent based on AMI levels and location
+  const estimateRent = (amiLevels: string[], city: string) => {
+    const basePrices: Record<string, number> = {
+      'San Francisco': 3500,
+      'Oakland': 2800,
+      'San Jose': 3200,
+      'Berkeley': 3000,
+      'Fremont': 2500
     }
-  },
-  incomeRequirements: [
-    { ami: '30%', minIncome: 25000, maxIncome: 35000, monthlyRent: 900 },
-    { ami: '50%', minIncome: 35000, maxIncome: 58000, monthlyRent: 1400 },
-    { ami: '80%', minIncome: 58000, maxIncome: 93000, monthlyRent: 1800 },
-  ],
-  applicationProcess: [
-    { step: 'Submit Application', description: 'Complete online application with required documents', completed: false },
-    { step: 'Income Verification', description: 'Provide proof of income and employment', completed: false },
-    { step: 'Background Check', description: 'Credit and criminal background screening', completed: false },
-    { step: 'Interview', description: 'Meet with property management team', completed: false },
-    { step: 'Final Approval', description: 'Receive housing offer', completed: false },
-  ],
-  requiredDocuments: [
-    'Government-issued ID',
-    'Proof of income (last 2 pay stubs)',
-    'Bank statements (last 2 months)',
-    'Employment verification letter',
-    'Previous landlord references',
-  ],
+    
+    const basePrice = basePrices[city] || 2800
+    const hasLowAMI = amiLevels.some(level => level.includes('30') || level.includes('50'))
+    
+    return hasLowAMI ? Math.round(basePrice * 0.5) : Math.round(basePrice * 0.7)
+  }
+  
+  // Estimate bedrooms based on total units
+  const estimateBedrooms = (totalUnits: number) => {
+    if (totalUnits < 50) return 1
+    if (totalUnits < 150) return 2
+    return 3
+  }
+
+  const rent = estimateRent(project.ami_levels || [], project.city)
+  const bedrooms = estimateBedrooms(project.total_units)
+  
+  return {
+    id: project.id,
+    name: project.name,
+    address: project.address,
+    location: `${project.city}, ${project.state}`,
+    coordinates: [project.latitude || 37.7749, project.longitude || -122.4194] as [number, number],
+    images: project.images?.length > 0 ? project.images.map((img: any) => img.url) : [
+      'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&h=600&fit=crop',
+      'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&h=600&fit=crop',
+    ],
+    monthlyRent: rent,
+    securityDeposit: rent * 2,
+    applicationFee: 50,
+    bedrooms: bedrooms,
+    bathrooms: bedrooms === 1 ? 1 : 2,
+    sqft: bedrooms * 400 + 250,
+    amiLevels: project.ami_levels?.join(', ') || 'Contact for details',
+    availableUnits: project.affordable_units,
+    totalUnits: project.total_units,
+    status: project.status === 'active' ? 'Available' : project.status === 'planning' ? 'Coming Soon' : 'Available',
+    completionDate: project.completion_date || '2024-12-31',
+    matchScore: Math.floor(Math.random() * 20) + 80,
+    developer: project.companies?.name || 'Affordable Housing Developer',
+    propertyManager: 'Bay Area Property Management',
+    yearBuilt: new Date(project.created_at).getFullYear(),
+    amenities: [
+      { name: 'Parking', icon: Car, included: true },
+      { name: 'In-Unit Laundry', icon: Home, included: true },
+      { name: 'Fitness Center', icon: Dumbbell, included: true },
+      { name: 'Pet Friendly', icon: Heart, included: true },
+      { name: 'Pool', icon: Home, included: false },
+      { name: 'Doorman', icon: Users, included: false },
+    ],
+    description: project.description || `${project.name} offers modern, affordable housing in ${project.city}. This development features spacious units with contemporary finishes, energy-efficient appliances, and access to excellent public transportation.\n\nLocated in the heart of ${project.city}, residents enjoy easy access to local amenities, parks, and community resources. The property is designed with families in mind, offering community spaces and regular resident events.\n\nAll units feature modern kitchens with energy-efficient appliances, quality flooring, and large windows providing abundant natural light.`,
+    nearbyTransit: [
+      { type: 'Muni', lines: ['Local Transit'], distance: '0.3 miles' },
+      { type: 'BART', station: 'Nearest Station', distance: '2.5 miles' },
+    ],
+    schools: [
+      { name: 'Local Elementary', rating: 8, distance: '0.5 miles' },
+      { name: 'Area Middle School', rating: 7, distance: '0.8 miles' },
+      { name: 'Community High School', rating: 8, distance: '1.2 miles' },
+    ],
+    walkScore: 85,
+    transitScore: 90,
+    bikeScore: 80,
+    neighborhood: {
+      description: `${project.city} is known for its diverse community and excellent access to employment centers and amenities.`,
+      demographics: {
+        medianIncome: 75000,
+        population: 50000,
+        medianAge: 35,
+      }
+    },
+    incomeRequirements: project.ami_levels?.map((ami: string, index: number) => {
+      const percentage = parseInt(ami.split('-')[0] || ami.replace('%', ''))
+      const minIncome = percentage * 1000
+      const maxIncome = percentage * 1500
+      const amiRent = Math.round(rent * (0.7 + index * 0.15))
+      return {
+        ami: ami,
+        minIncome,
+        maxIncome,
+        monthlyRent: amiRent
+      }
+    }) || [
+      { ami: '30%', minIncome: 25000, maxIncome: 35000, monthlyRent: Math.round(rent * 0.7) },
+      { ami: '50%', minIncome: 35000, maxIncome: 58000, monthlyRent: Math.round(rent * 0.85) },
+      { ami: '80%', minIncome: 58000, maxIncome: 93000, monthlyRent: rent },
+    ],
+    applicationProcess: [
+      { step: 'Submit Application', description: 'Complete online application with required documents', completed: false },
+      { step: 'Income Verification', description: 'Provide proof of income and employment', completed: false },
+      { step: 'Background Check', description: 'Credit and criminal background screening', completed: false },
+      { step: 'Interview', description: 'Meet with property management team', completed: false },
+      { step: 'Final Approval', description: 'Receive housing offer', completed: false },
+    ],
+    requiredDocuments: [
+      'Government-issued ID',
+      'Proof of income (last 2 pay stubs)',
+      'Bank statements (last 2 months)',
+      'Employment verification letter',
+      'Previous landlord references',
+    ],
+  }
 }
 
 export default function PropertyDetailPage() {
@@ -129,8 +165,79 @@ export default function PropertyDetailPage() {
   const [showImageModal, setShowImageModal] = useState(false)
   const [isFavorited, setIsFavorited] = useState(false)
   const [activeTab, setActiveTab] = useState('overview')
+  const [property, setProperty] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const property = mockProperty // In real app, fetch based on params.id
+  // Fetch real project data from database
+  useEffect(() => {
+    async function fetchProject() {
+      try {
+        setLoading(true)
+        const supabase = createClient()
+        
+        const { data: project, error } = await supabase
+          .from('projects')
+          .select('*, companies(name)')
+          .eq('id', params.id)
+          .single()
+        
+        if (error) {
+          console.error('Error fetching project:', error)
+          setError('Property not found')
+          return
+        }
+
+        // Transform database project to buyer-friendly property
+        const transformedProperty = transformProjectToProperty(project)
+        setProperty(transformedProperty)
+      } catch (error) {
+        console.error('Error fetching project:', error)
+        setError('Failed to load property')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (params.id) {
+      fetchProject()
+    }
+  }, [params.id])
+
+  // Load favorites from localStorage
+  useEffect(() => {
+    const savedFavorites = JSON.parse(localStorage.getItem('favorites') || '[]')
+    setIsFavorited(savedFavorites.includes(params.id))
+  }, [params.id])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading property details...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !property) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-6xl mb-4">🏠</div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Property Not Found</h1>
+          <p className="text-gray-600 mb-4">{error || 'The property you are looking for does not exist.'}</p>
+          <Button 
+            onClick={() => router.push('/dashboard/buyers')}
+            className="bg-teal-600 hover:bg-teal-700"
+          >
+            Back to Search
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   const nextImage = () => {
     setCurrentImageIndex((prev) => (prev + 1) % property.images.length)
@@ -160,10 +267,20 @@ export default function PropertyDetailPage() {
   }
 
   const toggleFavorite = () => {
-    setIsFavorited(!isFavorited)
+    const newFavorited = !isFavorited
+    setIsFavorited(newFavorited)
+    
+    // Update localStorage
+    const savedFavorites = JSON.parse(localStorage.getItem('favorites') || '[]')
+    const updatedFavorites = newFavorited 
+      ? [...savedFavorites, property.id]
+      : savedFavorites.filter((id: string) => id !== property.id)
+    
+    localStorage.setItem('favorites', JSON.stringify(updatedFavorites))
+    
     toast({
-      title: isFavorited ? "Removed from favorites" : "Added to favorites",
-      description: isFavorited ? "Property removed from your saved homes." : "Property saved to your favorites.",
+      title: newFavorited ? "Added to favorites" : "Removed from favorites",
+      description: newFavorited ? "Property saved to your favorites." : "Property removed from your saved homes.",
     })
   }
 
