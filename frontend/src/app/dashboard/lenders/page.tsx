@@ -33,10 +33,16 @@ import {
   Activity,
   ChevronDown
 } from 'lucide-react'
-import { useActivities } from '@/lib/supabase/hooks'
+import { 
+  useActivities,
+  useLenderInvestments,
+  useLenderPortfolioStats,
+  useLenderCRAMetrics,
+  useLenderReports
+} from '@/lib/supabase/hooks'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { formatCurrency, formatPercentage } from '@/lib/utils'
+import { formatCurrency, formatPercentage } from '@/lib/utils/index'
 import { 
   MetricCard, 
   ChartCard, 
@@ -230,38 +236,11 @@ export default function LendersPage() {
   const [selectedActivity, setSelectedActivity] = useState<string | null>(null)
   const [isActivityModalOpen, setIsActivityModalOpen] = useState(false)
   
-  // Custom hooks for lender-specific data
-  const { data: portfolioStatsData, isLoading: statsLoading } = useQuery({
-    queryKey: ['portfolio-stats'],
-    queryFn: async () => {
-      // For now, return mock data until we have the proper tables
-      return {
-        current_portfolio_value: 2400000,
-        active_investments: 3,
-        compliance_rate: 0.992,
-        average_roi: 0.087,
-        total_invested: 2200000,
-        total_return: 200000,
-        annualized_return: 0.091
-      }
-    }
-  })
-  
-  const { data: investments = mockInvestments, isLoading: investmentsLoading } = useQuery({
-    queryKey: ['investments', { limit: 5 }],
-    queryFn: async () => mockInvestments // Use mock data for now
-  })
-  
-  const { data: craMetrics = mockCRAMetrics, isLoading: craLoading } = useQuery({
-    queryKey: ['cra-metrics'],
-    queryFn: async () => mockCRAMetrics // Use mock data for now
-  })
-  
-  const { data: reports = [], isLoading: reportsLoading } = useQuery({
-    queryKey: ['reports', { type: 'cra', limit: 5 }],
-    queryFn: async () => [] // Empty for now
-  })
-  
+  // Use real data hooks
+  const { data: portfolioStatsData, isLoading: statsLoading } = useLenderPortfolioStats()
+  const { data: investments = [], isLoading: investmentsLoading } = useLenderInvestments()
+  const { data: craMetrics = [], isLoading: craLoading } = useLenderCRAMetrics()
+  const { data: reports = [], isLoading: reportsLoading } = useLenderReports()
   const { data: activities = [], isLoading: activitiesLoading } = useActivities()
   
   // Transform API data to component format
@@ -578,7 +557,7 @@ export default function LendersPage() {
                     )
                   }
                 ]}
-                data={investments.slice(0, 3)}
+                data={investments.length > 0 ? investments.slice(0, 3) : mockInvestments.slice(0, 3)}
                 loading={investmentsLoading}
               />
             </ChartCard>
@@ -589,7 +568,7 @@ export default function LendersPage() {
               description="Progress toward compliance targets"
             >
               <div className="space-y-4">
-                {craMetrics.map((metric: any) => (
+                {(craMetrics.length > 0 ? craMetrics : mockCRAMetrics).map((metric: any) => (
                   <ProgressBar
                     key={metric.category}
                     value={metric.current}
@@ -706,7 +685,7 @@ export default function LendersPage() {
                   )
                 }
               ]}
-              data={investments}
+              data={investments.length > 0 ? investments : mockInvestments}
               loading={investmentsLoading}
             />
           </ChartCard>
@@ -720,7 +699,7 @@ export default function LendersPage() {
               description="Track your Community Reinvestment Act compliance"
             >
               <div className="space-y-6">
-                {craMetrics.map((metric: any) => (
+                {(craMetrics.length > 0 ? craMetrics : mockCRAMetrics).map((metric: any) => (
                   <div key={metric.category} className="space-y-3">
                     <div className="flex justify-between items-center">
                       <h4 className="font-medium">{metric.category}</h4>

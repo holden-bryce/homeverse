@@ -81,12 +81,12 @@ function transformProjectToProperty(project: any) {
       'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&h=600&fit=crop',
       'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&h=600&fit=crop',
     ],
-    monthlyRent: rent,
-    securityDeposit: rent * 2,
-    applicationFee: 50,
-    bedrooms: bedrooms,
-    bathrooms: bedrooms === 1 ? 1 : 2,
-    sqft: bedrooms * 400 + 250,
+    monthlyRent: project.monthly_rent || rent,
+    securityDeposit: project.security_deposit || rent * 2,
+    applicationFee: project.application_fee || 50,
+    bedrooms: project.bedrooms || bedrooms,
+    bathrooms: project.bathrooms || (bedrooms === 1 ? 1 : 2),
+    sqft: project.square_feet || bedrooms * 400 + 250,
     amiLevels: project.ami_levels?.join(', ') || 'Contact for details',
     availableUnits: project.affordable_units,
     totalUnits: project.total_units,
@@ -97,10 +97,10 @@ function transformProjectToProperty(project: any) {
     propertyManager: 'Bay Area Property Management',
     yearBuilt: new Date(project.created_at).getFullYear(),
     amenities: [
-      { name: 'Parking', icon: Car, included: true },
-      { name: 'In-Unit Laundry', icon: Home, included: true },
+      { name: 'Parking', icon: Car, included: project.parking === 'included' || project.parking === 'available' },
+      { name: 'In-Unit Laundry', icon: Home, included: project.laundry === 'in_unit' },
       { name: 'Fitness Center', icon: Dumbbell, included: true },
-      { name: 'Pet Friendly', icon: Heart, included: true },
+      { name: 'Pet Friendly', icon: Heart, included: project.pet_policy !== 'no_pets' },
       { name: 'Pool', icon: Home, included: false },
       { name: 'Doorman', icon: Users, included: false },
     ],
@@ -114,8 +114,8 @@ function transformProjectToProperty(project: any) {
       { name: 'Area Middle School', rating: 7, distance: '0.8 miles' },
       { name: 'Community High School', rating: 8, distance: '1.2 miles' },
     ],
-    walkScore: 85,
-    transitScore: 90,
+    walkScore: project.walk_score || 85,
+    transitScore: project.transit_score || 90,
     bikeScore: 80,
     neighborhood: {
       description: `${project.city} is known for its diverse community and excellent access to employment centers and amenities.`,
@@ -202,8 +202,14 @@ export default function PropertyDetailPage() {
         console.log('Fetched project:', project)
 
         // Transform database project to buyer-friendly property
-        const transformedProperty = transformProjectToProperty(project)
-        setProperty(transformedProperty)
+        try {
+          const transformedProperty = transformProjectToProperty(project)
+          console.log('Transformed property:', transformedProperty)
+          setProperty(transformedProperty)
+        } catch (transformError) {
+          console.error('Error transforming property:', transformError)
+          setError('Failed to process property data')
+        }
       } catch (error) {
         console.error('Error fetching project:', error)
         setError('Failed to load property')

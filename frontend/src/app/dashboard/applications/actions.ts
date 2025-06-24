@@ -12,6 +12,13 @@ export async function createApplication(formData: FormData) {
       throw new Error('Unauthorized - no user profile')
     }
     
+    const { cookies } = await import('next/headers')
+    const cookieStore = cookies()
+    const token = cookieStore.get('auth_token')?.value || cookieStore.get('token')?.value
+    if (!token) {
+      throw new Error('No authentication token found')
+    }
+    
     const supabase = createClient()
     
     // Get or create applicant record for this user
@@ -28,51 +35,67 @@ export async function createApplication(formData: FormData) {
     if (existingApplicant) {
       applicantId = existingApplicant.id
     } else {
-      // Create applicant record
+      // Create applicant via API with proper name handling
       const fullName = formData.get('full_name') as string || profile.full_name
-      const { data: newApplicant, error: applicantError } = await supabase
-        .from('applicants')
-        .insert({
-          company_id: profile.company_id,
-          full_name: fullName,
-          email: formData.get('email') as string || profile.email,
-          phone: formData.get('phone') as string,
-          income: parseFloat(formData.get('annual_income') as string) || 0,
-          household_size: parseInt(formData.get('household_size') as string) || 1,
-          status: 'active'
-        })
-        .select()
-        .single()
+      const nameParts = fullName.split(' ')
+      const firstName = nameParts[0] || ''
+      const lastName = nameParts.slice(1).join(' ') || ''
       
-      if (applicantError) {
-        console.error('Error creating applicant:', applicantError)
-        throw new Error(`Failed to create applicant: ${applicantError.message}`)
+      const applicantData = {
+        first_name: firstName,
+        last_name: lastName,
+        email: formData.get('email') as string || profile.email,
+        phone: formData.get('phone') as string,
+        income: parseFloat(formData.get('annual_income') as string) || 0,
+        household_size: parseInt(formData.get('household_size') as string) || 1
       }
       
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+      const response = await fetch(`${apiUrl}/api/v1/applicants`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(applicantData)
+      })
+      
+      if (!response.ok) {
+        const error = await response.text()
+        console.error('Error creating applicant:', error)
+        throw new Error(`Failed to create applicant: ${error}`)
+      }
+      
+      const newApplicant = await response.json()
       applicantId = newApplicant.id
     }
     
-    // Create application
+    // Create application via API
     const applicationData = {
       project_id: formData.get('project_id') as string,
       applicant_id: applicantId,
-      company_id: profile.company_id,
       preferred_move_in_date: formData.get('preferred_move_in_date') as string || null,
       additional_notes: formData.get('additional_notes') as string || null,
-      status: 'submitted',
-      submitted_at: new Date().toISOString()
+      documents: []
     }
     
-    const { data, error } = await supabase
-      .from('applications')
-      .insert([applicationData])
-      .select()
-      .single()
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+    const applicationResponse = await fetch(`${apiUrl}/api/v1/applications`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(applicationData)
+    })
     
-    if (error) {
+    if (!applicationResponse.ok) {
+      const error = await applicationResponse.text()
       console.error('Error creating application:', error)
-      throw new Error(`Failed to create application: ${error.message}`)
+      throw new Error(`Failed to create application: ${error}`)
     }
+    
+    const data = await applicationResponse.json()
     
     if (!data) {
       throw new Error('No data returned after creating application')

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { Card, CardContent } from '@/components/ui/card'
@@ -66,6 +67,7 @@ export function ProjectMap({
   heatmapType = 'demand',
   onHeatmapToggle
 }: ProjectMapProps) {
+  const router = useRouter()
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<mapboxgl.Map | null>(null)
   const markers = useRef<{ [key: string]: mapboxgl.Marker }>({})
@@ -599,14 +601,13 @@ export function ProjectMap({
       {/* Project Popup */}
       {selectedProjectData && popupPosition && (
         <div 
-          className="absolute z-50 w-80"
+          className="absolute z-50 w-80 pointer-events-none"
           style={{ 
-            left: popupPosition.x, 
-            top: popupPosition.y,
-            transform: 'translateY(-100%)'
+            left: `${popupPosition.x}px`, 
+            bottom: `${height - popupPosition.y + 10}px`
           }}
         >
-          <Card className="border-0 shadow-xl bg-white">
+          <Card className="border-0 shadow-xl bg-white pointer-events-auto">
             <CardContent className="p-4">
               <div className="flex justify-between items-start mb-3">
                 <div>
@@ -663,7 +664,11 @@ export function ProjectMap({
               </div>
 
               <div className="flex space-x-2">
-                <Button size="sm" className="flex-1 bg-sage-600 hover:bg-sage-700 text-white rounded-full">
+                <Button 
+                  size="sm" 
+                  className="flex-1 bg-sage-600 hover:bg-sage-700 text-white rounded-full"
+                  onClick={() => router.push(`/dashboard/projects/${selectedProjectData.id}`)}
+                >
                   <Eye className="mr-1 h-3 w-3" />
                   View Details
                 </Button>

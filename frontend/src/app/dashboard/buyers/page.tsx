@@ -66,10 +66,10 @@ function transformProjectToProperty(project: any) {
       'https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=800&h=600&fit=crop',
       'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=600&fit=crop'
     ],
-    monthlyRent: rent,
-    bedrooms: bedrooms,
-    bathrooms: bedrooms === 1 ? 1 : 2,
-    sqft: bedrooms * 400 + 250, // Estimate sqft
+    monthlyRent: project.monthly_rent || rent,
+    bedrooms: project.bedrooms || bedrooms,
+    bathrooms: project.bathrooms || (bedrooms === 1 ? 1 : 2),
+    sqft: project.square_feet || bedrooms * 400 + 250, // Estimate sqft
     amiLevels: project.ami_levels?.join(', ') || 'Contact for details',
     availableUnits: project.affordable_units,
     totalUnits: project.total_units,
@@ -281,19 +281,33 @@ export default function ZillowStyleBuyerPortal() {
         setLoading(true)
         const supabase = createClient()
         
+        console.log('Fetching projects for buyer portal...')
+        
         const { data: projects, error } = await supabase
           .from('projects')
           .select('*, companies(name)')
-          .eq('status', 'active')
           .order('created_at', { ascending: false })
+        
+        console.log('Projects query result:', { projects, error })
         
         if (error) {
           console.error('Error fetching projects:', error)
+          // Use mock properties as fallback
+          setProperties(mockProperties)
+          setFilteredProperties(mockProperties)
+          return
+        }
+
+        if (!projects || projects.length === 0) {
+          console.log('No projects found, using mock data')
+          setProperties(mockProperties)
+          setFilteredProperties(mockProperties)
           return
         }
 
         // Transform database projects to buyer-friendly properties
         const transformedProperties = projects.map(transformProjectToProperty)
+        console.log('Transformed properties:', transformedProperties)
         setProperties(transformedProperties)
         setFilteredProperties(transformedProperties)
       } catch (error) {

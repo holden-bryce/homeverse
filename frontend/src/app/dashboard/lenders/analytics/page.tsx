@@ -27,7 +27,12 @@ import {
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { formatCurrency, formatPercentage } from '@/lib/utils'
+import { formatCurrency, formatPercentage } from '@/lib/utils/index'
+import { 
+  useLenderInvestments,
+  useLenderPortfolioStats,
+  useLenderCRAMetrics
+} from '@/lib/supabase/hooks'
 
 // Mock data for analytics
 const marketInsights = [
@@ -101,11 +106,30 @@ export default function LendersAnalyticsPage() {
     }
   }, [searchParams])
 
-  // TODO: Replace with actual data hooks
-  const portfolioStats = null
-  const statsLoading = false
-  const performanceData = null
-  const performanceLoading = false
+  // Use real data hooks
+  const { data: investments = [], isLoading: investmentsLoading } = useLenderInvestments()
+  const { data: portfolioStats, isLoading: statsLoading } = useLenderPortfolioStats()
+  const { data: craMetrics = [], isLoading: craLoading } = useLenderCRAMetrics()
+  
+  // Calculate geographic distribution from real investments
+  const geographicDistributionData = investments.length > 0 ? (() => {
+    const cityGroups = investments.reduce((acc: any, inv: any) => {
+      const city = inv.location?.split(',')[0] || 'Unknown'
+      if (!acc[city]) {
+        acc[city] = { name: city, value: 0, investments: 0, amount: 0 }
+      }
+      acc[city].investments += 1
+      acc[city].amount += inv.investment_amount || 0
+      return acc
+    }, {})
+    
+    const total = Object.values(cityGroups).reduce((sum: number, city: any) => sum + city.amount, 0)
+    
+    return Object.values(cityGroups).map((city: any) => ({
+      ...city,
+      value: Math.round((city.amount / total) * 100)
+    }))
+  })() : geographicDistribution
 
   return (
     <div className="p-6 space-y-6">
@@ -173,12 +197,12 @@ export default function LendersAnalyticsPage() {
               <PieChart 
                 title="Investment Distribution by City"
                 description="Portfolio allocation across Bay Area cities"
-                data={geographicDistribution}
+                data={geographicDistributionData}
                 height={300}
               />
               <div className="p-6 pt-0">
                 <div className="space-y-2">
-                  {geographicDistribution.map((city) => (
+                  {geographicDistributionData.map((city: any) => (
                     <div key={city.name} className="flex justify-between items-center text-sm">
                       <span className="font-medium">{city.name}</span>
                       <div className="text-right">

@@ -65,13 +65,25 @@ export default function ProjectEditPage() {
     ami_levels: [] as string[],
     unit_types: [] as string[],
     price_range: '',
+    monthly_rent: '',
+    bedrooms: '',
+    bathrooms: '',
+    square_feet: '',
     completion_date: '',
     latitude: '',
     longitude: '',
     status: 'planning',
     amenities: [] as string[],
+    pet_policy: '',
+    parking: '',
+    laundry: '',
+    application_fee: '',
+    security_deposit: '',
+    move_in_cost: '',
     transit_notes: '',
     school_district: '',
+    walk_score: '',
+    transit_score: '',
     contact_email: '',
     contact_phone: '',
     website: '',
@@ -117,13 +129,25 @@ export default function ProjectEditPage() {
             ami_levels: projectData.ami_levels || [],
             unit_types: projectData.unit_types || [],
             price_range: projectData.price_range || '',
+            monthly_rent: projectData.monthly_rent?.toString() || '',
+            bedrooms: projectData.bedrooms?.toString() || '',
+            bathrooms: projectData.bathrooms?.toString() || '',
+            square_feet: projectData.square_feet?.toString() || '',
             completion_date: projectData.completion_date || projectData.estimated_delivery || '',
             latitude: projectData.latitude?.toString() || '',
             longitude: projectData.longitude?.toString() || '',
             status: projectData.status || 'planning',
             amenities: projectData.amenities || [],
+            pet_policy: projectData.pet_policy || '',
+            parking: projectData.parking || '',
+            laundry: projectData.laundry || '',
+            application_fee: projectData.application_fee?.toString() || '',
+            security_deposit: projectData.security_deposit?.toString() || '',
+            move_in_cost: projectData.move_in_cost?.toString() || '',
             transit_notes: projectData.transit_notes || '',
             school_district: projectData.school_district || '',
+            walk_score: projectData.walk_score?.toString() || '',
+            transit_score: projectData.transit_score?.toString() || '',
             contact_email: projectData.contact_email || '',
             contact_phone: projectData.contact_phone || '',
             website: projectData.website || '',
@@ -179,13 +203,25 @@ export default function ProjectEditPage() {
               ami_levels: demoProject.ami_levels || [],
               unit_types: [],
               price_range: '',
+              monthly_rent: '',
+              bedrooms: '',
+              bathrooms: '',
+              square_feet: '',
               completion_date: demoProject.completion_date,
               latitude: demoProject.latitude.toString(),
               longitude: demoProject.longitude.toString(),
               status: 'planning',
               amenities: [],
+              pet_policy: '',
+              parking: '',
+              laundry: '',
+              application_fee: '',
+              security_deposit: '',
+              move_in_cost: '',
               transit_notes: '',
               school_district: '',
+              walk_score: '',
+              transit_score: '',
               contact_email: '',
               contact_phone: '',
               website: '',
@@ -290,12 +326,24 @@ export default function ProjectEditPage() {
         ami_levels: formData.ami_levels,
         unit_types: formData.unit_types,
         price_range: formData.price_range,
+        monthly_rent: formData.monthly_rent ? parseFloat(formData.monthly_rent) : undefined,
+        bedrooms: formData.bedrooms ? parseInt(formData.bedrooms) : undefined,
+        bathrooms: formData.bathrooms ? parseFloat(formData.bathrooms) : undefined,
+        square_feet: formData.square_feet ? parseInt(formData.square_feet) : undefined,
         description: formData.description,
         estimated_delivery: formData.completion_date,
         status: formData.status,
         amenities: formData.amenities,
+        pet_policy: formData.pet_policy,
+        parking: formData.parking,
+        laundry: formData.laundry,
+        application_fee: formData.application_fee ? parseFloat(formData.application_fee) : undefined,
+        security_deposit: formData.security_deposit ? parseFloat(formData.security_deposit) : undefined,
+        move_in_cost: formData.move_in_cost ? parseFloat(formData.move_in_cost) : undefined,
         transit_notes: formData.transit_notes,
         school_district: formData.school_district,
+        walk_score: formData.walk_score ? parseInt(formData.walk_score) : undefined,
+        transit_score: formData.transit_score ? parseInt(formData.transit_score) : undefined,
         contact_email: formData.contact_email,
         contact_phone: formData.contact_phone,
         website: formData.website,
@@ -527,6 +575,20 @@ export default function ProjectEditPage() {
                   />
                 </div>
                 <div>
+                  <Label htmlFor="monthly_rent">Monthly Rent</Label>
+                  <Input
+                    id="monthly_rent"
+                    type="number"
+                    value={formData.monthly_rent}
+                    onChange={(e) => handleInputChange('monthly_rent', e.target.value)}
+                    className="mt-1"
+                    placeholder="1500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
                   <Label htmlFor="completion_date">Estimated Completion</Label>
                   <Input
                     id="completion_date"
@@ -534,6 +596,53 @@ export default function ProjectEditPage() {
                     value={formData.completion_date}
                     onChange={(e) => handleInputChange('completion_date', e.target.value)}
                     className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="square_feet">Square Feet</Label>
+                  <Input
+                    id="square_feet"
+                    type="number"
+                    value={formData.square_feet}
+                    onChange={(e) => handleInputChange('square_feet', e.target.value)}
+                    className="mt-1"
+                    placeholder="850"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="bedrooms">Bedrooms</Label>
+                  <Input
+                    id="bedrooms"
+                    type="number"
+                    value={formData.bedrooms}
+                    onChange={(e) => handleInputChange('bedrooms', e.target.value)}
+                    className="mt-1"
+                    placeholder="2"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="bathrooms">Bathrooms</Label>
+                  <Input
+                    id="bathrooms"
+                    type="number"
+                    step="0.5"
+                    value={formData.bathrooms}
+                    onChange={(e) => handleInputChange('bathrooms', e.target.value)}
+                    className="mt-1"
+                    placeholder="1.5"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="parking">Parking</Label>
+                  <Input
+                    id="parking"
+                    value={formData.parking}
+                    onChange={(e) => handleInputChange('parking', e.target.value)}
+                    className="mt-1"
+                    placeholder="1 space included"
                   />
                 </div>
               </div>
@@ -560,6 +669,65 @@ export default function ProjectEditPage() {
                 />
               </div>
 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="pet_policy">Pet Policy</Label>
+                  <Input
+                    id="pet_policy"
+                    value={formData.pet_policy}
+                    onChange={(e) => handleInputChange('pet_policy', e.target.value)}
+                    className="mt-1"
+                    placeholder="Cats allowed, dogs under 25lbs"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="laundry">Laundry</Label>
+                  <Input
+                    id="laundry"
+                    value={formData.laundry}
+                    onChange={(e) => handleInputChange('laundry', e.target.value)}
+                    className="mt-1"
+                    placeholder="In-unit washer/dryer"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="application_fee">Application Fee ($)</Label>
+                  <Input
+                    id="application_fee"
+                    type="number"
+                    value={formData.application_fee}
+                    onChange={(e) => handleInputChange('application_fee', e.target.value)}
+                    className="mt-1"
+                    placeholder="50"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="security_deposit">Security Deposit ($)</Label>
+                  <Input
+                    id="security_deposit"
+                    type="number"
+                    value={formData.security_deposit}
+                    onChange={(e) => handleInputChange('security_deposit', e.target.value)}
+                    className="mt-1"
+                    placeholder="1500"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="move_in_cost">Total Move-in Cost ($)</Label>
+                  <Input
+                    id="move_in_cost"
+                    type="number"
+                    value={formData.move_in_cost}
+                    onChange={(e) => handleInputChange('move_in_cost', e.target.value)}
+                    className="mt-1"
+                    placeholder="3050"
+                  />
+                </div>
+              </div>
+
               <div>
                 <Label htmlFor="transit_notes">Transit & Transportation</Label>
                 <Textarea
@@ -581,6 +749,35 @@ export default function ProjectEditPage() {
                   className="mt-1"
                   placeholder="San Francisco Unified School District"
                 />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="walk_score">Walk Score (0-100)</Label>
+                  <Input
+                    id="walk_score"
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={formData.walk_score}
+                    onChange={(e) => handleInputChange('walk_score', e.target.value)}
+                    className="mt-1"
+                    placeholder="85"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="transit_score">Transit Score (0-100)</Label>
+                  <Input
+                    id="transit_score"
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={formData.transit_score}
+                    onChange={(e) => handleInputChange('transit_score', e.target.value)}
+                    className="mt-1"
+                    placeholder="78"
+                  />
+                </div>
               </div>
 
               <div>

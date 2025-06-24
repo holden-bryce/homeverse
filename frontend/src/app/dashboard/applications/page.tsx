@@ -43,18 +43,76 @@ interface Application {
   }
 }
 
+// Mock data for when no real applications exist
+const mockApplications: Application[] = [
+  {
+    id: '1',
+    project_id: 'proj-1',
+    applicant_id: 'app-1',
+    status: 'submitted',
+    preferred_move_in_date: '2024-03-01',
+    additional_notes: 'Looking for a 2BR unit for my family',
+    submitted_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+    projects: {
+      name: 'Sunset Gardens'
+    },
+    applicants: {
+      first_name: 'John',
+      last_name: 'Smith'
+    }
+  },
+  {
+    id: '2',
+    project_id: 'proj-2',
+    applicant_id: 'app-2',
+    status: 'under_review',
+    preferred_move_in_date: '2024-04-15',
+    additional_notes: 'First-time homebuyer, very excited about this opportunity',
+    submitted_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+    reviewed_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+    developer_notes: 'Meets all requirements, proceeding with review',
+    projects: {
+      name: 'Harbor View Apartments'
+    },
+    applicants: {
+      first_name: 'Maria',
+      last_name: 'Garcia'
+    }
+  },
+  {
+    id: '3',
+    project_id: 'proj-1',
+    applicant_id: 'app-3',
+    status: 'approved',
+    preferred_move_in_date: '2024-02-15',
+    submitted_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+    reviewed_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+    developer_notes: 'Excellent candidate, approved for 1BR unit',
+    projects: {
+      name: 'Sunset Gardens'
+    },
+    applicants: {
+      first_name: 'David',
+      last_name: 'Chen'
+    }
+  }
+]
+
 export default function ApplicationsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('')
   const [searchTerm, setSearchTerm] = useState('')
   const { profile } = useAuth()
   
-  const { data: applicationsData, isLoading, refetch } = useApplications({
+  const { data: applicationsData, isLoading, error, refetch } = useApplications({
     status: statusFilter || undefined
   })
   
   const updateApplication = useUpdateApplication()
 
-  const applications = applicationsData?.data || []
+  // Use real data if available, otherwise use mock data for demo
+  const applications = applicationsData?.data && applicationsData.data.length > 0 
+    ? applicationsData.data 
+    : (!isLoading && !error ? mockApplications : [])
 
   const handleStatusUpdate = async (applicationId: string, newStatus: string, notes?: string) => {
     try {
@@ -130,8 +188,39 @@ export default function ApplicationsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="p-6">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Applications</h1>
+            <p className="text-gray-600">Review and manage housing applications</p>
+          </div>
+        </div>
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Applications</h1>
+            <p className="text-gray-600">Review and manage housing applications</p>
+          </div>
+        </div>
+        <Card>
+          <CardContent className="text-center py-12">
+            <FileText className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+            <p className="text-gray-500 mb-4">Unable to load applications</p>
+            <p className="text-sm text-gray-400 mb-4">There was an error loading the applications. Please try again.</p>
+            <Button variant="outline" onClick={() => refetch()}>
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     )
   }

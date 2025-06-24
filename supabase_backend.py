@@ -1062,9 +1062,17 @@ async def get_applicants(
         query = query.range(skip, skip + limit - 1)
         result = query.execute()
         
+        # Split full_name back into first_name and last_name for compatibility
+        applicants = result.data
+        for applicant in applicants:
+            if applicant.get('full_name'):
+                parts = applicant['full_name'].split(' ', 1)
+                applicant['first_name'] = parts[0] if len(parts) > 0 else ''
+                applicant['last_name'] = parts[1] if len(parts) > 1 else ''
+        
         return {
-            "data": result.data,
-            "count": len(result.data),
+            "data": applicants,
+            "count": len(applicants),
             "skip": skip,
             "limit": limit
         }
@@ -1082,6 +1090,12 @@ async def create_applicant(
         # Add company_id to applicant data
         applicant_data = applicant.dict()
         applicant_data['company_id'] = user['company_id']
+        
+        # Combine first_name and last_name into full_name
+        applicant_data['full_name'] = f"{applicant.first_name} {applicant.last_name}"
+        # Remove first_name and last_name as they don't exist in database
+        applicant_data.pop('first_name', None)
+        applicant_data.pop('last_name', None)
         
         result = supabase.table('applicants').insert(applicant_data).execute()
         
@@ -1112,7 +1126,14 @@ async def get_applicant(
         if not result.data:
             raise HTTPException(status_code=404, detail="Applicant not found")
         
-        return result.data
+        # Split full_name back into first_name and last_name for compatibility
+        applicant_data = result.data
+        if applicant_data.get('full_name'):
+            parts = applicant_data['full_name'].split(' ', 1)
+            applicant_data['first_name'] = parts[0] if len(parts) > 0 else ''
+            applicant_data['last_name'] = parts[1] if len(parts) > 1 else ''
+            
+        return applicant_data
     except Exception as e:
         logger.error(f"Get applicant error: {str(e)}")
         raise HTTPException(status_code=404, detail="Applicant not found")
@@ -1133,6 +1154,17 @@ async def update_applicant(
         
         # Update applicant
         update_data = {k: v for k, v in updates.dict().items() if v is not None}
+        
+        # Handle name fields
+        if 'first_name' in update_data or 'last_name' in update_data:
+            # Get current applicant data to handle partial name updates
+            current = supabase.table('applicants').select('full_name').eq('id', applicant_id).single().execute()
+            current_parts = current.data['full_name'].split(' ', 1) if current.data.get('full_name') else ['', '']
+            
+            first = update_data.pop('first_name', current_parts[0] if len(current_parts) > 0 else '')
+            last = update_data.pop('last_name', current_parts[1] if len(current_parts) > 1 else '')
+            update_data['full_name'] = f"{first} {last}".strip()
+        
         result = supabase.table('applicants').update(update_data).eq('id', applicant_id).execute()
         
         # Log activity

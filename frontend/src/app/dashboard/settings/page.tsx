@@ -94,7 +94,8 @@ export default function SettingsPage() {
 
   // Initialize settings from backend data
   useEffect(() => {
-    if (user && company && userSettings && !isInitialized) {
+    // Only require user to be loaded, company and settings can be optional
+    if (user && !isInitialized) {
       // Update user profile with loaded data
       setUserProfile({
         firstName: user.full_name?.split(' ')[0] || user.email?.split('@')[0] || '',
@@ -103,35 +104,39 @@ export default function SettingsPage() {
         phone: user.phone || '',
         title: user.title || '',
         department: user.department || '',
-        timezone: userSettings.display?.timezone || 'America/Los_Angeles',
-        language: userSettings.display?.language || 'en',
+        timezone: userSettings?.display?.timezone || 'America/Los_Angeles',
+        language: userSettings?.display?.language || 'en',
       })
 
-      // Update company settings
-      setCompanySettings({
-        name: company.name || '',
-        address: company.address || '',
-        city: company.city || '',
-        state: company.state || '',
-        zipCode: company.zip_code || '',
-        phone: company.phone || '',
-        website: company.website || '',
-        description: company.description || '',
-        plan: company.plan || 'trial',
-        seats: company.seats || 5,
-      })
+      // Update company settings if available
+      if (company) {
+        setCompanySettings({
+          name: company.name || '',
+          address: company.address || '',
+          city: company.city || '',
+          state: company.state || '',
+          zipCode: company.zip_code || '',
+          phone: company.phone || '',
+          website: company.website || '',
+          description: company.description || '',
+          plan: company.plan || 'trial',
+          seats: company.seats || 5,
+        })
+      }
 
-      // Update notification settings from backend
-      setNotificationSettings({
-        emailNotifications: userSettings.notifications?.email_new_applications !== false,
-        pushNotifications: false, // Not implemented yet
-        newMatches: userSettings.notifications?.email_new_matches !== false,
-        projectUpdates: userSettings.notifications?.email_project_updates !== false,
-        applicationUpdates: userSettings.notifications?.email_application_updates !== false,
-        systemMaintenance: userSettings.notifications?.email_system_maintenance !== false,
-        weeklyReports: userSettings.notifications?.email_weekly_report !== false,
-        monthlyReports: userSettings.notifications?.email_monthly_report !== false,
-      })
+      // Update notification settings from backend or use defaults
+      if (userSettings?.notifications) {
+        setNotificationSettings({
+          emailNotifications: userSettings.notifications?.email_new_applications !== false,
+          pushNotifications: false, // Not implemented yet
+          newMatches: userSettings.notifications?.email_new_matches !== false,
+          projectUpdates: userSettings.notifications?.email_project_updates !== false,
+          applicationUpdates: userSettings.notifications?.email_application_updates !== false,
+          systemMaintenance: userSettings.notifications?.email_system_maintenance !== false,
+          weeklyReports: userSettings.notifications?.email_weekly_report !== false,
+          monthlyReports: userSettings.notifications?.email_monthly_report !== false,
+        })
+      }
 
       setIsInitialized(true)
     }

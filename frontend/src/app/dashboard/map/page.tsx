@@ -159,25 +159,36 @@ export default function MapViewPage() {
       } else {
         // Transform Supabase data to match expected format
         const transformedProjects = data?.map(project => {
-          // Handle coordinates - PostgreSQL returns [lng, lat], but our component expects [lat, lng]
-          let coords = [37.7749, -122.4194]; // Default SF
-          if (project.coordinates && Array.isArray(project.coordinates) && project.coordinates.length === 2) {
-            // PostgreSQL stores as [lng, lat], Mapbox/Leaflet expect [lat, lng]
-            const [lng, lat] = project.coordinates;
-            coords = [lat, lng];
+          // Handle coordinates with multiple fallback options
+          let coords = [37.7749, -122.4194]; // Default SF coordinates
+          
+          // Try to get coordinates from various possible fields
+          if (project.latitude && project.longitude) {
+            coords = [project.latitude, project.longitude];
+          } else if (project.coordinates && Array.isArray(project.coordinates) && project.coordinates.length === 2) {
+            // PostgreSQL might store as [lng, lat], but we need [lat, lng] for display
+            const [first, second] = project.coordinates;
+            // Check if coordinates seem to be in the right order
+            if (Math.abs(first) <= 90 && Math.abs(second) <= 180) {
+              // Likely [lat, lng] format already
+              coords = [first, second];
+            } else if (Math.abs(second) <= 90 && Math.abs(first) <= 180) {
+              // Likely [lng, lat] format, swap them
+              coords = [second, first];
+            }
           }
           
-          console.log(`Project ${project.name} coordinates:`, project.coordinates, '→', coords);
+          console.log(`Project ${project.name} - lat: ${project.latitude}, lng: ${project.longitude}, coords field:`, project.coordinates, '→ final:', coords);
           
           return {
             id: project.id,
             name: project.name,
             developer: project.developer_name || 'Developer',
-            location: project.location || 'Location TBD',
+            location: project.location || project.address || `${project.city || 'San Francisco'}, ${project.state || 'CA'}`,
             coordinates: coords as [number, number],
-            ami_ranges: [`${project.ami_percentage || 80}%`],
+            ami_ranges: project.ami_levels || [`${project.ami_percentage || 80}%`],
             unit_types: project.unit_types || ['1BR', '2BR'],
-            units_available: project.available_units || 0,
+            units_available: project.available_units || project.affordable_units || 0,
             total_units: project.total_units || 0,
             estimated_delivery: project.estimated_delivery,
             status: project.status || 'planning',
