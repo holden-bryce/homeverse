@@ -42,6 +42,11 @@ import {
 
 // Transform database project to buyer-friendly property format
 function transformProjectToProperty(project: any) {
+  if (!project) {
+    throw new Error('No project data provided')
+  }
+  
+  console.log('Transforming project:', project)
   // Estimate rent based on AMI levels and location
   const estimateRent = (amiLevels: string[], city: string) => {
     const basePrices: Record<string, number> = {
@@ -65,14 +70,14 @@ function transformProjectToProperty(project: any) {
     return 3
   }
 
-  const rent = estimateRent(project.ami_levels || [], project.city)
-  const bedrooms = estimateBedrooms(project.total_units)
+  const rent = estimateRent(project.ami_levels || [], project.city || 'San Francisco')
+  const bedrooms = estimateBedrooms(project.total_units || 100)
   
   return {
     id: project.id,
     name: project.name,
     address: project.address,
-    location: `${project.city}, ${project.state}`,
+    location: `${project.city || 'San Francisco'}, ${project.state || 'CA'}`,
     coordinates: [project.latitude || 37.7749, project.longitude || -122.4194] as [number, number],
     images: project.images?.length > 0 ? project.images.map((img: any) => img.url) : [
       'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800&h=600&fit=crop',

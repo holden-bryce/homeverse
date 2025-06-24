@@ -481,9 +481,10 @@ export default function ZillowStyleBuyerPortal() {
               </div>
             ) : (
               <PropertySearchMap
-                properties={filteredProperties}
+                properties={filteredProperties.length > 0 ? filteredProperties : mockProperties}
                 onFiltersChange={handleFilterChange}
                 onPropertySelect={(property) => {
+                  console.log('Property selected:', property)
                   router.push(`/dashboard/buyers/properties/${property.id}`)
                 }}
               />

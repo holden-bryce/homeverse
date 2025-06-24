@@ -104,6 +104,7 @@ export function PropertySearchMap({ properties, onPropertySelect, onPropertyHove
   useEffect(() => {
     if (!mapContainer.current) return
 
+    console.log('PropertySearchMap: Initializing with', properties.length, 'properties')
     console.log('Mapbox token:', mapboxgl.accessToken ? 'Set' : 'Not set')
     console.log('Token length:', mapboxgl.accessToken?.length || 0)
     
@@ -127,20 +128,26 @@ export function PropertySearchMap({ properties, onPropertySelect, onPropertyHove
     }
 
     try {
+      console.log('PropertySearchMap: Creating Mapbox map...')
       // Initialize map
       map.current = new mapboxgl.Map({
         container: mapContainer.current,
         style: 'mapbox://styles/mapbox/light-v11',
         center: [-122.4194, 37.7749], // San Francisco
-        zoom: 12
+        zoom: 11
       })
 
       // Add navigation controls
       map.current.addControl(new mapboxgl.NavigationControl(), 'top-right')
       
-      console.log('Mapbox map initialized successfully')
+      console.log('PropertySearchMap: Mapbox map initialized successfully')
+      
+      // Wait for map to load before adding markers
+      map.current.on('load', () => {
+        console.log('PropertySearchMap: Map loaded, ready for markers')
+      })
     } catch (error) {
-      console.error('Error initializing Mapbox:', error)
+      console.error('PropertySearchMap: Error initializing Mapbox:', error)
       // Fallback
       if (mapContainer.current) {
         mapContainer.current.innerHTML = `
@@ -173,7 +180,12 @@ export function PropertySearchMap({ properties, onPropertySelect, onPropertyHove
 
   // Update markers when properties change
   useEffect(() => {
-    if (!map.current) return
+    console.log('PropertySearchMap: Properties changed, updating markers...', properties.length, 'properties')
+    
+    if (!map.current) {
+      console.log('PropertySearchMap: Map not initialized yet')
+      return
+    }
 
     // Clear existing markers
     markers.current.forEach(marker => marker.remove())
@@ -181,6 +193,7 @@ export function PropertySearchMap({ properties, onPropertySelect, onPropertyHove
 
     // Add markers for each property
     properties.forEach(property => {
+      console.log(`PropertySearchMap: Adding marker for ${property.name} at:`, property.coordinates)
       const el = document.createElement('div')
       el.className = 'property-marker'
       el.style.width = '40px'

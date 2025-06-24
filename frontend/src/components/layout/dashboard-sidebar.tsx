@@ -42,7 +42,7 @@ export function DashboardSidebar({ role }: DashboardSidebarProps) {
       { name: 'Settings', href: '/dashboard/settings', icon: Settings },
     ],
     lender: [
-      { name: 'Overview', href: '/dashboard', icon: LayoutDashboard },
+      { name: 'Overview', href: '/dashboard/lenders', icon: LayoutDashboard },
       { name: 'Investments', href: '/dashboard/lenders/investments', icon: CreditCard },
       { name: 'Analytics', href: '/dashboard/lenders/analytics', icon: BarChart3 },
       { name: 'Reports', href: '/dashboard/lenders/reports', icon: FileText },

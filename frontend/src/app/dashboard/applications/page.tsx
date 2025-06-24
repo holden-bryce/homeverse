@@ -99,12 +99,12 @@ const mockApplications: Application[] = [
 ]
 
 export default function ApplicationsPage() {
-  const [statusFilter, setStatusFilter] = useState<string>('')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
   const [searchTerm, setSearchTerm] = useState('')
   const { profile } = useAuth()
   
   const { data: applicationsData, isLoading, error, refetch } = useApplications({
-    status: statusFilter || undefined
+    status: statusFilter === 'all' ? undefined : statusFilter
   })
   
   const updateApplication = useUpdateApplication()
@@ -250,7 +250,7 @@ export default function ApplicationsPage() {
             <SelectValue placeholder="Filter by status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Statuses</SelectItem>
+            <SelectItem value="all">All Statuses</SelectItem>
             <SelectItem value="submitted">Submitted</SelectItem>
             <SelectItem value="under_review">Under Review</SelectItem>
             <SelectItem value="approved">Approved</SelectItem>
