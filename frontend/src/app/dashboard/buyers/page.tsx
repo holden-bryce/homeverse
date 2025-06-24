@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase'
+import { createBrowserClient } from '@supabase/ssr'
 import { PropertySearchMap } from '@/components/buyer-portal/search/PropertySearchMap'
 import { PropertyCard } from '@/components/buyer-portal/search/PropertyCard'
 import { SearchFilters } from '@/components/buyer-portal/search/SearchFilters'
@@ -279,39 +279,30 @@ export default function ZillowStyleBuyerPortal() {
     async function fetchProjects() {
       try {
         setLoading(true)
-        const supabase = createClient()
+        const supabase = createBrowserClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        )
         
         console.log('Fetching projects for buyer portal...')
         
-        // First, let's check what columns exist
-        const { data: testProject, error: testError } = await supabase
-          .from('projects')
-          .select('*')
-          .limit(1)
-          .single()
-        
-        console.log('Test project structure:', testProject)
-        console.log('Test project keys:', testProject ? Object.keys(testProject) : 'No project')
-        
         const { data: projects, error } = await supabase
           .from('projects')
-          .select('*, companies(name)')
+          .select('*')
           .order('created_at', { ascending: false })
         
         console.log('Projects query result:', { projects, error })
         
-        if (error) {
-          console.error('Error fetching projects:', error)
-          // Use mock properties as fallback
-          setProperties(mockProperties)
-          setFilteredProperties(mockProperties)
-          return
-        }
-
-        if (!projects || projects.length === 0) {
-          console.log('No projects found, using mock data')
-          setProperties(mockProperties)
-          setFilteredProperties(mockProperties)
+        if (error || !projects || projects.length === 0) {
+          console.error('Error fetching projects or no projects found:', error)
+          console.log('Using mock properties as fallback')
+          // Ensure mock properties have proper coordinates
+          const mockPropertiesWithCoords = mockProperties.map((prop, index) => ({
+            ...prop,
+            coordinates: prop.coordinates || [37.7749 + index * 0.01, -122.4194 + index * 0.01]
+          }))
+          setProperties(mockPropertiesWithCoords)
+          setFilteredProperties(mockPropertiesWithCoords)
           return
         }
 

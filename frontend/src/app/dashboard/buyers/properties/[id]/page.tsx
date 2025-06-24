@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { createClient } from '@/lib/supabase'
+import { createBrowserClient } from '@supabase/ssr'
 import Image from 'next/image'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -179,7 +179,10 @@ export default function PropertyDetailPage() {
     async function fetchProject() {
       try {
         setLoading(true)
-        const supabase = createClient()
+        const supabase = createBrowserClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        )
         
         console.log('Fetching project with ID:', params.id)
         
