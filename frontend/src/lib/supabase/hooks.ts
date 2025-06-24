@@ -612,6 +612,10 @@ export const useApplications = (filters?: any) => {
         if (filters?.applicant_id) {
           query = query.eq('applicant_id', filters.applicant_id)
         }
+        if (filters?.email) {
+          // Join with applicants table to filter by email
+          query = query.eq('applicants.email', filters.email)
+        }
         
         const { data, error } = await query
         

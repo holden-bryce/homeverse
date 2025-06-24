@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { PropertySearchMap } from '@/components/buyer-portal/search/PropertySearchMap'
 import { PropertyCard } from '@/components/buyer-portal/search/PropertyCard'
 import { SearchFilters } from '@/components/buyer-portal/search/SearchFilters'
@@ -66,12 +66,33 @@ interface BuyerPortalClientProps {
 
 export function BuyerPortalClient({ initialProperties }: BuyerPortalClientProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [searchTerm, setSearchTerm] = useState('')
   const [activeTab, setActiveTab] = useState('discover')
   const [favorites, setFavorites] = useState<string[]>([])
   const [properties] = useState(initialProperties)
   const [filteredProperties, setFilteredProperties] = useState(initialProperties)
   const [showFilters, setShowFilters] = useState(false)
+  
+  // Check for success parameter and show toast
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    const success = searchParams.get('success')
+    
+    if (tab) {
+      setActiveTab(tab)
+    }
+    
+    if (success === 'true') {
+      toast({
+        title: "Application Submitted!",
+        description: "Your application has been successfully submitted. You'll receive updates via email.",
+        variant: "default"
+      })
+      // Clean up URL
+      router.replace('/dashboard/buyers?tab=applications')
+    }
+  }, [searchParams, router])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -270,36 +291,11 @@ export function BuyerPortalClient({ initialProperties }: BuyerPortalClientProps)
 
         {activeTab === 'applications' && (
           <div className="p-6">
-            <div className="space-y-4">
-              {mockApplications.map(app => (
-                <Card key={app.id}>
-                  <CardContent className="p-6">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="text-lg font-semibold mb-2">{app.propertyName}</h3>
-                        <div className="flex items-center gap-4 text-sm text-gray-600">
-                          <span>Submitted: {new Date(app.submittedDate).toLocaleDateString()}</span>
-                          <span>Updated: {new Date(app.lastUpdate).toLocaleDateString()}</span>
-                        </div>
-                        {app.moveInDate && (
-                          <div className="mt-2 text-sm">
-                            <span className="text-green-600 font-semibold">Move-in Date: {new Date(app.moveInDate).toLocaleDateString()}</span>
-                          </div>
-                        )}
-                        {app.position && (
-                          <div className="mt-2 text-sm">
-                            <span className="text-yellow-600">Waitlist Position: #{app.position}</span>
-                          </div>
-                        )}
-                      </div>
-                      <Badge className={getApplicationStatusColor(app.status)}>
-                        {app.status.replace('_', ' ')}
-                      </Badge>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+            <iframe 
+              src="/dashboard/buyers/applications" 
+              className="w-full h-[calc(100vh-240px)] border-0 rounded-lg"
+              title="My Applications"
+            />
           </div>
         )}
 

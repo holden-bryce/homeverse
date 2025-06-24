@@ -50,9 +50,9 @@ export default function ApplicationsPage() {
   const router = useRouter()
   const { profile, user } = useAuth()
   
-  // Fetch applications for the current user (if they're an applicant)
+  // Fetch applications for the current user's email
   const { data: applicationsData, isLoading } = useApplications({
-    applicant_id: profile?.role === 'applicant' ? user?.id : undefined
+    email: user?.email
   })
   
   const applications = applicationsData?.data || []
