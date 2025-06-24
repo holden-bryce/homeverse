@@ -33,16 +33,25 @@ interface ProjectDetailPageProps {
 async function getProject(id: string) {
   const supabase = createClient()
   
+  console.log('Fetching project with ID:', id)
+  
   const { data: project, error } = await supabase
     .from('projects')
     .select('*, companies(name)')
     .eq('id', id)
     .single()
     
-  if (error || !project) {
+  if (error) {
+    console.error('Error fetching project:', error)
     return null
   }
   
+  if (!project) {
+    console.error('No project found with ID:', id)
+    return null
+  }
+  
+  console.log('Successfully fetched project:', project.name)
   return project
 }
 

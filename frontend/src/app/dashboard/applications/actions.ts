@@ -42,8 +42,8 @@ export async function createApplication(formData: FormData) {
         phone: formData.get('phone') as string,
         income: parseFloat(formData.get('annual_income') as string) || 0,
         household_size: parseInt(formData.get('household_size') as string) || 1,
-        location: formData.get('current_address') as string || '',
-        employment_status: formData.get('employment_status') as string || '',
+        location_preference: formData.get('current_address') as string || '',
+        status: 'active',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }

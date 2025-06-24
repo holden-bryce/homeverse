@@ -1,8 +1,8 @@
 {
-  "timestamp": "2025-06-11T11:00:13.937464",
-  "passed": 9,
-  "failed": 5,
-  "warnings": 0,
+  "timestamp": "2025-06-24T16:42:29.541271",
+  "passed": 12,
+  "failed": 1,
+  "warnings": 1,
   "details": [
     {
       "category": "Infrastructure",
@@ -25,38 +25,38 @@
     {
       "category": "Authentication",
       "test": "Login - developer",
-      "status": "\u274c FAIL",
-      "details": "Status: 401"
+      "status": "\u2705 PASS",
+      "details": "Token received"
     },
     {
       "category": "Authentication",
       "test": "Login - lender",
-      "status": "\u274c FAIL",
-      "details": "Status: 401"
+      "status": "\u2705 PASS",
+      "details": "Token received"
     },
     {
       "category": "Authentication",
       "test": "Login - admin",
-      "status": "\u274c FAIL",
-      "details": "Status: 401"
+      "status": "\u2705 PASS",
+      "details": "Token received"
     },
     {
       "category": "API Endpoints",
       "test": "List Applicants",
-      "status": "\u274c FAIL",
-      "details": "Status: 403"
+      "status": "\u2705 PASS",
+      "details": "Status: 200"
     },
     {
       "category": "API Endpoints",
       "test": "List Projects",
-      "status": "\u274c FAIL",
-      "details": "Status: 403"
+      "status": "\u2705 PASS",
+      "details": "Status: 200"
     },
     {
       "category": "API Endpoints",
       "test": "Contact Form",
-      "status": "\u2705 PASS",
-      "details": "Status: 200"
+      "status": "\u274c FAIL",
+      "details": "Status: 422"
     },
     {
       "category": "Security",
@@ -74,19 +74,19 @@
       "category": "Security",
       "test": "CORS Configuration",
       "status": "\u2705 PASS",
-      "details": "Allow-Origin: *"
+      "details": "Allow-Origin: https://homeverse-frontend.onrender.com"
     },
     {
       "category": "Performance",
       "test": "Backend Response Time",
-      "status": "\u2705 PASS",
-      "details": "375ms"
+      "status": "\u26a0\ufe0f WARN",
+      "details": "550ms"
     },
     {
       "category": "Performance",
       "test": "Frontend Load Time",
       "status": "\u2705 PASS",
-      "details": "517ms"
+      "details": "384ms"
     }
   ]
 }
