@@ -38,13 +38,20 @@ function transformProjectToProperty(project: any) {
   
   // Process images from project_images table
   const projectImages = project.project_images || []
-  const imageUrls = projectImages.length > 0 
-    ? projectImages.map((img: any) => img.url).filter((url: string) => url && url.startsWith('http'))
-    : [
-        '/images/property-placeholder-1.jpg',
-        '/images/property-placeholder-2.jpg',
-        '/images/property-placeholder-3.jpg'
-      ]
+  let imageUrls = []
+  
+  if (projectImages.length > 0) {
+    // Filter valid URLs and add fallbacks for broken ones
+    imageUrls = projectImages
+      .map((img: any) => img.url)
+      .filter((url: string) => url && (url.startsWith('http') || url.startsWith('/')))
+      .slice(0, 3) // Limit to 3 images max
+  }
+  
+  // Always ensure we have at least 3 images with fallbacks
+  while (imageUrls.length < 3) {
+    imageUrls.push(`https://images.unsplash.com/photo-${Math.random() > 0.5 ? '1545324418-cc1a3fa10c00' : '1560518883-ce09059eeffa'}?w=800&h=600&fit=crop&auto=format`)
+  }
   
   return {
     id: project.id,
@@ -133,6 +140,8 @@ function transformProjectToProperty(project: any) {
 export default async function PropertyDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
   
+  console.log('PropertyDetailPage: Loading property with ID:', params.id)
+  
   try {
     const { data: project, error } = await supabase
       .from('projects')
@@ -144,16 +153,36 @@ export default async function PropertyDetailPage({ params }: { params: { id: str
       .eq('id', params.id)
       .single()
     
+    console.log('PropertyDetailPage: Database response:', { project, error })
+    
     if (error || !project) {
       console.error('Project not found:', error)
-      notFound()
+      return (
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold mb-4">Property Not Found</h1>
+            <p>The property with ID {params.id} could not be found.</p>
+            <p className="mt-2 text-sm text-gray-600">Error: {error?.message || 'Unknown error'}</p>
+          </div>
+        </div>
+      )
     }
     
+    console.log('PropertyDetailPage: Raw project data before transform:', project)
     const property = transformProjectToProperty(project)
+    console.log('PropertyDetailPage: Transformed property data:', property)
     
     return <PropertyDetailClient property={property} />
   } catch (error) {
     console.error('Error loading property:', error)
-    notFound()
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Error Loading Property</h1>
+          <p>An error occurred while loading the property details.</p>
+          <p className="mt-2 text-sm text-gray-600">{String(error)}</p>
+        </div>
+      </div>
+    )
   }
 }

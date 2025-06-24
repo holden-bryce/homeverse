@@ -50,6 +50,22 @@ export function PropertyDetailClient({ property }: PropertyDetailClientProps) {
   const [isFavorited, setIsFavorited] = useState(false)
   const [activeTab, setActiveTab] = useState('overview')
 
+  // Debug: log property data
+  console.log('PropertyDetailClient: Received property data:', property)
+  
+  // Ensure property has required fields
+  if (!property || !property.id) {
+    console.error('PropertyDetailClient: Invalid property data received:', property)
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Invalid Property Data</h1>
+          <p>The property data could not be loaded correctly.</p>
+        </div>
+      </div>
+    )
+  }
+
   // Load favorites from localStorage
   useEffect(() => {
     const savedFavorites = JSON.parse(localStorage.getItem('favorites') || '[]')
@@ -111,8 +127,12 @@ export function PropertyDetailClient({ property }: PropertyDetailClientProps) {
 
   // Handle image loading with fallback
   const getImageSrc = (src: string) => {
-    if (!src || src.includes('placeholder')) {
-      return `https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800&h=600&fit=crop&q=80`
+    if (!src || src.includes('placeholder') || src.includes('via.placeholder')) {
+      return `https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800&h=600&fit=crop&auto=format`
+    }
+    // Fix Unsplash URLs that might be causing issues
+    if (src.includes('unsplash.com') && !src.includes('auto=format')) {
+      return src + (src.includes('?') ? '&' : '?') + 'auto=format'
     }
     return src
   }
@@ -160,7 +180,8 @@ export function PropertyDetailClient({ property }: PropertyDetailClientProps) {
               alt={`${property.name} - Image ${currentImageIndex + 1}`}
               className="w-full h-full object-cover"
               onError={(e) => {
-                e.currentTarget.src = 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800&h=600&fit=crop&q=80'
+                console.log('Image failed to load:', e.currentTarget.src)
+                e.currentTarget.src = 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800&h=600&fit=crop&auto=format'
               }}
             />
             <button

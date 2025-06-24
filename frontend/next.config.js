@@ -30,6 +30,18 @@ const nextConfig = {
   // Optimize for production
   swcMinify: true,
   
+  // Configure image optimization
+  images: {
+    domains: [
+      'images.unsplash.com',
+      'via.placeholder.com',
+      'vzxadsifonqklotzhdpl.supabase.co'
+    ],
+    dangerouslyAllowSVG: true,
+    contentDispositionType: 'attachment',
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+  },
+  
   // Handle environment variables
   env: {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,

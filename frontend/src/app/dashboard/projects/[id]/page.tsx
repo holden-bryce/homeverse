@@ -55,15 +55,16 @@ async function ProjectActions({ project, profile }: { project: any, profile: any
 
   return (
     <>
-      <Link href={`/dashboard/projects/${project.id}/edit`}>
-        <Button
-          variant="outline"
-          className="border-sage-200 text-sage-700 hover:bg-sage-50"
-        >
+      <Button
+        variant="outline"
+        className="border-sage-200 text-sage-700 hover:bg-sage-50"
+        asChild
+      >
+        <Link href={`/dashboard/projects/${project.id}/edit`}>
           <Edit className="h-4 w-4 mr-2" />
           Edit
-        </Button>
-      </Link>
+        </Link>
+      </Button>
       
       <form action={async () => {
         'use server'
