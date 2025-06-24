@@ -20,12 +20,12 @@ const nextConfig = {
     return config;
   },
   
-  // Enable build caching for Render
-  experimental: {
-    turbotrace: {
-      logLevel: 'error'
-    }
-  },
+  // Disable turbotrace as it may cause build timeouts
+  // experimental: {
+  //   turbotrace: {
+  //     logLevel: 'error'
+  //   }
+  // },
   
   // Optimize for production
   swcMinify: true,

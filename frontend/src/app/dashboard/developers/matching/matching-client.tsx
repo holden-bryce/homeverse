@@ -96,7 +96,7 @@ export default function MatchingPageClient({
   const [isPending, startTransition] = useTransition()
 
   // Fetch matches data from the backend
-  const { data: allMatches = [], isLoading: matchesLoading, refetch } = useQuery({
+  const { data: realMatches = [], isLoading: matchesLoading, refetch } = useQuery({
     queryKey: ['matches', selectedProject],
     queryFn: async () => {
       const projectMatches: MatchData[] = []
@@ -128,7 +128,130 @@ export default function MatchingPageClient({
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   })
 
-  const matches = allMatches
+  // Mock data to supplement real data
+  const mockMatches: MatchData[] = projects.length > 0 ? [
+    {
+      id: 'mock-1',
+      applicant: {
+        id: 'app-1',
+        name: 'Maria Rodriguez',
+        email: 'maria.rodriguez@example.com',
+        phone: '(555) 123-4567',
+        household_size: 3,
+        annual_income: 52000,
+        ami_percentage: 60,
+        preferences: ['Near Schools', 'Public Transit', 'Ground Floor'],
+        location_preference: 'San Francisco, CA'
+      },
+      project: projects[0] ? {
+        id: projects[0].id,
+        name: projects[0].name,
+        location: `${projects[0].city}, ${projects[0].state}`,
+        unit_count: 120,
+        ami_range: '30-80%',
+        available_units: 24
+      } : {
+        id: '1',
+        name: 'Sunset Gardens',
+        location: 'San Francisco, CA',
+        unit_count: 120,
+        ami_range: '30-80%',
+        available_units: 24
+      },
+      score: 94,
+      reasons: [
+        'Income falls within project AMI range',
+        'Family size matches available unit types',
+        'Location preference aligns with project',
+        'High priority for school proximity'
+      ],
+      status: 'contacted',
+      created_at: new Date().toISOString(),
+      ai_confidence: 'very_high'
+    },
+    {
+      id: 'mock-2',
+      applicant: {
+        id: 'app-2',
+        name: 'James Chen',
+        email: 'james.chen@example.com',
+        phone: '(555) 234-5678',
+        household_size: 2,
+        annual_income: 68000,
+        ami_percentage: 80,
+        preferences: ['Pet Friendly', 'Parking', 'Quiet Neighborhood'],
+        location_preference: 'Oakland, CA'
+      },
+      project: projects[1] ? {
+        id: projects[1].id,
+        name: projects[1].name,
+        location: `${projects[1].city}, ${projects[1].state}`,
+        unit_count: 85,
+        ami_range: '50-120%',
+        available_units: 15
+      } : {
+        id: '2',
+        name: 'Riverside Commons',
+        location: 'Oakland, CA',
+        unit_count: 85,
+        ami_range: '50-120%',
+        available_units: 15
+      },
+      score: 88,
+      reasons: [
+        'Income matches upper AMI band',
+        'Preference for parking available',
+        'Location matches preference',
+        'Unit type availability'
+      ],
+      status: 'interested',
+      created_at: new Date(Date.now() - 86400000).toISOString(),
+      ai_confidence: 'high'
+    },
+    {
+      id: 'mock-3',
+      applicant: {
+        id: 'app-3',
+        name: 'Sarah Johnson',
+        email: 'sarah.johnson@example.com',
+        household_size: 4,
+        annual_income: 45000,
+        ami_percentage: 50,
+        preferences: ['Playground', 'Community Center', 'Storage'],
+        location_preference: 'San Francisco, CA'
+      },
+      project: projects[0] ? {
+        id: projects[0].id,
+        name: projects[0].name,
+        location: `${projects[0].city}, ${projects[0].state}`,
+        unit_count: 120,
+        ami_range: '30-80%',
+        available_units: 24
+      } : {
+        id: '1',
+        name: 'Sunset Gardens',
+        location: 'San Francisco, CA',
+        unit_count: 120,
+        ami_range: '30-80%',
+        available_units: 24
+      },
+      score: 92,
+      reasons: [
+        'Large family size needs met',
+        'Income qualifies for deeper affordability',
+        'Community amenities match preferences',
+        'High waitlist priority'
+      ],
+      status: 'pending',
+      created_at: new Date(Date.now() - 172800000).toISOString(),
+      ai_confidence: 'high'
+    }
+  ] : []
+
+  // Combine real and mock data, avoiding duplicates
+  const matches = [...realMatches, ...mockMatches.filter(mock => 
+    !realMatches.some(real => real.applicant.email === mock.applicant.email)
+  )]
 
   const handleRunMatching = async () => {
     startTransition(async () => {

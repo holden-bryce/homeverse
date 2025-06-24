@@ -52,6 +52,7 @@ export function DashboardSidebar({ role }: DashboardSidebarProps) {
     buyer: [
       { name: 'Overview', href: '/dashboard', icon: LayoutDashboard },
       { name: 'Properties', href: '/dashboard/buyers/properties', icon: Home },
+      { name: 'Map', href: '/dashboard/map', icon: MapPin },
       { name: 'Applications', href: '/dashboard/buyers/applications', icon: FileText },
       { name: 'Preferences', href: '/dashboard/buyers/preferences', icon: UserCircle },
       { name: 'Settings', href: '/dashboard/settings', icon: Settings },

@@ -21,7 +21,8 @@ import {
   BarChart3,
   CheckCircle,
   AlertCircle,
-  ExternalLink
+  ExternalLink,
+  FileText
 } from 'lucide-react'
 import Link from 'next/link'
 import { AreaChart } from '@/components/charts/area-chart'
@@ -194,6 +195,12 @@ export default function DevelopersPage() {
             </p>
           </div>
           <div className="flex space-x-3">
+            <Link href="/dashboard/applications">
+              <Button variant="outline" className="border-sage-200 text-sage-700 hover:bg-sage-50 rounded-full px-6">
+                <FileText className="mr-2 h-4 w-4" />
+                View Applications
+              </Button>
+            </Link>
             <Link href="/dashboard/projects/new">
               <Button className="bg-sage-600 hover:bg-sage-700 text-white rounded-full px-6">
                 <Plus className="mr-2 h-4 w-4" />

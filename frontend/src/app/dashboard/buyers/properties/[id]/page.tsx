@@ -176,17 +176,30 @@ export default function PropertyDetailPage() {
         setLoading(true)
         const supabase = createClient()
         
+        console.log('Fetching project with ID:', params.id)
+        
         const { data: project, error } = await supabase
           .from('projects')
-          .select('*, companies(name)')
+          .select('*, companies(name), images:project_images(url)')
           .eq('id', params.id)
           .single()
         
         if (error) {
           console.error('Error fetching project:', error)
+          if (error.code === 'PGRST116') {
+            setError('Property not found')
+          } else {
+            setError('Failed to load property details')
+          }
+          return
+        }
+        
+        if (!project) {
           setError('Property not found')
           return
         }
+        
+        console.log('Fetched project:', project)
 
         // Transform database project to buyer-friendly property
         const transformedProperty = transformProjectToProperty(project)
