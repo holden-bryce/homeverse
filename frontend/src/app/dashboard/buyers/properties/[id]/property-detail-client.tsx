@@ -53,6 +53,14 @@ export function PropertyDetailClient({ property }: PropertyDetailClientProps) {
   // Debug: log property data
   console.log('PropertyDetailClient: Received property data:', property)
   
+  // Load favorites from localStorage - must be called before any early returns
+  useEffect(() => {
+    if (property?.id) {
+      const savedFavorites = JSON.parse(localStorage.getItem('favorites') || '[]')
+      setIsFavorited(savedFavorites.includes(property.id))
+    }
+  }, [property?.id])
+  
   // Ensure property has required fields
   if (!property || !property.id) {
     console.error('PropertyDetailClient: Invalid property data received:', property)
@@ -65,12 +73,6 @@ export function PropertyDetailClient({ property }: PropertyDetailClientProps) {
       </div>
     )
   }
-
-  // Load favorites from localStorage
-  useEffect(() => {
-    const savedFavorites = JSON.parse(localStorage.getItem('favorites') || '[]')
-    setIsFavorited(savedFavorites.includes(property.id))
-  }, [property.id])
 
   const nextImage = () => {
     setCurrentImageIndex((prev) => (prev + 1) % property.images.length)
@@ -175,13 +177,15 @@ export function PropertyDetailClient({ property }: PropertyDetailClientProps) {
       <div className="relative bg-black">
         <div className="container mx-auto px-6">
           <div className="relative h-[400px] md:h-[500px]">
-            <img
+            <Image
               src={getImageSrc(property.images[currentImageIndex])}
               alt={`${property.name} - Image ${currentImageIndex + 1}`}
-              className="w-full h-full object-cover"
+              fill
+              className="object-cover"
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 100vw, 100vw"
+              priority
               onError={(e) => {
                 console.log('Image failed to load:', e.currentTarget.src)
-                e.currentTarget.src = 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800&h=600&fit=crop&auto=format'
               }}
             />
             <button

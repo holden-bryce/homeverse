@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -214,9 +215,11 @@ export function ImageUpload({ projectId, images, onImagesUpdate, canEdit }: Imag
                 key={image.id}
                 className="relative group rounded-lg overflow-hidden border border-gray-200"
               >
-                <img
+                <Image
                   src={image.url}
                   alt={image.caption || 'Project image'}
+                  width={400}
+                  height={192}
                   className="w-full h-48 object-cover"
                 />
                 

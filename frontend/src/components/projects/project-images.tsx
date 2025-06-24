@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from '@/components/ui/toast'
@@ -150,9 +151,11 @@ export function ProjectImages({ projectId, images = [], canEdit }: ProjectImages
                 key={image.id}
                 className="relative group rounded-lg overflow-hidden border border-gray-200 hover:border-sage-300 transition-colors"
               >
-                <img
+                <Image
                   src={image.url}
                   alt={image.caption || 'Project image'}
+                  width={400}
+                  height={192}
                   className="w-full h-48 object-cover"
                 />
                 
