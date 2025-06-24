@@ -1,4 +1,3 @@
-import { Suspense } from 'react'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getUserProfile } from '@/lib/auth/server'
@@ -47,7 +46,7 @@ async function getProject(id: string) {
   return project
 }
 
-async function ProjectActions({ project, profile }: { project: any, profile: any }) {
+function ProjectActions({ project, profile }: { project: any, profile: any }) {
   const canEdit = profile?.role && ['developer', 'admin'].includes(profile.role) && 
                   profile.company_id === project.company_id
 
@@ -163,9 +162,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
             </div>
           </div>
           <div className="flex gap-3">
-            <Suspense fallback={null}>
-              <ProjectActions project={project} profile={profile} />
-            </Suspense>
+            <ProjectActions project={project} profile={profile} />
           </div>
         </div>
 

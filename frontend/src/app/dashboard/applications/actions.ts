@@ -12,13 +12,6 @@ export async function createApplication(formData: FormData) {
       throw new Error('Unauthorized - no user profile')
     }
     
-    const { cookies } = await import('next/headers')
-    const cookieStore = cookies()
-    const token = cookieStore.get('auth_token')?.value || cookieStore.get('token')?.value
-    if (!token) {
-      throw new Error('No authentication token found')
-    }
-    
     const supabase = createClient()
     
     // Get or create applicant record for this user
@@ -30,74 +23,71 @@ export async function createApplication(formData: FormData) {
       .select('id')
       .eq('email', formData.get('email') as string)
       .eq('company_id', profile.company_id)
-      .single()
+      .maybeSingle()
     
     if (existingApplicant) {
       applicantId = existingApplicant.id
     } else {
-      // Create applicant via API with proper name handling
+      // Create applicant directly in Supabase
       const fullName = formData.get('full_name') as string || profile.full_name
       const nameParts = fullName.split(' ')
       const firstName = nameParts[0] || ''
       const lastName = nameParts.slice(1).join(' ') || ''
       
       const applicantData = {
+        company_id: profile.company_id,
         first_name: firstName,
         last_name: lastName,
         email: formData.get('email') as string || profile.email,
         phone: formData.get('phone') as string,
         income: parseFloat(formData.get('annual_income') as string) || 0,
-        household_size: parseInt(formData.get('household_size') as string) || 1
+        household_size: parseInt(formData.get('household_size') as string) || 1,
+        location: formData.get('current_address') as string || '',
+        employment_status: formData.get('employment_status') as string || '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       }
       
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-      const response = await fetch(`${apiUrl}/api/v1/applicants`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(applicantData)
-      })
+      const { data: newApplicant, error: applicantError } = await supabase
+        .from('applicants')
+        .insert(applicantData)
+        .select()
+        .single()
       
-      if (!response.ok) {
-        const error = await response.text()
-        console.error('Error creating applicant:', error)
-        throw new Error(`Failed to create applicant: ${error}`)
+      if (applicantError) {
+        console.error('Error creating applicant:', applicantError)
+        throw new Error(`Failed to create applicant: ${applicantError.message}`)
       }
       
-      const newApplicant = await response.json()
       applicantId = newApplicant.id
     }
     
-    // Create application via API
+    // Create application directly in Supabase
     const applicationData = {
+      company_id: profile.company_id,
       project_id: formData.get('project_id') as string,
       applicant_id: applicantId,
       preferred_move_in_date: formData.get('preferred_move_in_date') as string || null,
       additional_notes: formData.get('additional_notes') as string || null,
-      documents: []
+      documents: [],
+      status: 'submitted',
+      submitted_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     }
     
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-    const applicationResponse = await fetch(`${apiUrl}/api/v1/applications`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(applicationData)
-    })
+    const { data: newApplication, error: applicationError } = await supabase
+      .from('applications')
+      .insert(applicationData)
+      .select()
+      .single()
     
-    if (!applicationResponse.ok) {
-      const error = await applicationResponse.text()
-      console.error('Error creating application:', error)
-      throw new Error(`Failed to create application: ${error}`)
+    if (applicationError) {
+      console.error('Error creating application:', applicationError)
+      throw new Error(`Failed to create application: ${applicationError.message}`)
     }
     
-    const data = await applicationResponse.json()
-    
-    if (!data) {
+    if (!newApplication) {
       throw new Error('No data returned after creating application')
     }
     
