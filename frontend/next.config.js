@@ -32,10 +32,22 @@ const nextConfig = {
   
   // Configure image optimization
   images: {
-    domains: [
-      'images.unsplash.com',
-      'via.placeholder.com',
-      'vzxadsifonqklotzhdpl.supabase.co'
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'via.placeholder.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'vzxadsifonqklotzhdpl.supabase.co',
+        pathname: '/**',
+      },
     ],
     dangerouslyAllowSVG: true,
     contentDispositionType: 'attachment',

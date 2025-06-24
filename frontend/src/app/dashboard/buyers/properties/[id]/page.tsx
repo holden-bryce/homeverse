@@ -36,21 +36,36 @@ function transformProjectToProperty(project: any) {
   const rent = estimateRent(project.ami_levels || [], project.city || 'San Francisco')
   const bedrooms = estimateBedrooms(project.total_units || 100)
   
-  // Process images from project_images table
-  const projectImages = project.project_images || []
+  // Process images - check both project_images and images fields
+  const projectImages = project.project_images || project.images || []
   let imageUrls = []
   
-  if (projectImages.length > 0) {
-    // Filter valid URLs and add fallbacks for broken ones
-    imageUrls = projectImages
-      .map((img: any) => img.url)
-      .filter((url: string) => url && (url.startsWith('http') || url.startsWith('/')))
-      .slice(0, 3) // Limit to 3 images max
+  // Handle different image formats
+  if (Array.isArray(projectImages) && projectImages.length > 0) {
+    // If it's an array of image objects with url property
+    if (projectImages[0]?.url) {
+      imageUrls = projectImages
+        .map((img: any) => img.url)
+        .filter((url: string) => url && (url.startsWith('http') || url.startsWith('/')))
+        .slice(0, 3)
+    } 
+    // If it's an array of URL strings
+    else if (typeof projectImages[0] === 'string') {
+      imageUrls = projectImages
+        .filter((url: string) => url && (url.startsWith('http') || url.startsWith('/')))
+        .slice(0, 3)
+    }
   }
   
   // Always ensure we have at least 3 images with fallbacks
+  const fallbackImages = [
+    'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800&h=600&fit=crop&auto=format',
+    'https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=800&h=600&fit=crop&auto=format',
+    'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=600&fit=crop&auto=format'
+  ]
+  
   while (imageUrls.length < 3) {
-    imageUrls.push(`https://images.unsplash.com/photo-${Math.random() > 0.5 ? '1545324418-cc1a3fa10c00' : '1560518883-ce09059eeffa'}?w=800&h=600&fit=crop&auto=format`)
+    imageUrls.push(fallbackImages[imageUrls.length % 3])
   }
   
   return {
@@ -147,8 +162,7 @@ export default async function PropertyDetailPage({ params }: { params: { id: str
       .from('projects')
       .select(`
         *,
-        companies(name),
-        project_images(url)
+        companies(name)
       `)
       .eq('id', params.id)
       .single()
