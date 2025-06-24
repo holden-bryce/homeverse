@@ -199,6 +199,28 @@ class ProjectUpdate(BaseModel):
     total_units: Optional[int] = None
     affordable_units: Optional[int] = None
     ami_levels: Optional[List[str]] = None
+    unit_types: Optional[List[str]] = None
+    price_range: Optional[str] = None
+    monthly_rent: Optional[float] = None
+    bedrooms: Optional[int] = None
+    bathrooms: Optional[float] = None
+    square_feet: Optional[int] = None
+    estimated_delivery: Optional[str] = None
+    amenities: Optional[List[str]] = None
+    pet_policy: Optional[str] = None
+    parking: Optional[str] = None
+    laundry: Optional[str] = None
+    application_fee: Optional[float] = None
+    security_deposit: Optional[float] = None
+    move_in_cost: Optional[float] = None
+    transit_notes: Optional[str] = None
+    school_district: Optional[str] = None
+    walk_score: Optional[int] = None
+    transit_score: Optional[int] = None
+    contact_email: Optional[str] = None
+    contact_phone: Optional[str] = None
+    website: Optional[str] = None
+    developer_name: Optional[str] = None
     status: Optional[str] = None
 
 class UserSettingsUpdate(BaseModel):
