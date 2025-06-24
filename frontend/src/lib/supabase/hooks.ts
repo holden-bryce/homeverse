@@ -593,13 +593,13 @@ export const useApplications = (filters?: any) => {
       const supabase = createClient()
       
       try {
-        // First try with joins
+        // First try with joins - use correct column names
         let query = supabase
           .from('applications')
           .select(`
             *,
             projects(name, address, city, state),
-            applicants(full_name, email, phone)
+            applicants(first_name, last_name, email, phone)
           `)
           .order('submitted_at', { ascending: false })
         

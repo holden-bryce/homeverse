@@ -164,7 +164,10 @@ export function PropertySearchMap({ properties, onPropertySelect, onPropertyHove
 
     // Cleanup
     return () => {
-      map.current?.remove()
+      if (map.current) {
+        map.current.remove()
+        map.current = null
+      }
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -181,6 +184,9 @@ export function PropertySearchMap({ properties, onPropertySelect, onPropertyHove
   // Update markers when properties change
   useEffect(() => {
     console.log('PropertySearchMap: Properties changed, updating markers...', properties.length, 'properties')
+    if (properties.length > 0) {
+      console.log('First property:', properties[0])
+    }
     
     if (!map.current) {
       console.log('PropertySearchMap: Map not initialized yet')

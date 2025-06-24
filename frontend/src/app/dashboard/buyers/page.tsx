@@ -283,6 +283,16 @@ export default function ZillowStyleBuyerPortal() {
         
         console.log('Fetching projects for buyer portal...')
         
+        // First, let's check what columns exist
+        const { data: testProject, error: testError } = await supabase
+          .from('projects')
+          .select('*')
+          .limit(1)
+          .single()
+        
+        console.log('Test project structure:', testProject)
+        console.log('Test project keys:', testProject ? Object.keys(testProject) : 'No project')
+        
         const { data: projects, error } = await supabase
           .from('projects')
           .select('*, companies(name)')
@@ -308,6 +318,8 @@ export default function ZillowStyleBuyerPortal() {
         // Transform database projects to buyer-friendly properties
         const transformedProperties = projects.map(transformProjectToProperty)
         console.log('Transformed properties:', transformedProperties)
+        console.log('First property coordinates:', transformedProperties[0]?.coordinates)
+        console.log('All coordinates:', transformedProperties.map(p => ({ name: p.name, coords: p.coordinates })))
         setProperties(transformedProperties)
         setFilteredProperties(transformedProperties)
       } catch (error) {
