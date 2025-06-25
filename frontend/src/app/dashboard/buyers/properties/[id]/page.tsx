@@ -153,9 +153,12 @@ function transformProjectToProperty(project: any) {
 }
 
 export default async function PropertyDetailPage({ params }: { params: { id: string } }) {
+  // In Next.js 15, params might be a Promise
+  const resolvedParams = await Promise.resolve(params)
+  
   const supabase = createClient()
   
-  console.log('PropertyDetailPage: Loading property with ID:', params.id)
+  console.log('PropertyDetailPage: Loading property with ID:', resolvedParams.id)
   
   try {
     const { data: project, error } = await supabase
@@ -164,7 +167,7 @@ export default async function PropertyDetailPage({ params }: { params: { id: str
         *,
         companies(name)
       `)
-      .eq('id', params.id)
+      .eq('id', resolvedParams.id)
       .single()
     
     console.log('PropertyDetailPage: Database response:', { project, error })
@@ -175,7 +178,7 @@ export default async function PropertyDetailPage({ params }: { params: { id: str
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
           <div className="text-center">
             <h1 className="text-2xl font-bold mb-4">Property Not Found</h1>
-            <p>The property with ID {params.id} could not be found.</p>
+            <p>The property with ID {resolvedParams.id} could not be found.</p>
             <p className="mt-2 text-sm text-gray-600">Error: {error?.message || 'Unknown error'}</p>
           </div>
         </div>

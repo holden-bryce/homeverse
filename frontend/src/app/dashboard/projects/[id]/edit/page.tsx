@@ -26,17 +26,20 @@ async function getProject(id: string) {
 }
 
 export default async function ProjectEditPage({ params }: ProjectEditPageProps) {
+  // In Next.js 15, params might be a Promise
+  const resolvedParams = await Promise.resolve(params)
+  
   // Temporary test to see if route is working
-  console.log('ProjectEditPage called with ID:', params.id)
+  console.log('ProjectEditPage called with ID:', resolvedParams.id)
   
   try {
     const [project, profile] = await Promise.all([
-      getProject(params.id),
+      getProject(resolvedParams.id),
       getUserProfile()
     ])
     
     console.log('ProjectEditPage Debug:')
-    console.log('- Project ID:', params.id)
+    console.log('- Project ID:', resolvedParams.id)
     console.log('- Project found:', !!project)
     console.log('- User profile:', profile ? { id: profile.id, role: profile.role, company_id: profile.company_id } : 'null')
     console.log('- Project company_id:', project?.company_id)
@@ -47,7 +50,7 @@ export default async function ProjectEditPage({ params }: ProjectEditPageProps) 
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
           <div className="text-center">
             <h1 className="text-2xl font-bold mb-4">Project Not Found</h1>
-            <p>The project with ID {params.id} could not be found.</p>
+            <p>The project with ID {resolvedParams.id} could not be found.</p>
           </div>
         </div>
       )

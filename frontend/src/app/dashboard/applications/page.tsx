@@ -103,11 +103,14 @@ const mockApplications: Application[] = [
 export default function ApplicationsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [searchTerm, setSearchTerm] = useState('')
-  const { profile } = useAuth()
+  const { profile, user } = useAuth()
   
-  const { data: applicationsData, isLoading, error, refetch } = useApplications({
-    status: statusFilter === 'all' ? undefined : statusFilter
-  })
+  // Don't pass email filter for developers - they should see all company applications
+  const filters = profile?.role === 'developer' || profile?.role === 'admin' 
+    ? { status: statusFilter === 'all' ? undefined : statusFilter }
+    : { status: statusFilter === 'all' ? undefined : statusFilter, email: user?.email }
+    
+  const { data: applicationsData, isLoading, error, refetch } = useApplications(filters)
   
   const updateApplication = useUpdateApplication()
 

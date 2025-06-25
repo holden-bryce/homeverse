@@ -94,8 +94,11 @@ function ProjectDetailSkeleton() {
 }
 
 export default async function ProjectDetailPage({ params }: ProjectDetailPageProps) {
+  // In Next.js 15, params might be a Promise
+  const resolvedParams = await Promise.resolve(params)
+  
   const [project, profile] = await Promise.all([
-    getProject(params.id),
+    getProject(resolvedParams.id),
     getUserProfile()
   ])
   

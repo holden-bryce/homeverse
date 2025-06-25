@@ -1403,7 +1403,7 @@ async def update_project(
 
 # Contact Form Endpoint
 @app.post("/api/v1/contact")
-async def submit_contact(contact: ContactSubmission):
+async def submit_contact(request: Request):
     """Submit contact form (public)"""
     try:
         # Save to database

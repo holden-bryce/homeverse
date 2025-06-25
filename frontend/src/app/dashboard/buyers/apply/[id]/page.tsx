@@ -45,8 +45,11 @@ async function getProject(id: string) {
 // SubmitButton moved to separate client component
 
 export default async function ApplicationPage({ params }: ApplicationPageProps) {
+  // In Next.js 15, params might be a Promise
+  const resolvedParams = await Promise.resolve(params)
+  
   const [project, profile] = await Promise.all([
-    getProject(params.id),
+    getProject(resolvedParams.id),
     getUserProfile()
   ])
   

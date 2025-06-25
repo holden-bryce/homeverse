@@ -34,6 +34,7 @@ export default async function ProjectsPage() {
     console.error('Error fetching projects:', error)
   }
   
+  
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
