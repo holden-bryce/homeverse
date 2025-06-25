@@ -136,7 +136,7 @@ export default function ApplicationsPage() {
         }
       })
       
-      const statusMessages = {
+      const statusMessages: Record<string, string> = {
         'approved': '✅ Application approved successfully!',
         'rejected': '❌ Application rejected.',
         'under_review': '👀 Application marked for review.',
