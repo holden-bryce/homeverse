@@ -120,6 +120,13 @@ export default function ApplicationsPage() {
     : (!isLoading && !error ? mockApplications : [])
 
   const handleStatusUpdate = async (applicationId: string, newStatus: string, notes?: string) => {
+    // Add confirmation for approve/reject actions
+    if (newStatus === 'approved' || newStatus === 'rejected') {
+      const action = newStatus === 'approved' ? 'approve' : 'reject'
+      const confirmed = window.confirm(`Are you sure you want to ${action} this application? This action cannot be undone.`)
+      if (!confirmed) return
+    }
+    
     try {
       await updateApplication.mutateAsync({
         applicationId,
@@ -129,18 +136,25 @@ export default function ApplicationsPage() {
         }
       })
       
+      const statusMessages = {
+        'approved': '✅ Application approved successfully!',
+        'rejected': '❌ Application rejected.',
+        'under_review': '👀 Application marked for review.',
+        'submitted': '📝 Application status reset to submitted.'
+      }
+      
       toast({
         title: 'Application Updated',
-        description: `Application status updated to ${newStatus}.`,
-        variant: 'success'
+        description: statusMessages[newStatus] || `Application status updated to ${newStatus}.`,
+        variant: newStatus === 'approved' ? 'success' : 'default'
       })
       
       refetch()
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating application:', error)
       toast({
         title: 'Update Failed',
-        description: 'Failed to update application status.',
+        description: error.message || 'Failed to update application status.',
         variant: 'destructive'
       })
     }
@@ -349,7 +363,11 @@ export default function ApplicationsPage() {
                           disabled={updateApplication.isPending}
                           className="bg-green-600 hover:bg-green-700"
                         >
-                          <CheckCircle className="h-4 w-4 mr-1" />
+                          {updateApplication.isPending ? (
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                          ) : (
+                            <CheckCircle className="h-4 w-4 mr-1" />
+                          )}
                           Approve
                         </Button>
                         <Button
@@ -358,7 +376,11 @@ export default function ApplicationsPage() {
                           onClick={() => handleStatusUpdate(application.id, 'rejected', 'Application does not meet current requirements.')}
                           disabled={updateApplication.isPending}
                         >
-                          <XCircle className="h-4 w-4 mr-1" />
+                          {updateApplication.isPending ? (
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                          ) : (
+                            <XCircle className="h-4 w-4 mr-1" />
+                          )}
                           Reject
                         </Button>
                       </>
@@ -372,7 +394,11 @@ export default function ApplicationsPage() {
                           disabled={updateApplication.isPending}
                           className="bg-green-600 hover:bg-green-700"
                         >
-                          <CheckCircle className="h-4 w-4 mr-1" />
+                          {updateApplication.isPending ? (
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                          ) : (
+                            <CheckCircle className="h-4 w-4 mr-1" />
+                          )}
                           Approve
                         </Button>
                         <Button
@@ -381,7 +407,11 @@ export default function ApplicationsPage() {
                           onClick={() => handleStatusUpdate(application.id, 'rejected', 'Application rejected after review.')}
                           disabled={updateApplication.isPending}
                         >
-                          <XCircle className="h-4 w-4 mr-1" />
+                          {updateApplication.isPending ? (
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                          ) : (
+                            <XCircle className="h-4 w-4 mr-1" />
+                          )}
                           Reject
                         </Button>
                       </>

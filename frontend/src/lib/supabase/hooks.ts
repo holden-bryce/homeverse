@@ -653,32 +653,31 @@ export const useUpdateApplication = () => {
   
   return useMutation({
     mutationFn: async ({ applicationId, updateData }: { applicationId: string, updateData: any }) => {
-      const supabase = createClient()
-      
-      // Add metadata for review actions
-      const updates: any = {
-        ...updateData,
-        updated_at: new Date().toISOString()
+      // Get auth token
+      const token = localStorage.getItem('auth-token')
+      if (!token) {
+        throw new Error('No authentication token found')
       }
       
-      if (updateData.status === 'under_review' || updateData.status === 'approved' || updateData.status === 'rejected') {
-        updates.reviewed_by = user?.id
-        updates.reviewed_at = new Date().toISOString()
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+      
+      // Call the backend API to update application
+      const response = await fetch(`${apiUrl}/api/v1/applications/${applicationId}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updateData)
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error('Error updating application:', errorData)
+        throw new Error(errorData.detail || 'Failed to update application')
       }
       
-      const { data, error } = await supabase
-        .from('applications')
-        .update(updates)
-        .eq('id', applicationId)
-        .select()
-        .single()
-      
-      if (error) {
-        console.error('Error updating application:', error)
-        throw new Error('Failed to update application')
-      }
-      
-      return data
+      return response.json()
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['applications'] })
