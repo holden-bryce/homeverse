@@ -798,6 +798,27 @@ async def update_company_settings(settings: CompanySettingsUpdate, user=Depends(
         logger.error(f"Error updating company settings: {e}")
         raise HTTPException(status_code=500, detail="Failed to update company settings")
 
+@app.get("/api/v1/company/settings")
+async def get_company_settings(user=Depends(get_current_user)):
+    """Get company settings"""
+    try:
+        # Get user's company
+        profile_result = supabase.table('profiles').select('company_id').eq('id', user['id']).single().execute()
+        if not profile_result.data or not profile_result.data.get('company_id'):
+            raise HTTPException(status_code=400, detail="User not associated with a company")
+        
+        company_id = profile_result.data['company_id']
+        
+        # Get company details
+        company_result = supabase.table('companies').select('*').eq('id', company_id).single().execute()
+        if not company_result.data:
+            raise HTTPException(status_code=404, detail="Company not found")
+        
+        return company_result.data
+    except Exception as e:
+        logger.error(f"Error getting company settings: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get company settings")
+
 @app.get("/api/v1/analytics/heatmap")
 async def get_heatmap_data(
     data_type: str = "demand",
@@ -1114,7 +1135,15 @@ async def create_applicant(
         applicant_data['company_id'] = user['company_id']
         
         # Combine first_name and last_name into full_name
-        applicant_data['full_name'] = f"{applicant.first_name} {applicant.last_name}"
+        first_name = (applicant.first_name or '').strip()
+        last_name = (applicant.last_name or '').strip()
+        full_name = f"{first_name} {last_name}".strip()
+        
+        # Ensure we have a valid name
+        if not full_name:
+            full_name = "Unknown Applicant"
+        
+        applicant_data['full_name'] = full_name
         # Remove first_name and last_name as they don't exist in database
         applicant_data.pop('first_name', None)
         applicant_data.pop('last_name', None)
@@ -1183,9 +1212,15 @@ async def update_applicant(
             current = supabase.table('applicants').select('full_name').eq('id', applicant_id).single().execute()
             current_parts = current.data['full_name'].split(' ', 1) if current.data.get('full_name') else ['', '']
             
-            first = update_data.pop('first_name', current_parts[0] if len(current_parts) > 0 else '')
-            last = update_data.pop('last_name', current_parts[1] if len(current_parts) > 1 else '')
-            update_data['full_name'] = f"{first} {last}".strip()
+            first = update_data.pop('first_name', current_parts[0] if len(current_parts) > 0 else '').strip()
+            last = update_data.pop('last_name', current_parts[1] if len(current_parts) > 1 else '').strip()
+            full_name = f"{first} {last}".strip()
+            
+            # Ensure we have a valid name
+            if not full_name:
+                full_name = "Unknown Applicant"
+                
+            update_data['full_name'] = full_name
         
         result = supabase.table('applicants').update(update_data).eq('id', applicant_id).execute()
         

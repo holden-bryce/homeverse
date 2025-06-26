@@ -66,8 +66,14 @@ export async function createApplicant(formData: FormData) {
     
     // Match the ACTUAL Supabase schema - split full_name into first/last
     const fullName = formData.get('full_name') as string || ''
-    const nameParts = fullName.trim().split(' ')
-    const firstName = nameParts[0] || ''
+    const trimmedFullName = fullName.trim()
+    
+    if (!trimmedFullName) {
+      throw new Error('Please provide a name for the applicant')
+    }
+    
+    const nameParts = trimmedFullName.split(' ')
+    const firstName = nameParts[0] || 'Unknown'
     const lastName = nameParts.slice(1).join(' ') || ''
     
     const applicantData = {
@@ -120,8 +126,14 @@ export async function updateApplicant(id: string, formData: FormData) {
   
   // Split full_name into first/last
   const fullName = formData.get('full_name') as string || ''
-  const nameParts = fullName.trim().split(' ')
-  const firstName = nameParts[0] || ''
+  const trimmedFullName = fullName.trim()
+  
+  if (!trimmedFullName) {
+    throw new Error('Please provide a name for the applicant')
+  }
+  
+  const nameParts = trimmedFullName.split(' ')
+  const firstName = nameParts[0] || 'Unknown'
   const lastName = nameParts.slice(1).join(' ') || ''
   
   const updateData = {

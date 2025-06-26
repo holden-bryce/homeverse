@@ -494,6 +494,139 @@ export const useActivities = () => {
   })
 }
 
+// User hooks
+export const useCurrentUser = () => {
+  const { user, profile } = useAuth()
+  
+  return useQuery({
+    queryKey: ['currentUser', user?.id],
+    queryFn: async () => {
+      if (!user?.id || !profile) return null
+      
+      return {
+        id: user.id,
+        email: user.email,
+        role: profile.role,
+        full_name: profile.full_name,
+        phone: profile.phone,
+        company_id: profile.company_id,
+      }
+    },
+    enabled: !!user?.id && !!profile
+  })
+}
+
+// Settings hooks
+export const useUserSettings = () => {
+  const { user } = useAuth()
+  
+  return useQuery({
+    queryKey: ['userSettings', user?.id],
+    queryFn: async () => {
+      if (!user?.id) throw new Error('No user ID')
+      
+      // Return default settings structure
+      // In a real implementation, this would fetch from a user_settings table
+      return {
+        notifications: {
+          emailNotifications: true,
+          pushNotifications: false,
+          newMatches: true,
+          projectUpdates: true,
+          applicationUpdates: true,
+          systemMaintenance: true,
+          weeklyReports: true,
+          monthlyReports: false,
+        },
+        privacy: {
+          showProfile: true,
+          allowMessages: true,
+        },
+        display: {
+          theme: 'light',
+          language: 'en',
+          timezone: 'America/Los_Angeles',
+        }
+      }
+    },
+    enabled: !!user?.id
+  })
+}
+
+export const useUpdateUserSettings = () => {
+  const queryClient = useQueryClient()
+  const { user } = useAuth()
+  
+  return useMutation({
+    mutationFn: async (settings: any) => {
+      if (!user?.id) throw new Error('No user ID')
+      
+      // In a real implementation, this would update a user_settings table
+      // For now, we'll just return success
+      return { success: true, data: settings }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['userSettings'] })
+    }
+  })
+}
+
+export const useUpdateUserProfile = () => {
+  const queryClient = useQueryClient()
+  const { user } = useAuth()
+  
+  return useMutation({
+    mutationFn: async (profileData: any) => {
+      if (!user?.id) throw new Error('No user ID')
+      
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({
+          full_name: `${profileData.firstName} ${profileData.lastName}`.trim(),
+          phone: profileData.phone,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id)
+        .select()
+        .single()
+      
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['currentUser'] })
+      queryClient.invalidateQueries({ queryKey: ['profile'] })
+    }
+  })
+}
+
+export const useUpdateCompanySettings = () => {
+  const queryClient = useQueryClient()
+  const { profile } = useAuth()
+  
+  return useMutation({
+    mutationFn: async (companyData: any) => {
+      if (!profile?.company_id) throw new Error('No company ID')
+      
+      const { data, error } = await supabase
+        .from('companies')
+        .update({
+          name: companyData.name,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', profile.company_id)
+        .select()
+        .single()
+      
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['company'] })
+    }
+  })
+}
+
 // Contact form hook
 export const useSubmitContact = () => {
   return useMutation({
@@ -585,11 +718,14 @@ export const useCreateApplication = () => {
 }
 
 export const useApplications = (filters?: any) => {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   
   return useQuery({
-    queryKey: ['applications', filters],
+    queryKey: ['applications', filters, user?.id],
     queryFn: async () => {
+      if (!user) {
+        return { data: [], count: 0 }
+      }
       const supabase = createClient()
       
       try {

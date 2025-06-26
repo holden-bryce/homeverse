@@ -34,6 +34,7 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<any | null>(null)
   const [loading, setLoading] = useState(true)
+  const [profileLoadingRef] = useState({ isLoading: false, userId: null as string | null })
   const router = useRouter()
 
   useEffect(() => {
@@ -106,6 +107,15 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
     try {
       console.log('🔍 Loading profile for user:', userId)
       
+      // Prevent recursive loading
+      if (profileLoadingRef.isLoading && profileLoadingRef.userId === userId && !forceReload) {
+        console.log('Profile already loading for user:', userId)
+        return profile // Return existing profile if available
+      }
+      
+      profileLoadingRef.isLoading = true
+      profileLoadingRef.userId = userId
+      
       // First try to get the profile - simplified approach
       let profileData = null
       
@@ -119,12 +129,19 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
           .eq('id', userId)
           .single()
         
-        // Add a timeout to prevent hanging
+        // Add a longer timeout to prevent hanging (increased from 5s to 15s)
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Profile query timeout')), 5000)
+          setTimeout(() => reject(new Error('Profile query timeout')), 15000)
         )
         
-        const result = await Promise.race([profilePromise, timeoutPromise]) as any
+        let result
+        try {
+          result = await Promise.race([profilePromise, timeoutPromise]) as any
+        } catch (timeoutError) {
+          console.warn('Profile query timed out, attempting direct query...')
+          // Try once more without timeout
+          result = await profilePromise
+        }
         
         if (result?.data) {
           profileData = result.data
@@ -226,6 +243,8 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
     } catch (error) {
       console.error('❌ Error in loadProfile:', error)
       return null
+    } finally {
+      profileLoadingRef.isLoading = false
     }
   }
 
