@@ -78,20 +78,40 @@ export function ProjectMap({
   } | null>(null)
 
   // Fetch heatmap data
-  const { data: heatmapData, isLoading: heatmapLoading } = useQuery({
+  const { data: heatmapData, isLoading: heatmapLoading, error: heatmapError } = useQuery({
     queryKey: ['heatmap', mapBounds, heatmapType],
     queryFn: async () => {
-      if (!mapBounds) return null
+      if (!mapBounds) {
+        console.log('No map bounds available for heatmap')
+        return null
+      }
       
+      // Backend expects bounds in format: lat1,lng1,lat2,lng2
       const bounds = `${mapBounds.south},${mapBounds.west},${mapBounds.north},${mapBounds.east}`
-      return analyticsAPI.getHeatmapData({
-        data_type: heatmapType,
-        bounds: bounds
-      })
+      console.log('Fetching heatmap data with bounds:', bounds, 'Type:', heatmapType)
+      
+      try {
+        const data = await analyticsAPI.getHeatmapData({
+          data_type: heatmapType,
+          bounds: bounds
+        })
+        console.log('Heatmap data received:', data)
+        return data
+      } catch (error) {
+        console.error('Error fetching heatmap data:', error)
+        throw error
+      }
     },
     enabled: showHeatmap && !!mapBounds,
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   })
+  
+  // Log heatmap error
+  useEffect(() => {
+    if (heatmapError) {
+      console.error('Heatmap query error:', heatmapError)
+    }
+  }, [heatmapError])
 
   useEffect(() => {
     if (map.current || !mapContainer.current) return
@@ -181,12 +201,14 @@ export function ProjectMap({
     
     const bounds = map.current.getBounds()
     if (bounds) {
-      setMapBounds({
+      const newBounds = {
         north: bounds.getNorth(),
         south: bounds.getSouth(),
         east: bounds.getEast(),
         west: bounds.getWest()
-      })
+      }
+      console.log('Map bounds updated:', newBounds)
+      setMapBounds(newBounds)
     }
   }
 
@@ -363,7 +385,19 @@ export function ProjectMap({
   }
 
   const addHeatmapLayer = () => {
-    if (!map.current || !heatmapData || !map.current.isStyleLoaded()) return
+    if (!map.current || !heatmapData || !map.current.isStyleLoaded()) {
+      console.log('Cannot add heatmap layer:', { 
+        hasMap: !!map.current, 
+        hasData: !!heatmapData, 
+        isStyleLoaded: map.current?.isStyleLoaded() 
+      })
+      return
+    }
+
+    console.log('Adding heatmap layer with data:', {
+      projects: heatmapData.projects?.length || 0,
+      demand_zones: heatmapData.demand_zones?.length || 0
+    })
 
     try {
       // Remove existing heatmap layers
