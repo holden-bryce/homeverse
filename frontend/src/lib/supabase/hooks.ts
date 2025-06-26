@@ -649,17 +649,22 @@ export const useApplications = (filters?: any) => {
 
 export const useUpdateApplication = () => {
   const queryClient = useQueryClient()
-  const { user } = useAuth()
+  const { user, session } = useAuth()
   
   return useMutation({
     mutationFn: async ({ applicationId, updateData }: { applicationId: string, updateData: any }) => {
-      // Get auth token
-      const token = localStorage.getItem('auth-token')
+      // Get the Supabase session token
+      const { data: { session: currentSession } } = await supabase.auth.getSession()
+      const token = currentSession?.access_token
+      
       if (!token) {
-        throw new Error('No authentication token found')
+        throw new Error('No authentication token found. Please log in again.')
       }
       
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+      
+      console.log('Updating application:', applicationId, updateData)
+      console.log('Using token:', token.substring(0, 20) + '...')
       
       // Call the backend API to update application
       const response = await fetch(`${apiUrl}/api/v1/applications/${applicationId}`, {
@@ -673,8 +678,8 @@ export const useUpdateApplication = () => {
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        console.error('Error updating application:', errorData)
-        throw new Error(errorData.detail || 'Failed to update application')
+        console.error('Error updating application:', response.status, errorData)
+        throw new Error(errorData.detail || `Failed to update application: ${response.status}`)
       }
       
       return response.json()

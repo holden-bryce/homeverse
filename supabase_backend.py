@@ -1267,12 +1267,15 @@ async def get_projects(
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/api/v1/projects")
-@require_role(['developer', 'admin'])
 async def create_project(
     project: ProjectCreate,
     user: dict = Depends(get_current_user)
 ):
     """Create new project (developers only)"""
+    # Check role permissions
+    if user.get('role') not in ['developer', 'admin']:
+        raise HTTPException(status_code=403, detail="Only developers and admins can create projects")
+    
     try:
         project_data = project.dict(exclude_none=True)
         project_data['company_id'] = user['company_id']
@@ -1478,7 +1481,6 @@ async def upload_document(
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/api/v1/projects/{project_id}/images")
-@require_role(['developer', 'admin'])
 async def upload_project_image(
     project_id: str,
     file: UploadFile = File(...),
@@ -1487,6 +1489,9 @@ async def upload_project_image(
     user: dict = Depends(get_current_user)
 ):
     """Upload image for a project"""
+    # Check role permissions
+    if user.get('role') not in ['developer', 'admin']:
+        raise HTTPException(status_code=403, detail="Only developers and admins can upload project images")
     # Verify project exists and belongs to user's company
     project = supabase.table('projects').select('*').eq('id', project_id).eq('company_id', user['company_id']).execute()
     if not project.data:
@@ -1568,13 +1573,15 @@ async def get_project_images(project_id: str):
         return []
 
 @app.delete("/api/v1/projects/{project_id}/images/{image_id}")
-@require_role(['developer', 'admin'])
 async def delete_project_image(
     project_id: str,
     image_id: str,
     user: dict = Depends(get_current_user)
 ):
     """Delete a project image"""
+    # Check role permissions
+    if user.get('role') not in ['developer', 'admin']:
+        raise HTTPException(status_code=403, detail="Only developers and admins can delete project images")
     try:
         # Verify project belongs to user's company
         project = supabase.table('projects').select('*').eq('id', project_id).eq('company_id', user['company_id']).execute()
@@ -1795,13 +1802,16 @@ async def get_applications(
         raise HTTPException(status_code=500, detail="Failed to get applications")
 
 @app.patch("/api/v1/applications/{application_id}")
-@require_role(['developer', 'admin'])
 async def update_application(
     application_id: str,
     update_data: ApplicationUpdate,
     user: dict = Depends(get_current_user)
 ):
     """Update application status (developers only)"""
+    # Check role permissions
+    if user.get('role') not in ['developer', 'admin']:
+        raise HTTPException(status_code=403, detail="Only developers and admins can update applications")
+    
     try:
         # Verify application exists
         app = supabase.table('applications').select('*').eq('id', application_id).single().execute()
@@ -1912,9 +1922,12 @@ async def update_application(
 # Investment Management Endpoints
 
 @app.post("/api/v1/investments")
-@require_role(['lender', 'admin'])
 async def create_investment(investment: InvestmentCreate, user: dict = Depends(get_current_user)):
     """Create a new investment (lenders only)"""
+    # Check role permissions
+    if user.get('role') not in ['lender', 'admin']:
+        raise HTTPException(status_code=403, detail="Only lenders and admins can create investments")
+    
     try:
         investment_data = investment.dict()
         investment_data.update({
@@ -1975,9 +1988,12 @@ async def get_investments(
         raise HTTPException(status_code=500, detail="Failed to get investments")
 
 @app.get("/api/v1/lenders/portfolio")
-@require_role(['lender', 'admin'])
 async def get_lender_portfolio(user: dict = Depends(get_current_user)):
     """Get lender's investment portfolio with analytics"""
+    # Check role permissions
+    if user.get('role') not in ['lender', 'admin']:
+        raise HTTPException(status_code=403, detail="Only lenders and admins can view portfolios")
+    
     try:
         # Get all investments for this lender
         investments = supabase.table('investments').select('*, projects(*)').eq('lender_id', user['id']).execute()
@@ -2010,12 +2026,15 @@ async def get_lender_portfolio(user: dict = Depends(get_current_user)):
 
 # Export endpoints for lenders
 @app.get("/api/v1/lenders/export/portfolio")
-@require_role(['lender', 'admin'])
 async def export_portfolio(
     format: str = "csv",
     user: dict = Depends(get_current_user)
 ):
     """Export lender's portfolio data in specified format"""
+    # Check role permissions
+    if user.get('role') not in ['lender', 'admin']:
+        raise HTTPException(status_code=403, detail="Only lenders and admins can export portfolios")
+    
     try:
         # Get portfolio data
         investments = supabase.table('investments').select(
@@ -2097,13 +2116,16 @@ async def export_portfolio(
         raise HTTPException(status_code=500, detail="Failed to export portfolio")
 
 @app.get("/api/v1/lenders/export/investments")
-@require_role(['lender', 'admin'])
 async def export_investments(
     format: str = "csv",
     status: Optional[str] = None,
     user: dict = Depends(get_current_user)
 ):
     """Export individual investments with optional status filtering"""
+    # Check role permissions
+    if user.get('role') not in ['lender', 'admin']:
+        raise HTTPException(status_code=403, detail="Only lenders and admins can export investments")
+    
     try:
         query = supabase.table('investments').select(
             '*, projects(name, address, city, state, status, total_units, affordable_units)'
@@ -2180,13 +2202,16 @@ async def export_investments(
         raise HTTPException(status_code=500, detail="Failed to export investments")
 
 @app.get("/api/v1/lenders/export/performance")
-@require_role(['lender', 'admin'])
 async def export_performance_report(
     format: str = "csv",
     period: str = "all",
     user: dict = Depends(get_current_user)
 ):
     """Export performance report with ROI analysis"""
+    # Check role permissions
+    if user.get('role') not in ['lender', 'admin']:
+        raise HTTPException(status_code=403, detail="Only lenders and admins can export performance reports")
+    
     try:
         # Get all investments with project data
         investments = supabase.table('investments').select(
