@@ -494,28 +494,6 @@ export const useActivities = () => {
   })
 }
 
-// User hooks
-export const useCurrentUser = () => {
-  const { user, profile } = useAuth()
-  
-  return useQuery({
-    queryKey: ['currentUser', user?.id],
-    queryFn: async () => {
-      if (!user?.id || !profile) return null
-      
-      return {
-        id: user.id,
-        email: user.email,
-        role: profile.role,
-        full_name: profile.full_name,
-        phone: profile.phone,
-        company_id: profile.company_id,
-      }
-    },
-    enabled: !!user?.id && !!profile
-  })
-}
-
 // Settings hooks
 export const useUserSettings = () => {
   const { user } = useAuth()
