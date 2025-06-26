@@ -3,7 +3,7 @@ services:
     name: homeverse-api
     runtime: python
     env: python
-    buildCommand: "pip install --upgrade pip && pip install -r requirements_minimal_supabase.txt"
+    buildCommand: "pip install --upgrade pip && pip install -r requirements_supabase.txt"
     startCommand: "python3 supabase_backend.py"
     region: oregon
     plan: starter
