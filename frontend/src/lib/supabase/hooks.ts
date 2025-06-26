@@ -649,43 +649,87 @@ export const useApplications = (filters?: any) => {
 
 export const useUpdateApplication = () => {
   const queryClient = useQueryClient()
-  const { user, session } = useAuth()
+  const { user, session: authSession } = useAuth()
   
   return useMutation({
     mutationFn: async ({ applicationId, updateData }: { applicationId: string, updateData: any }) => {
-      // Get the Supabase session token
-      const { data: { session: currentSession } } = await supabase.auth.getSession()
-      const token = currentSession?.access_token
-      
-      if (!token) {
-        throw new Error('No authentication token found. Please log in again.')
+      try {
+        // Try multiple ways to get the session token
+        let token = null
+        
+        // Method 1: Get fresh session from Supabase
+        const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession()
+        
+        if (currentSession?.access_token) {
+          token = currentSession.access_token
+          console.log('Got token from fresh session')
+        }
+        
+        // Method 2: Use session from auth context
+        if (!token && authSession?.access_token) {
+          token = authSession.access_token
+          console.log('Got token from auth context')
+        }
+        
+        // Method 3: Try to get user and refresh session
+        if (!token) {
+          const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser()
+          if (currentUser) {
+            console.log('User found, refreshing session...')
+            const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession()
+            if (refreshedSession?.access_token) {
+              token = refreshedSession.access_token
+              console.log('Got token from refreshed session')
+            }
+          }
+        }
+        
+        if (!token) {
+          console.error('No token found after all attempts')
+          console.error('Current session:', currentSession)
+          console.error('Auth session:', authSession)
+          throw new Error('No authentication token found. Please log in again.')
+        }
+        
+        // Use production API URL in production
+        const apiUrl = typeof window !== 'undefined' && window.location.hostname === 'homeverse-frontend.onrender.com'
+          ? 'https://homeverse-api.onrender.com'
+          : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000')
+        
+        console.log('Updating application:', applicationId, updateData)
+        console.log('API URL:', apiUrl)
+        console.log('Using token:', token.substring(0, 20) + '...')
+        
+        // Call the backend API to update application
+        const response = await fetch(`${apiUrl}/api/v1/applications/${applicationId}`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(updateData)
+        })
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}))
+          console.error('Error updating application:', response.status, errorData)
+          throw new Error(errorData.detail || `Failed to update application: ${response.status}`)
+        }
+        
+        const result = await response.json()
+        console.log('Update successful:', result)
+        return result
+      } catch (error) {
+        console.error('Update application error:', error)
+        throw error
       }
-      
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-      
-      console.log('Updating application:', applicationId, updateData)
-      console.log('Using token:', token.substring(0, 20) + '...')
-      
-      // Call the backend API to update application
-      const response = await fetch(`${apiUrl}/api/v1/applications/${applicationId}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(updateData)
-      })
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        console.error('Error updating application:', response.status, errorData)
-        throw new Error(errorData.detail || `Failed to update application: ${response.status}`)
-      }
-      
-      return response.json()
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['applications'] })
+      console.log('Successfully invalidated applications cache')
+    },
+    onError: (error) => {
+      console.error('Mutation error:', error)
     }
   })
 }
