@@ -111,6 +111,7 @@ export default function ApplicationsPage() {
     : { status: statusFilter === 'all' ? undefined : statusFilter, email: user?.email }
     
   const { data: applicationsData, isLoading, error, refetch } = useApplications(filters)
+  const updateApplication = useUpdateApplication()
   
   // Show loading while auth is loading
   if (authLoading) {
@@ -129,8 +130,6 @@ export default function ApplicationsPage() {
       </div>
     )
   }
-  
-  const updateApplication = useUpdateApplication()
 
   // Use real data if available, otherwise use mock data for demo
   const applications = applicationsData?.data && applicationsData.data.length > 0 

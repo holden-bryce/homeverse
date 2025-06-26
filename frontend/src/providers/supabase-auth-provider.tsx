@@ -101,6 +101,7 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
       mounted = false
       subscription.unsubscribe()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const loadProfile = async (userId: string, forceReload: boolean = false) => {
