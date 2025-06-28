@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'
-import { createServiceRoleClient } from '@/lib/supabase/service-role'
 
 // Supabase webhook for database changes
 export async function POST(request: NextRequest) {
