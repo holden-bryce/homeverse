@@ -83,5 +83,6 @@ services:
     region: oregon
     plan: starter
     maxmemoryPolicy: allkeys-lru
+    ipAllowList: []  # Allow all IPs - will be restricted by Render's internal network
 
 # No database needed - using Supabase!
