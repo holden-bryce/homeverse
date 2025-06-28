@@ -6,7 +6,7 @@ import math
 import uuid
 from datetime import datetime
 from typing import Optional, Dict, List, Any
-from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, Form, Request, Header, Form
+from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, Form, Request, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import StreamingResponse
@@ -17,6 +17,18 @@ import uvicorn
 from supabase import create_client, Client
 import jwt
 from functools import wraps
+
+# Rate limiting imports
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from fastapi.responses import JSONResponse
+
+# Encryption imports
+from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+import base64
 
 # Load environment variables
 from dotenv import load_dotenv
@@ -54,6 +66,69 @@ if not all([SUPABASE_URL, SUPABASE_SERVICE_KEY]):
 # Initialize Supabase client
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 logger.info("✅ Supabase client initialized")
+
+# PII Encryption Service
+class PIIEncryption:
+    def __init__(self):
+        # Generate key from environment secret
+        password = os.getenv("ENCRYPTION_KEY", "default-dev-key-change-in-prod").encode()
+        salt = os.getenv("ENCRYPTION_SALT", "default-salt-change-in-prod").encode()
+        
+        kdf = PBKDF2HMAC(
+            algorithm=hashes.SHA256(),
+            length=32,
+            salt=salt,
+            iterations=100000,
+        )
+        key = base64.urlsafe_b64encode(kdf.derive(password))
+        self.cipher = Fernet(key)
+        logger.info("🔐 PII encryption service initialized")
+    
+    def encrypt(self, data: str) -> str:
+        """Encrypt sensitive data"""
+        if not data:
+            return data
+        return self.cipher.encrypt(data.encode()).decode()
+    
+    def decrypt(self, encrypted_data: str) -> str:
+        """Decrypt sensitive data"""
+        if not encrypted_data:
+            return encrypted_data
+        try:
+            return self.cipher.decrypt(encrypted_data.encode()).decode()
+        except:
+            # If decryption fails, data might not be encrypted
+            return encrypted_data
+    
+    def encrypt_dict(self, data: dict, fields: list) -> dict:
+        """Encrypt specific fields in a dictionary"""
+        encrypted_data = data.copy()
+        for field in fields:
+            if field in encrypted_data and encrypted_data[field]:
+                encrypted_data[field] = self.encrypt(str(encrypted_data[field]))
+        return encrypted_data
+    
+    def decrypt_dict(self, data: dict, fields: list) -> dict:
+        """Decrypt specific fields in a dictionary"""
+        decrypted_data = data.copy()
+        for field in fields:
+            if field in decrypted_data and decrypted_data[field]:
+                try:
+                    decrypted_data[field] = self.decrypt(decrypted_data[field])
+                except:
+                    # If decryption fails, data might not be encrypted
+                    pass
+        return decrypted_data
+
+# Initialize encryption service
+pii_encryption = PIIEncryption()
+
+# Define PII fields per table
+PII_FIELDS = {
+    'applicants': ['email', 'phone'],  # SSN field would go here if used
+    'profiles': ['phone'],  # Email is managed by Supabase Auth
+    'contact_submissions': ['email', 'phone']
+}
 
 # Email notification service
 async def send_notification_email(
@@ -117,21 +192,83 @@ async def send_notification_email(
 # FastAPI app
 app = FastAPI(title="HomeVerse API", version="2.0.0")
 
-# CORS configuration
-CORS_ORIGINS = [
+# Rate limiting configuration
+def get_user_id_or_ip(request: Request):
+    """Get user ID for authenticated users, IP for anonymous"""
+    # Try to get authenticated user from header
+    auth = request.headers.get("Authorization")
+    if auth and auth.startswith("Bearer "):
+        try:
+            token = auth.replace("Bearer ", "")
+            # Decode JWT to get user ID (don't verify here, just extract)
+            payload = jwt.decode(token, options={"verify_signature": False})
+            user_id = payload.get("sub")
+            if user_id:
+                return f"user:{user_id}"
+        except:
+            pass
+    # Fall back to IP address
+    forwarded_for = request.headers.get("X-Forwarded-For")
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+# Initialize rate limiter
+limiter = Limiter(
+    key_func=get_user_id_or_ip,
+    default_limits=["1000 per hour"],  # Global default limit
+)
+
+app.state.limiter = limiter
+
+# Custom rate limit handler with user-friendly messages
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    retry_after = exc.limit.reset_after()
+    response = JSONResponse(
+        status_code=429,
+        content={
+            "error": "rate_limit_exceeded",
+            "message": "You've made too many requests. Please wait a moment and try again.",
+            "retry_after": retry_after
+        }
+    )
+    response.headers["Retry-After"] = str(retry_after)
+    response.headers["X-RateLimit-Limit"] = str(exc.limit.limit)
+    response.headers["X-RateLimit-Remaining"] = "0"
+    response.headers["X-RateLimit-Reset"] = str(exc.limit.reset_at)
+    return response
+
+# CORS configuration - Environment-based for security
+# Development CORS
+CORS_ORIGINS_DEV = [
     "http://localhost:3000",
     "http://localhost:3001",
+    "http://127.0.0.1:3000"
+]
+
+# Production CORS
+CORS_ORIGINS_PROD = [
     "https://homeverse-frontend.onrender.com",
     "https://homeverse.com",
     "https://www.homeverse.com"
 ]
 
+# Environment-based selection
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+CORS_ORIGINS = CORS_ORIGINS_DEV if ENVIRONMENT == "development" else CORS_ORIGINS_PROD
+
+# Log CORS configuration for debugging
+logger.info(f"🌐 CORS configured for {ENVIRONMENT} environment with origins: {CORS_ORIGINS}")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-CSRF-Token"],
+    expose_headers=["X-Total-Count"],
+    max_age=3600
 )
 
 # Security
@@ -476,17 +613,18 @@ def calculate_match_score(applicant: Dict, project: Dict) -> Dict:
 
 # Authentication Endpoints
 @app.post("/api/v1/auth/register")
-async def register(request: RegisterRequest):
+@limiter.limit("3 per hour")  # Prevent spam account creation
+async def register(request: Request, register_data: RegisterRequest):
     """Register a new user"""
     try:
         # Check if company exists
-        company = supabase.table('companies').select('*').eq('key', request.company_key).single().execute()
+        company = supabase.table('companies').select('*').eq('key', register_data.company_key).single().execute()
         
         if not company.data:
             # Create new company if it doesn't exist
             company = supabase.table('companies').insert({
-                "name": f"Company {request.company_key}",
-                "key": request.company_key
+                "name": f"Company {register_data.company_key}",
+                "key": register_data.company_key
             }).execute()
             company_id = company.data[0]['id']
         else:
@@ -496,12 +634,12 @@ async def register(request: RegisterRequest):
         # Use admin API to create user (bypasses email confirmation)
         try:
             auth_response = supabase.auth.admin.create_user({
-                "email": request.email,
-                "password": request.password,
+                "email": register_data.email,
+                "password": register_data.password,
                 "email_confirm": True,  # Auto-confirm email
                 "user_metadata": {
-                    "full_name": request.full_name,
-                    "role": request.role,
+                    "full_name": register_data.full_name,
+                    "role": register_data.role,
                     "company_id": company_id
                 }
             })
@@ -512,12 +650,12 @@ async def register(request: RegisterRequest):
             # Fallback to regular signup if admin method fails
             logger.warning(f"Admin create failed, trying regular signup: {str(e)}")
             auth_response = supabase.auth.sign_up({
-                "email": request.email,
-                "password": request.password,
+                "email": register_data.email,
+                "password": register_data.password,
                 "options": {
                     "data": {
                         "full_name": request.full_name,
-                        "role": request.role,
+                        "role": register_data.role,
                         "company_id": company_id
                     }
                 }
@@ -529,8 +667,8 @@ async def register(request: RegisterRequest):
         # Update profile with company_id and role
         profile_update = supabase.table('profiles').update({
             "company_id": company_id,
-            "role": request.role,
-            "full_name": request.full_name
+            "role": register_data.role,
+            "full_name": register_data.full_name
         }).eq('id', auth_response.user.id).execute()
         
         return {
@@ -538,7 +676,7 @@ async def register(request: RegisterRequest):
             "user": {
                 "id": auth_response.user.id,
                 "email": auth_response.user.email,
-                "role": request.role
+                "role": register_data.role
             }
         }
     except Exception as e:
@@ -558,8 +696,8 @@ async def create_user_admin(request: RegisterRequest, user=Depends(get_current_u
         
         if not company.data:
             company = supabase.table('companies').insert({
-                "name": f"Company {request.company_key}",
-                "key": request.company_key
+                "name": f"Company {register_data.company_key}",
+                "key": register_data.company_key
             }).execute()
             company_id = company.data[0]['id']
         else:
@@ -572,7 +710,7 @@ async def create_user_admin(request: RegisterRequest, user=Depends(get_current_u
             "email_confirm": True,
             "user_metadata": {
                 "full_name": request.full_name,
-                "role": request.role,
+                "role": register_data.role,
                 "company_id": company_id
             }
         })
@@ -584,8 +722,8 @@ async def create_user_admin(request: RegisterRequest, user=Depends(get_current_u
         profile = supabase.table('profiles').insert({
             "id": auth_response.user.id,
             "company_id": company_id,
-            "role": request.role,
-            "full_name": request.full_name
+            "role": register_data.role,
+            "full_name": register_data.full_name
         }).execute()
         
         return {
@@ -593,7 +731,7 @@ async def create_user_admin(request: RegisterRequest, user=Depends(get_current_u
             "user": {
                 "id": auth_response.user.id,
                 "email": auth_response.user.email,
-                "role": request.role,
+                "role": register_data.role,
                 "company": company.data.get('name', 'Unknown')
             }
         }
@@ -602,13 +740,14 @@ async def create_user_admin(request: RegisterRequest, user=Depends(get_current_u
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/api/v1/auth/login")
-async def login(request: LoginRequest):
+@limiter.limit("5 per minute")  # Prevent brute force attacks
+async def login(request: Request, login_data: LoginRequest):
     """Login user"""
     try:
         # Authenticate with Supabase
         auth_response = supabase.auth.sign_in_with_password({
-            "email": request.email,
-            "password": request.password
+            "email": login_data.email,
+            "password": login_data.password
         })
         
         if not auth_response.session:
@@ -856,6 +995,10 @@ async def get_heatmap_data(
         
         applicants = applicants_query.execute()
         
+        # Decrypt PII fields for all applicants
+        for i, applicant in enumerate(applicants.data or []):
+            applicants.data[i] = pii_encryption.decrypt_dict(applicant, PII_FIELDS['applicants'])
+        
         # Enhanced project data
         enhanced_projects = []
         for p in projects.data or []:
@@ -977,7 +1120,9 @@ async def get_heatmap_data(
         }
 
 @app.post("/api/v1/contact")
+@limiter.limit("3 per hour")  # Prevent contact form spam
 async def submit_contact_form(
+    request: Request,
     name: str = Form(...),
     email: str = Form(...),
     company: str = Form(None),
@@ -1105,13 +1250,17 @@ async def get_applicants(
         query = query.range(skip, skip + limit - 1)
         result = query.execute()
         
-        # Split full_name back into first_name and last_name for compatibility
+        # Decrypt PII fields and split full_name for compatibility
         applicants = result.data
-        for applicant in applicants:
-            if applicant.get('full_name'):
-                parts = applicant['full_name'].split(' ', 1)
-                applicant['first_name'] = parts[0] if len(parts) > 0 else ''
-                applicant['last_name'] = parts[1] if len(parts) > 1 else ''
+        for i, applicant in enumerate(applicants):
+            # Decrypt PII fields
+            applicants[i] = pii_encryption.decrypt_dict(applicant, PII_FIELDS['applicants'])
+            
+            # Split full_name back into first_name and last_name for compatibility
+            if applicants[i].get('full_name'):
+                parts = applicants[i]['full_name'].split(' ', 1)
+                applicants[i]['first_name'] = parts[0] if len(parts) > 0 else ''
+                applicants[i]['last_name'] = parts[1] if len(parts) > 1 else ''
         
         return {
             "data": applicants,
@@ -1124,7 +1273,9 @@ async def get_applicants(
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/api/v1/applicants")
+@limiter.limit("30 per hour")  # Reasonable limit for data creation
 async def create_applicant(
+    request: Request,
     applicant: ApplicantCreate,
     user: dict = Depends(get_current_user)
 ):
@@ -1133,6 +1284,9 @@ async def create_applicant(
         # Add company_id to applicant data
         applicant_data = applicant.dict()
         applicant_data['company_id'] = user['company_id']
+        
+        # Encrypt PII fields before storage
+        applicant_data = pii_encryption.encrypt_dict(applicant_data, PII_FIELDS['applicants'])
         
         # Combine first_name and last_name into full_name
         first_name = (applicant.first_name or '').strip()
@@ -1177,8 +1331,10 @@ async def get_applicant(
         if not result.data:
             raise HTTPException(status_code=404, detail="Applicant not found")
         
+        # Decrypt PII fields
+        applicant_data = pii_encryption.decrypt_dict(result.data, PII_FIELDS['applicants'])
+        
         # Split full_name back into first_name and last_name for compatibility
-        applicant_data = result.data
         if applicant_data.get('full_name'):
             parts = applicant_data['full_name'].split(' ', 1)
             applicant_data['first_name'] = parts[0] if len(parts) > 0 else ''
@@ -1221,6 +1377,9 @@ async def update_applicant(
                 full_name = "Unknown Applicant"
                 
             update_data['full_name'] = full_name
+        
+        # Encrypt PII fields before updating
+        update_data = pii_encryption.encrypt_dict(update_data, PII_FIELDS['applicants'])
         
         result = supabase.table('applicants').update(update_data).eq('id', applicant_id).execute()
         
@@ -1339,7 +1498,9 @@ async def create_project(
             ).eq('company_id', user['company_id']).eq('status', 'active').execute()
             
             for applicant in matching_applicants.data or []:
-                if applicant.get('email'):
+                # Decrypt PII fields
+                decrypted_applicant = pii_encryption.decrypt_dict(applicant, PII_FIELDS['applicants'])
+                if decrypted_applicant.get('email'):
                     subject = f"🏠 New Affordable Housing: {project.name}"
                     html_content = f"""
                     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -1376,11 +1537,11 @@ async def create_project(
                     """
                     
                     await send_notification_email(
-                        to_email=applicant['email'],
+                        to_email=decrypted_applicant['email'],
                         subject=subject,
                         html_content=html_content,
                         notification_type='new_projects',
-                        user_id=applicant.get('user_id')
+                        user_id=decrypted_applicant.get('user_id')
                     )
                     
         except Exception as e:
@@ -1479,7 +1640,9 @@ async def get_activities(
 
 # File Upload Endpoints
 @app.post("/api/v1/upload/document")
+@limiter.limit("20 per hour")  # Limit file uploads to prevent storage abuse
 async def upload_document(
+    request: Request,
     file: UploadFile = File(...),
     resource_type: str = Form(...),
     resource_id: str = Form(...),
@@ -1646,6 +1809,9 @@ async def get_applicant_matches(applicant_id: str, user: dict = Depends(get_curr
         if not applicant.data:
             raise HTTPException(status_code=404, detail="Applicant not found")
         
+        # Decrypt PII fields
+        applicant.data = pii_encryption.decrypt_dict(applicant.data, PII_FIELDS['applicants'])
+        
         # Get all active projects
         projects = supabase.table('projects').select('*').eq('status', 'active').execute()
         
@@ -1690,9 +1856,11 @@ async def get_project_matches(project_id: str, user: dict = Depends(get_current_
         # Calculate matches
         matches = []
         for applicant in applicants.data or []:
-            match_info = calculate_match_score(applicant, project.data)
+            # Decrypt PII fields for each applicant
+            decrypted_applicant = pii_encryption.decrypt_dict(applicant, PII_FIELDS['applicants'])
+            match_info = calculate_match_score(decrypted_applicant, project.data)
             matches.append({
-                'applicant': applicant,
+                'applicant': decrypted_applicant,
                 'match_score': match_info['match_percentage'],
                 'recommendation': match_info['recommendation'],
                 'breakdown': match_info['breakdown']
@@ -1747,7 +1915,8 @@ async def create_application(application: ApplicationCreate, user: dict = Depend
             
             if project_data.data and applicant_data.data:
                 project = project_data.data
-                applicant = applicant_data.data
+                # Decrypt PII fields for the applicant
+                applicant = pii_encryption.decrypt_dict(applicant_data.data, PII_FIELDS['applicants'])
                 
                 # Find developers in the same company to notify
                 developers = supabase.table('profiles').select('email, full_name').eq('company_id', user['company_id']).eq('role', 'developer').execute()
@@ -2362,9 +2531,15 @@ async def debug_tables(user: dict = Depends(get_current_user)):
         
         for table in tables:
             result = supabase.table(table).select('*').limit(1).execute()
+            sample_data = result.data[0] if result.data else None
+            
+            # Decrypt PII fields for applicants table
+            if table == 'applicants' and sample_data:
+                sample_data = pii_encryption.decrypt_dict(sample_data, PII_FIELDS['applicants'])
+            
             table_info[table] = {
                 "exists": True,
-                "sample": result.data[0] if result.data else None
+                "sample": sample_data
             }
         
         return table_info
