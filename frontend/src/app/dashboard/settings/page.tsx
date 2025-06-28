@@ -127,14 +127,14 @@ export default function SettingsPage() {
       // Update notification settings from backend or use defaults
       if (userSettings?.notifications) {
         setNotificationSettings({
-          emailNotifications: userSettings.notifications?.email_new_applications !== false,
-          pushNotifications: false, // Not implemented yet
-          newMatches: userSettings.notifications?.email_new_matches !== false,
-          projectUpdates: userSettings.notifications?.email_project_updates !== false,
-          applicationUpdates: userSettings.notifications?.email_application_updates !== false,
-          systemMaintenance: userSettings.notifications?.email_system_maintenance !== false,
-          weeklyReports: userSettings.notifications?.email_weekly_report !== false,
-          monthlyReports: userSettings.notifications?.email_monthly_report !== false,
+          emailNotifications: userSettings.notifications.emailNotifications !== false,
+          pushNotifications: userSettings.notifications.pushNotifications || false,
+          newMatches: userSettings.notifications.newMatches !== false,
+          projectUpdates: userSettings.notifications.projectUpdates !== false,
+          applicationUpdates: userSettings.notifications.applicationUpdates !== false,
+          systemMaintenance: userSettings.notifications.systemMaintenance !== false,
+          weeklyReports: userSettings.notifications.weeklyReports !== false,
+          monthlyReports: userSettings.notifications.monthlyReports || false,
         })
       }
 
@@ -183,15 +183,14 @@ export default function SettingsPage() {
         // Update notification preferences
         await updateSettingsMutation.mutateAsync({
           notifications: {
-            email_new_applications: notificationSettings.emailNotifications,
-            email_status_updates: notificationSettings.applicationUpdates,
-            email_new_matches: notificationSettings.newMatches,
-            email_project_updates: notificationSettings.projectUpdates,
-            email_application_updates: notificationSettings.applicationUpdates,
-            email_system_maintenance: notificationSettings.systemMaintenance,
-            email_weekly_report: notificationSettings.weeklyReports,
-            email_monthly_report: notificationSettings.monthlyReports,
-            sms_urgent_updates: false // Not implemented yet
+            emailNotifications: notificationSettings.emailNotifications,
+            pushNotifications: notificationSettings.pushNotifications,
+            newMatches: notificationSettings.newMatches,
+            projectUpdates: notificationSettings.projectUpdates,
+            applicationUpdates: notificationSettings.applicationUpdates,
+            systemMaintenance: notificationSettings.systemMaintenance,
+            weeklyReports: notificationSettings.weeklyReports,
+            monthlyReports: notificationSettings.monthlyReports,
           }
         })
       } else if (section === 'Company') {

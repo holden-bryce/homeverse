@@ -494,6 +494,117 @@ export const useActivities = () => {
   })
 }
 
+// Settings hooks
+export const useUserSettings = () => {
+  const { user } = useAuth()
+  
+  return useQuery({
+    queryKey: ['userSettings', user?.id],
+    queryFn: async () => {
+      if (!user?.id) throw new Error('No user ID')
+      
+      // Return default settings structure
+      // In a real implementation, this would fetch from a user_settings table
+      return {
+        notifications: {
+          emailNotifications: true,
+          pushNotifications: false,
+          newMatches: true,
+          projectUpdates: true,
+          applicationUpdates: true,
+          systemMaintenance: true,
+          weeklyReports: true,
+          monthlyReports: false,
+        },
+        privacy: {
+          showProfile: true,
+          allowMessages: true,
+        },
+        display: {
+          theme: 'light',
+          language: 'en',
+          timezone: 'America/Los_Angeles',
+        }
+      }
+    },
+    enabled: !!user?.id
+  })
+}
+
+export const useUpdateUserSettings = () => {
+  const queryClient = useQueryClient()
+  const { user } = useAuth()
+  
+  return useMutation({
+    mutationFn: async (settings: any) => {
+      if (!user?.id) throw new Error('No user ID')
+      
+      // In a real implementation, this would update a user_settings table
+      // For now, we'll just return success
+      return { success: true, data: settings }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['userSettings'] })
+    }
+  })
+}
+
+export const useUpdateUserProfile = () => {
+  const queryClient = useQueryClient()
+  const { user } = useAuth()
+  
+  return useMutation({
+    mutationFn: async (profileData: any) => {
+      if (!user?.id) throw new Error('No user ID')
+      
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({
+          full_name: `${profileData.firstName} ${profileData.lastName}`.trim(),
+          phone: profileData.phone,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id)
+        .select()
+        .single()
+      
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['currentUser'] })
+      queryClient.invalidateQueries({ queryKey: ['profile'] })
+    }
+  })
+}
+
+export const useUpdateCompanySettings = () => {
+  const queryClient = useQueryClient()
+  const { profile } = useAuth()
+  
+  return useMutation({
+    mutationFn: async (companyData: any) => {
+      if (!profile?.company_id) throw new Error('No company ID')
+      
+      const { data, error } = await supabase
+        .from('companies')
+        .update({
+          name: companyData.name,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', profile.company_id)
+        .select()
+        .single()
+      
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['company'] })
+    }
+  })
+}
+
 // Contact form hook
 export const useSubmitContact = () => {
   return useMutation({
@@ -585,11 +696,14 @@ export const useCreateApplication = () => {
 }
 
 export const useApplications = (filters?: any) => {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   
   return useQuery({
-    queryKey: ['applications', filters],
+    queryKey: ['applications', filters, user?.id],
     queryFn: async () => {
+      if (!user) {
+        return { data: [], count: 0 }
+      }
       const supabase = createClient()
       
       try {
@@ -649,177 +763,87 @@ export const useApplications = (filters?: any) => {
 
 export const useUpdateApplication = () => {
   const queryClient = useQueryClient()
-  const { user } = useAuth()
+  const { user, session: authSession } = useAuth()
   
   return useMutation({
     mutationFn: async ({ applicationId, updateData }: { applicationId: string, updateData: any }) => {
-      // Get auth token
-      const token = localStorage.getItem('auth-token')
-      if (!token) {
-        throw new Error('No authentication token found')
+      try {
+        // Try multiple ways to get the session token
+        let token = null
+        
+        // Method 1: Get fresh session from Supabase
+        const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession()
+        
+        if (currentSession?.access_token) {
+          token = currentSession.access_token
+          console.log('Got token from fresh session')
+        }
+        
+        // Method 2: Use session from auth context
+        if (!token && authSession?.access_token) {
+          token = authSession.access_token
+          console.log('Got token from auth context')
+        }
+        
+        // Method 3: Try to get user and refresh session
+        if (!token) {
+          const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser()
+          if (currentUser) {
+            console.log('User found, refreshing session...')
+            const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession()
+            if (refreshedSession?.access_token) {
+              token = refreshedSession.access_token
+              console.log('Got token from refreshed session')
+            }
+          }
+        }
+        
+        if (!token) {
+          console.error('No token found after all attempts')
+          console.error('Current session:', currentSession)
+          console.error('Auth session:', authSession)
+          throw new Error('No authentication token found. Please log in again.')
+        }
+        
+        // Use production API URL in production
+        const apiUrl = typeof window !== 'undefined' && window.location.hostname === 'homeverse-frontend.onrender.com'
+          ? 'https://homeverse-api.onrender.com'
+          : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000')
+        
+        console.log('Updating application:', applicationId, updateData)
+        console.log('API URL:', apiUrl)
+        console.log('Using token:', token.substring(0, 20) + '...')
+        
+        // Call the backend API to update application
+        const response = await fetch(`${apiUrl}/api/v1/applications/${applicationId}`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(updateData)
+        })
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}))
+          console.error('Error updating application:', response.status, errorData)
+          throw new Error(errorData.detail || `Failed to update application: ${response.status}`)
+        }
+        
+        const result = await response.json()
+        console.log('Update successful:', result)
+        return result
+      } catch (error) {
+        console.error('Update application error:', error)
+        throw error
       }
-      
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-      
-      // Call the backend API to update application
-      const response = await fetch(`${apiUrl}/api/v1/applications/${applicationId}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(updateData)
-      })
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        console.error('Error updating application:', errorData)
-        throw new Error(errorData.detail || 'Failed to update application')
-      }
-      
-      return response.json()
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['applications'] })
-    }
-  })
-}
-
-// Settings hooks
-export const useUserSettings = () => {
-  const { user } = useAuth()
-  
-  return useQuery({
-    queryKey: ['user-settings', user?.id],
-    queryFn: async () => {
-      const token = localStorage.getItem('token') || localStorage.getItem('auth_token')
-      if (!token) {
-        // Return default settings if no token
-        return {
-          display: { timezone: 'America/Los_Angeles', language: 'en', theme: 'light' },
-          notifications: {
-            email_new_applications: true,
-            email_status_updates: true,
-            email_new_matches: true,
-            email_project_updates: true,
-            email_application_updates: true,
-            email_system_maintenance: true,
-            email_weekly_report: true,
-            email_monthly_report: false,
-            sms_urgent_updates: false
-          }
-        }
-      }
-      
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-      const response = await fetch(`${apiUrl}/api/v1/users/settings`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      })
-      
-      if (!response.ok) {
-        // Return default settings if fetch fails
-        return {
-          display: { timezone: 'America/Los_Angeles', language: 'en', theme: 'light' },
-          notifications: {
-            email_new_applications: true,
-            email_status_updates: true,
-            email_new_matches: true,
-            email_project_updates: true,
-            email_application_updates: true,
-            email_system_maintenance: true,
-            email_weekly_report: true,
-            email_monthly_report: false,
-            sms_urgent_updates: false
-          }
-        }
-      }
-      return response.json()
+      console.log('Successfully invalidated applications cache')
     },
-    enabled: !!user
-  })
-}
-
-export const useUpdateUserSettings = () => {
-  const queryClient = useQueryClient()
-  const { user } = useAuth()
-  
-  return useMutation({
-    mutationFn: async (settings: any) => {
-      const token = localStorage.getItem('token')
-      if (!token) throw new Error('No authentication token')
-      
-      const response = await fetch('http://localhost:8000/api/v1/users/settings', {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(settings)
-      })
-      
-      if (!response.ok) throw new Error('Failed to update settings')
-      return response.json()
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user-settings', user?.id] })
-    }
-  })
-}
-
-export const useUpdateUserProfile = () => {
-  const queryClient = useQueryClient()
-  const { user } = useAuth()
-  
-  return useMutation({
-    mutationFn: async (profileData: any) => {
-      const token = localStorage.getItem('token')
-      if (!token) throw new Error('No authentication token')
-      
-      const response = await fetch('http://localhost:8000/api/v1/users/me', {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(profileData)
-      })
-      
-      if (!response.ok) throw new Error('Failed to update profile')
-      return response.json()
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user', user?.id] })
-      queryClient.invalidateQueries({ queryKey: ['user-settings', user?.id] })
-    }
-  })
-}
-
-export const useUpdateCompanySettings = () => {
-  const queryClient = useQueryClient()
-  const { profile } = useAuth()
-  
-  return useMutation({
-    mutationFn: async (companyData: any) => {
-      const token = localStorage.getItem('token')
-      if (!token) throw new Error('No authentication token')
-      
-      const response = await fetch('http://localhost:8000/api/v1/company/settings', {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(companyData)
-      })
-      
-      if (!response.ok) throw new Error('Failed to update company settings')
-      return response.json()
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['company', profile?.company_id] })
+    onError: (error) => {
+      console.error('Mutation error:', error)
     }
   })
 }

@@ -32,7 +32,7 @@
     "framer-motion": "^11.3.8",
     "lucide-react": "^0.414.0",
     "mapbox-gl": "^3.5.2",
-    "next": "14.2.5",
+    "next": "14.2.30",
     "next-auth": "^4.24.7",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

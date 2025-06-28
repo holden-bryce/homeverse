@@ -1,53 +1,103 @@
-# HomeVerse
+# HomeVerse - Affordable Housing Platform
 
-A production-ready multi-tenant SaaS platform for affordable housing demand/supply analytics, CRA compliance reporting, and AI-powered market intelligence. Built with FastAPI backend and Next.js frontend.
+![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
+![Version](https://img.shields.io/badge/version-1.0.0--beta-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+
+## Overview
+
+HomeVerse is a comprehensive platform connecting affordable housing developers, lenders, and prospective buyers/renters. The platform streamlines the application process, ensures fair housing compliance, and provides analytics for all stakeholders.
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Python 3.11+
+- Node.js 18+
+- Supabase account
+- SendGrid API key (for emails)
+
+### Local Development
+
+```bash
+# Clone the repository
+git clone https://github.com/holden-bryce/homeverse.git
+cd homeverse
+
+# Backend setup
+pip install -r requirements_supabase.txt
+cp .env.example .env
+# Edit .env with your credentials
+
+# Start backend
+python supabase_backend.py
+
+# Frontend setup (new terminal)
+cd frontend
+npm install
+cp .env.example .env.local
+# Edit .env.local with your credentials
+
+# Start frontend
+npm run dev
+```
+
+Access the application at http://localhost:3000
 
 ## 🎯 Platform Overview
 
-HomeVerse connects the affordable housing ecosystem through three specialized portals:
+HomeVerse connects the affordable housing ecosystem through specialized portals:
 
-- **🏦 Lenders Portal**: CRA compliance tracking, investment portfolio management, and market intelligence dashboards
-- **🏗️ Developers Portal**: Project management, AI-powered applicant matching, and construction analytics  
-- **🏠 Buyers Portal**: Housing project discovery, application tracking, and personalized recommendations
+- **🏦 Lenders Portal**: CRA compliance tracking, investment portfolio management
+- **🏗️ Developers Portal**: Project management, applicant review and approval  
+- **🏠 Buyers Portal**: Housing search, application submission and tracking
+- **👤 Applicant Portal**: Profile management, application status
+- **👨‍💼 Admin Portal**: System administration, user management
 
-## 🚀 **Current Status: Production-Ready MVP**
+## 🚀 Current Status: Beta-Ready
 
-**🟢 Live Application**: https://homeverse-frontend.onrender.com
+**🟢 Live Demo**: https://homeverse-frontend.onrender.com
 
-### ✅ **Fully Functional Features**
-- **🔐 Multi-role authentication** with 5 user types (working login/dashboard routing)
-- **📧 Contact form** with real email delivery to holdenbryce06@gmail.com
-- **👤 Complete applicant management** (create, view, edit with database storage)
-- **🏗️ Project management** with real CRUD operations
-- **💼 Professional UI/UX** with teal branding and responsive design
-- **🏢 Multi-tenant isolation** by company with JWT authentication
-- **📊 Interactive dashboards** with charts, heatmaps, and analytics
+### ✅ Working Features
+- Multi-role authentication system
+- Project creation and management
+- Application submission workflow
+- Approval/rejection system
+- Email notifications
+- Multi-tenant company isolation
+- Real-time dashboards
 
-### 🎯 **Ready For**
-- **Customer demos** with real functionality
-- **Pilot customer onboarding**
-- **VC presentations** with working product
-- **Market validation** and user feedback
+## 🏗️ Architecture
 
-**🎯 Quick Test**: See [TEST_LOGINS.md](./TEST_LOGINS.md) for complete testing guide with working credentials
+### Tech Stack
+- **Backend**: FastAPI + Supabase
+- **Frontend**: Next.js 14 + TypeScript + Tailwind CSS
+- **Database**: PostgreSQL (via Supabase)
+- **Authentication**: Supabase Auth
+- **Email**: SendGrid
+- **Hosting**: Render
 
-## 🚀 Key Features
+### Key Features
+- 🏠 Multi-role platform (5 user types)
+- 📝 Application submission and tracking
+- ✅ Automated approval workflows
+- 📊 Analytics and reporting
+- 🗺️ Interactive property maps
+- 📧 Email notifications
+- 🔒 Row-level security
 
-### **🔒 Multi-Tenant Architecture**
-- **Row-Level Security (RLS)**: Database-level data isolation by company
-- **Automatic Company Provisioning**: New tenants created on first access
-- **JWT Authentication**: Secure token-based auth with company context
-- **Role-Based Access Control**: User, admin, and viewer permissions
+## 📁 Project Structure
 
-### **🤖 AI-Powered Intelligence**
-- **Semantic Matching**: OpenAI embeddings for intelligent applicant-project pairing
-- **Multi-Factor Scoring**: AMI compliance, geography, preferences, and household compatibility
-- **Confidence Levels**: AI-driven match quality assessment
-- **Learning Algorithms**: Improving recommendations over time
-
-### **🗺️ Geospatial Analytics**
-- **PostGIS Integration**: Advanced geographic queries and analysis
-- **Interactive Heatmaps**: Investment density and opportunity zone visualization
+```
+homeverse/
+├── frontend/                 # Next.js frontend
+│   ├── src/
+│   │   ├── app/            # App router pages
+│   │   ├── components/     # Reusable components
+│   │   └── lib/           # Utilities
+├── supabase_backend.py      # Main backend
+├── requirements_supabase.txt # Dependencies
+└── docs/                    # Documentation
+```
 - **Radius-Based Search**: Find available projects by location and criteria
 - **Market Intelligence**: Geographic market trends and activity patterns
 

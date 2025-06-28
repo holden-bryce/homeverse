@@ -5,6 +5,9 @@ import { createBrowserClient } from '@supabase/ssr'
 import { Eye, Edit } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { ResponsiveTable, type Column } from '@/components/ui/responsive-table'
+import { EmptyStates } from '@/components/ui/empty-state'
 import type { Database } from '@/types/database'
 
 type Applicant = Database['public']['Tables']['applicants']['Row']
@@ -16,6 +19,7 @@ interface RealtimeApplicantsListProps {
 
 export function RealtimeApplicantsList({ initialApplicants, companyId }: RealtimeApplicantsListProps) {
   const [applicants, setApplicants] = useState(initialApplicants)
+  const router = useRouter()
   
   useEffect(() => {
     const supabase = createBrowserClient(
@@ -57,74 +61,79 @@ export function RealtimeApplicantsList({ initialApplicants, companyId }: Realtim
     }
   }, [companyId])
   
-  if (applicants.length === 0) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-gray-500 mb-4">No applicants found</p>
-        <Link href="/dashboard/applicants/new">
-          <Button className="bg-teal-600 hover:bg-teal-700">
-            Add Your First Applicant
-          </Button>
-        </Link>
-      </div>
-    )
-  }
+  const columns: Column<Applicant>[] = [
+    {
+      key: 'full_name',
+      label: 'Name',
+      render: (value) => value || 'No Name'
+    },
+    {
+      key: 'email',
+      label: 'Email',
+      className: 'text-gray-600'
+    },
+    {
+      key: 'phone',
+      label: 'Phone',
+      render: (value) => value || '-',
+      mobileHidden: true
+    },
+    {
+      key: 'income',
+      label: 'Income',
+      render: (value) => value ? `$${value.toLocaleString()}` : '-',
+      className: 'font-medium'
+    },
+    {
+      key: 'ami_percent',
+      label: 'AMI %',
+      render: (value) => value ? `${value}%` : '-',
+      mobileHidden: true
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (value) => (
+        <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
+          value === 'approved' 
+            ? 'bg-green-100 text-green-800'
+            : value === 'rejected'
+            ? 'bg-red-100 text-red-800'
+            : 'bg-yellow-100 text-yellow-800'
+        }`}>
+          {value}
+        </span>
+      )
+    },
+    {
+      key: 'actions',
+      label: 'Actions',
+      render: (_, applicant) => (
+        <div className="flex space-x-2">
+          <Link href={`/dashboard/applicants/${applicant.id}`}>
+            <Button variant="ghost" size="sm" title="View applicant">
+              <Eye className="h-4 w-4" />
+              <span className="sr-only">View</span>
+            </Button>
+          </Link>
+          <Link href={`/dashboard/applicants/${applicant.id}/edit`}>
+            <Button variant="ghost" size="sm" title="Edit applicant">
+              <Edit className="h-4 w-4" />
+              <span className="sr-only">Edit</span>
+            </Button>
+          </Link>
+        </div>
+      )
+    }
+  ]
   
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full">
-        <thead>
-          <tr className="border-b">
-            <th className="text-left py-3 px-4">Name</th>
-            <th className="text-left py-3 px-4">Email</th>
-            <th className="text-left py-3 px-4">Phone</th>
-            <th className="text-left py-3 px-4">Income</th>
-            <th className="text-left py-3 px-4">AMI %</th>
-            <th className="text-left py-3 px-4">Status</th>
-            <th className="text-left py-3 px-4">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {applicants.map((applicant) => (
-            <tr key={applicant.id} className="border-b hover:bg-gray-50 transition-colors">
-              <td className="py-3 px-4">
-                {applicant.full_name || 'No Name'}
-              </td>
-              <td className="py-3 px-4">{applicant.email}</td>
-              <td className="py-3 px-4">{applicant.phone || '-'}</td>
-              <td className="py-3 px-4">
-                {applicant.income ? `$${applicant.income.toLocaleString()}` : '-'}
-              </td>
-              <td className="py-3 px-4">{applicant.ami_percent || '-'}%</td>
-              <td className="py-3 px-4">
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                  applicant.status === 'approved' 
-                    ? 'bg-green-100 text-green-800'
-                    : applicant.status === 'rejected'
-                    ? 'bg-red-100 text-red-800'
-                    : 'bg-yellow-100 text-yellow-800'
-                }`}>
-                  {applicant.status}
-                </span>
-              </td>
-              <td className="py-3 px-4">
-                <div className="flex space-x-2">
-                  <Link href={`/dashboard/applicants/${applicant.id}`}>
-                    <Button variant="ghost" size="sm">
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                  </Link>
-                  <Link href={`/dashboard/applicants/${applicant.id}/edit`}>
-                    <Button variant="ghost" size="sm">
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                  </Link>
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <ResponsiveTable
+      data={applicants}
+      columns={columns}
+      keyExtractor={(applicant) => applicant.id}
+      onRowClick={(applicant) => router.push(`/dashboard/applicants/${applicant.id}`)}
+      emptyState={<EmptyStates.Applicants />}
+    />
   )
 }

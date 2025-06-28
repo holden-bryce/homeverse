@@ -2,7 +2,10 @@
 
 import { createClient } from '@/lib/supabase'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+// Use production API URL when on production domain
+const API_BASE_URL = typeof window !== 'undefined' && window.location.hostname === 'homeverse-frontend.onrender.com'
+  ? 'https://homeverse-api.onrender.com'
+  : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000')
 
 interface ApiOptions extends RequestInit {
   requireAuth?: boolean

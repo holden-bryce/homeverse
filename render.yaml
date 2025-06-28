@@ -1,26 +1,87 @@
 services:
+  # Backend API Service
   - type: web
     name: homeverse-api
     runtime: python
     env: python
-    buildCommand: "pip install --upgrade pip && pip install -r requirements_minimal_supabase.txt"
+    buildCommand: "pip install --upgrade pip && pip install -r requirements_supabase.txt"
     startCommand: "python3 supabase_backend.py"
     region: oregon
     plan: starter
+    healthCheckPath: "/health"
     envVars:
+      # Core Supabase Configuration
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SERVICE_KEY
         sync: false
       - key: SUPABASE_ANON_KEY
         sync: false
+      
+      # Security Configuration (NEW for v2.0.0)
+      - key: ENVIRONMENT
+        value: "production"
+      - key: ENCRYPTION_KEY
+        sync: false  # CRITICAL: Set in Render dashboard
+      - key: ENCRYPTION_SALT
+        sync: false  # CRITICAL: Set in Render dashboard
+      - key: JWT_SECRET_KEY
+        sync: false  # CRITICAL: Set in Render dashboard
+      - key: REDIS_URL
+        sync: false  # For rate limiting
+      
+      # CORS Configuration (Updated for security)
       - key: CORS_ORIGINS
-        value: "*"
+        value: "https://homeverse-frontend.onrender.com,https://homeverse.com"
+      
+      # External Services
       - key: SENDGRID_API_KEY
         sync: false
       - key: OPENAI_API_KEY
         sync: false
+      
+      # System Configuration
       - key: PYTHONPATH
         value: "."
+      - key: LOG_LEVEL
+        value: "info"
+
+  # Frontend Service
+  - type: web
+    name: homeverse-frontend
+    runtime: node
+    env: node
+    buildCommand: "cd frontend && npm ci && npm run build"
+    startCommand: "cd frontend && npm start"
+    region: oregon
+    plan: starter
+    healthCheckPath: "/"
+    envVars:
+      # Public Supabase Configuration
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      
+      # Public API Configuration
+      - key: NEXT_PUBLIC_API_URL
+        value: "https://homeverse-api.onrender.com"
+      
+      # Public Services
+      - key: NEXT_PUBLIC_MAPBOX_TOKEN
+        sync: false
+      
+      # Environment
+      - key: NODE_ENV
+        value: "production"
+      - key: NEXT_PUBLIC_ENVIRONMENT
+        value: "production"
+
+  # Redis service for rate limiting
+  - type: redis
+    name: homeverse-redis
+    region: oregon
+    plan: starter
+    maxmemoryPolicy: allkeys-lru
 
 # No database needed - using Supabase!

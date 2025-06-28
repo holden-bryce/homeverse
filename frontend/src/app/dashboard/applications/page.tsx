@@ -103,7 +103,7 @@ const mockApplications: Application[] = [
 export default function ApplicationsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [searchTerm, setSearchTerm] = useState('')
-  const { profile, user } = useAuth()
+  const { profile, user, loading: authLoading } = useAuth()
   
   // Don't pass email filter for developers - they should see all company applications
   const filters = profile?.role === 'developer' || profile?.role === 'admin' 
@@ -111,8 +111,25 @@ export default function ApplicationsPage() {
     : { status: statusFilter === 'all' ? undefined : statusFilter, email: user?.email }
     
   const { data: applicationsData, isLoading, error, refetch } = useApplications(filters)
-  
   const updateApplication = useUpdateApplication()
+  
+  // Show loading while auth is loading
+  if (authLoading) {
+    return (
+      <div className="p-6">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Applications</h1>
+            <p className="text-gray-600">Review and manage housing applications</p>
+          </div>
+        </div>
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
+          <span className="ml-2 text-gray-600">Loading...</span>
+        </div>
+      </div>
+    )
+  }
 
   // Use real data if available, otherwise use mock data for demo
   const applications = applicationsData?.data && applicationsData.data.length > 0 
