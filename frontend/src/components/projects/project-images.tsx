@@ -13,7 +13,6 @@ import {
   Loader2,
   Star
 } from 'lucide-react'
-import { uploadProjectImage, deleteProjectImage } from '@/app/dashboard/projects/actions'
 
 interface ProjectImage {
   id: string
@@ -27,9 +26,11 @@ interface ProjectImagesProps {
   projectId: string
   images: ProjectImage[]
   canEdit: boolean
+  uploadAction?: (projectId: string, formData: FormData) => Promise<any>
+  deleteAction?: (projectId: string, imageId: string) => Promise<any>
 }
 
-export function ProjectImages({ projectId, images = [], canEdit }: ProjectImagesProps) {
+export function ProjectImages({ projectId, images = [], canEdit, uploadAction, deleteAction }: ProjectImagesProps) {
   const [isUploading, setIsUploading] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const router = useRouter()
@@ -44,7 +45,9 @@ export function ProjectImages({ projectId, images = [], canEdit }: ProjectImages
       const formData = new FormData()
       formData.append('file', file)
       
-      await uploadProjectImage(projectId, formData)
+      if (uploadAction) {
+        await uploadAction(projectId, formData)
+      }
       
       toast({
         title: 'Success',
@@ -72,7 +75,9 @@ export function ProjectImages({ projectId, images = [], canEdit }: ProjectImages
     setDeletingId(imageId)
 
     try {
-      await deleteProjectImage(projectId, imageId)
+      if (deleteAction) {
+        await deleteAction(projectId, imageId)
+      }
       
       toast({
         title: 'Success',
