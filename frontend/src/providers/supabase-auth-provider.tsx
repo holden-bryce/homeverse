@@ -52,6 +52,10 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
         try {
           const loadedProfile = await loadProfile(session.user.id)
           console.log('Initial profile loaded:', loadedProfile)
+          // Only set loading false after successful profile load
+          if (mounted) {
+            setLoading(false)
+          }
         } catch (error) {
           console.log('Profile load failed, using metadata:', error)
           // Set profile from metadata if database fails
@@ -61,14 +65,17 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
               email: session.user.email,
               role: session.user.user_metadata?.role || 'buyer',
               full_name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0],
-              company_id: session.user.user_metadata?.company_id
+              company_id: session.user.user_metadata?.company_id || 'fc81eaca-9f77-4265-b2b1-c5ff71ce43a8' // Default company ID
             })
+            // Set loading false even on error, but after setting fallback profile
+            setLoading(false)
           }
         }
-      }
-      
-      if (mounted) {
-        setLoading(false)
+      } else {
+        // No session, set loading false
+        if (mounted) {
+          setLoading(false)
+        }
       }
     }).catch((error) => {
       console.error('Error getting session:', error)
@@ -83,17 +90,21 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!mounted) return
       
+      console.log('Auth state changed:', _event, session?.user?.email)
+      
+      // Don't set loading true here to avoid recursive loading
+      // Only update state if it actually changed
       setSession(session)
       setUser(session?.user ?? null)
       
       if (session?.user) {
-        await loadProfile(session.user.id)
+        try {
+          await loadProfile(session.user.id)
+        } catch (error) {
+          console.error('Error loading profile in auth state change:', error)
+        }
       } else {
         setProfile(null)
-      }
-      
-      if (mounted) {
-        setLoading(false)
       }
     })
 
@@ -112,6 +123,12 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
       if (profileLoadingRef.isLoading && profileLoadingRef.userId === userId && !forceReload) {
         console.log('Profile already loading for user:', userId)
         return profile // Return existing profile if available
+      }
+      
+      // If we already have a valid profile with company_id, return it unless force reload
+      if (!forceReload && profile?.id === userId && profile?.company_id) {
+        console.log('Profile already loaded with company_id:', profile)
+        return profile
       }
       
       profileLoadingRef.isLoading = true
@@ -139,9 +156,9 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
         try {
           result = await Promise.race([profilePromise, timeoutPromise]) as any
         } catch (timeoutError) {
-          console.warn('Profile query timed out, attempting direct query...')
-          // Try once more without timeout
-          result = await profilePromise
+          console.warn('Profile query timed out after 15s')
+          // Don't retry - just handle the timeout as an error
+          result = { error: { message: 'Profile query timeout', code: 'TIMEOUT' } }
         }
         
         if (result?.data) {

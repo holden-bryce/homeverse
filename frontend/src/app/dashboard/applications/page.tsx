@@ -60,8 +60,8 @@ export default function ApplicationsPage() {
   const { data: applicationsData, isLoading, error, refetch } = useApplications(filters)
   const updateApplication = useUpdateApplication()
   
-  // Show loading while auth is loading
-  if (authLoading) {
+  // Show loading while auth is loading or profile is not ready
+  if (authLoading || (user && !profile)) {
     return (
       <div className="p-6">
         <div className="flex justify-between items-center mb-6">
@@ -72,7 +72,9 @@ export default function ApplicationsPage() {
         </div>
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
-          <span className="ml-2 text-gray-600">Loading...</span>
+          <span className="ml-2 text-gray-600">
+            {authLoading ? 'Loading...' : 'Loading profile...'}
+          </span>
         </div>
       </div>
     )

@@ -699,9 +699,15 @@ export const useApplications = (filters?: any) => {
   const { user, profile } = useAuth()
   
   return useQuery({
-    queryKey: ['applications', filters, user?.id],
+    queryKey: ['applications', filters, user?.id, profile?.company_id],
     queryFn: async () => {
       if (!user) {
+        return { data: [], count: 0 }
+      }
+      
+      // Wait for profile to be loaded with company_id
+      if (!profile?.company_id) {
+        console.log('Profile not ready or missing company_id, skipping query')
         return { data: [], count: 0 }
       }
       const supabase = createClient()
@@ -781,7 +787,7 @@ export const useApplications = (filters?: any) => {
         return { data: [] }
       }
     },
-    enabled: !!user
+    enabled: !!user && !!profile?.company_id
   })
 }
 
