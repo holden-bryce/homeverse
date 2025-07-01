@@ -62,10 +62,23 @@ export async function createApplication(formData: FormData) {
       applicantId = newApplicant.id
     }
     
-    // Create application directly in Supabase
+    // Get the project to determine which company owns it
+    const projectId = formData.get('project_id') as string
+    const { data: project, error: projectError } = await supabase
+      .from('projects')
+      .select('company_id')
+      .eq('id', projectId)
+      .single()
+    
+    if (projectError || !project) {
+      throw new Error('Project not found')
+    }
+    
+    // Create application with the project's company_id, not the applicant's
     const applicationData = {
-      company_id: profile.company_id,
-      project_id: formData.get('project_id') as string,
+      company_id: project.company_id,  // Use project's company_id so developers can see it
+      applicant_company_id: profile.company_id,  // Store applicant's company_id separately if needed
+      project_id: projectId,
       applicant_id: applicantId,
       preferred_move_in_date: formData.get('preferred_move_in_date') as string || null,
       additional_notes: formData.get('additional_notes') as string || null,
@@ -133,11 +146,22 @@ export async function updateApplicationStatus(
     updateData.developer_notes = notes
   }
   
+  // For developers, we need to check if they can update this application
+  // by verifying the application belongs to a project in their company
+  const { data: application } = await supabase
+    .from('applications')
+    .select('project_id, projects(company_id)')
+    .eq('id', applicationId)
+    .single()
+  
+  if (!application || !application.projects || application.projects.company_id !== profile.company_id) {
+    throw new Error('Application not found or access denied')
+  }
+  
   const { error } = await supabase
     .from('applications')
     .update(updateData)
     .eq('id', applicationId)
-    .eq('company_id', profile.company_id)
   
   if (error) {
     console.error('Error updating application:', error)

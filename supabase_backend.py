@@ -1890,10 +1890,20 @@ async def get_project_matches(project_id: str, user: dict = Depends(get_current_
 async def create_application(application: ApplicationCreate, user: dict = Depends(get_current_user)):
     """Create a new application"""
     try:
+        # Get the project to determine which company owns it
+        project_data = supabase.table('projects').select('company_id').eq('id', application.project_id).single().execute()
+        if not project_data.data:
+            raise HTTPException(status_code=404, detail="Project not found")
+        
+        # Use the project's company_id instead of the applicant's company_id
+        # This ensures developers can see applications for their projects
+        project_company_id = project_data.data['company_id']
+        
         application_data = application.dict()
         application_data.update({
             'id': str(uuid.uuid4()),
-            'company_id': user['company_id'],
+            'company_id': project_company_id,  # Use project's company_id
+            'applicant_company_id': user['company_id'],  # Store applicant's company_id separately if needed
             'status': 'submitted',
             'submitted_at': datetime.now().isoformat(),
             'created_at': datetime.now().isoformat(),
@@ -1902,9 +1912,9 @@ async def create_application(application: ApplicationCreate, user: dict = Depend
         
         result = supabase.table('applications').insert(application_data).execute()
         
-        # Log activity
+        # Log activity - use project's company_id so developers can see this activity
         supabase.table('activities').insert({
-            'company_id': user['company_id'],
+            'company_id': project_company_id,  # Use project's company_id
             'user_id': user['id'],
             'action': 'created_application',
             'resource_type': 'application',
@@ -1923,8 +1933,8 @@ async def create_application(application: ApplicationCreate, user: dict = Depend
                 # Decrypt PII fields for the applicant
                 applicant = pii_encryption.decrypt_dict(applicant_data.data, PII_FIELDS['applicants'])
                 
-                # Find developers in the same company to notify
-                developers = supabase.table('profiles').select('email, full_name').eq('company_id', user['company_id']).eq('role', 'developer').execute()
+                # Find developers in the project's company to notify
+                developers = supabase.table('profiles').select('email, full_name').eq('company_id', project_company_id).eq('role', 'developer').execute()
                 
                 for dev in developers.data or []:
                     if dev.get('email'):
