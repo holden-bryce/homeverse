@@ -181,6 +181,11 @@ export function ProjectMap({
         
         // Set initial bounds
         updateMapBounds()
+        
+        // If heatmap is already toggled on, ensure it gets added after map loads
+        if (showHeatmap) {
+          console.log('Heatmap is enabled, will add layer when data is available')
+        }
       })
 
       // Add error handling for map events
@@ -396,8 +401,22 @@ export function ProjectMap({
 
     console.log('Adding heatmap layer with data:', {
       projects: heatmapData.projects?.length || 0,
-      demand_zones: heatmapData.demand_zones?.length || 0
+      demand_zones: heatmapData.demand_zones?.length || 0,
+      statistics: heatmapData.statistics
     })
+
+    // Check if we have valid data points
+    const hasValidProjects = heatmapData.projects?.some((p: any) => 
+      p.lat && p.lng && !isNaN(p.lat) && !isNaN(p.lng)
+    )
+    const hasValidDemandZones = heatmapData.demand_zones?.some((z: any) => 
+      z.lat && z.lng && !isNaN(z.lat) && !isNaN(z.lng)
+    )
+
+    if (!hasValidProjects && !hasValidDemandZones) {
+      console.warn('No valid coordinate data for heatmap')
+      return
+    }
 
     try {
       // Remove existing heatmap layers
@@ -417,41 +436,60 @@ export function ProjectMap({
       // Add project locations
       if (heatmapData.projects) {
         heatmapData.projects.forEach((project: any) => {
-          features.push({
-            type: 'Feature',
-            properties: {
-              type: 'project',
-              name: project.name,
-              value: project.affordable_units / Math.max(project.units, 1),
-              intensity: Math.min(project.affordable_units / 50, 1), // Normalize to 0-1
-              description: `${project.name} - ${project.affordable_units} affordable units`,
-              units: project.units,
-              affordable_units: project.affordable_units,
-            },
-            geometry: {
-              type: 'Point',
-              coordinates: [project.lng, project.lat]
-            }
-          })
+          // Ensure we have valid coordinates
+          const lat = parseFloat(project.lat)
+          const lng = parseFloat(project.lng)
+          
+          if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+            features.push({
+              type: 'Feature',
+              properties: {
+                type: 'project',
+                name: project.name,
+                value: project.affordable_units / Math.max(project.units, 1),
+                intensity: Math.min(project.affordable_units / 50, 1), // Normalize to 0-1
+                description: `${project.name} - ${project.affordable_units} affordable units`,
+                units: project.units,
+                affordable_units: project.affordable_units,
+              },
+              geometry: {
+                type: 'Point',
+                coordinates: [lng, lat]
+              }
+            })
+          } else {
+            console.warn(`Invalid coordinates for project ${project.name}: lat=${lat}, lng=${lng}`)
+          }
         })
       }
 
       // Add demand zones
       if (heatmapData.demand_zones) {
         heatmapData.demand_zones.forEach((zone: any) => {
-          features.push({
-            type: 'Feature',
-            properties: {
-              type: 'demand',
-              value: zone.intensity,
-              intensity: zone.intensity,
-              description: 'Applicant demand zone'
-            },
-            geometry: {
-              type: 'Point',
-              coordinates: [zone.lng, zone.lat]
-            }
-          })
+          // Ensure we have valid coordinates
+          const lat = parseFloat(zone.lat)
+          const lng = parseFloat(zone.lng)
+          
+          if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+            features.push({
+              type: 'Feature',
+              properties: {
+                type: 'demand',
+                value: zone.intensity,
+                intensity: zone.intensity,
+                description: `Demand zone: ${zone.applicant_count || 0} applicants`,
+                applicant_count: zone.applicant_count,
+                avg_income: zone.avg_income,
+                avg_household_size: zone.avg_household_size
+              },
+              geometry: {
+                type: 'Point',
+                coordinates: [lng, lat]
+              }
+            })
+          } else {
+            console.warn(`Invalid coordinates for demand zone: lat=${lat}, lng=${lng}`)
+          }
         })
       }
 
@@ -590,12 +628,31 @@ export function ProjectMap({
 
   // Update heatmap when data or visibility changes
   useEffect(() => {
-    if (!map.current || !map.current.isStyleLoaded()) return
+    if (!map.current) return
 
-    if (showHeatmap && heatmapData) {
-      addHeatmapLayer()
+    // Ensure map style is loaded before adding layers
+    const handleStyleLoad = () => {
+      if (showHeatmap && heatmapData) {
+        console.log('Map style loaded, adding heatmap layer')
+        addHeatmapLayer()
+      }
+    }
+
+    if (map.current.isStyleLoaded()) {
+      if (showHeatmap && heatmapData) {
+        addHeatmapLayer()
+      } else {
+        removeHeatmapLayer()
+      }
     } else {
-      removeHeatmapLayer()
+      // Wait for style to load
+      map.current.once('style.load', handleStyleLoad)
+    }
+
+    return () => {
+      if (map.current && !map.current.isStyleLoaded()) {
+        map.current.off('style.load', handleStyleLoad)
+      }
     }
   }, [showHeatmap, heatmapData]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -740,16 +797,33 @@ export function ProjectMap({
               {showHeatmap && (
                 <div className="space-y-1">
                   <div className="text-xs text-gray-600">
-                    {heatmapLoading ? 'Loading...' : `${heatmapData?.statistics?.total_projects || 0} projects`}
+                    {heatmapLoading ? (
+                      'Loading heatmap data...'
+                    ) : heatmapError ? (
+                      <span className="text-red-600">Error loading data</span>
+                    ) : heatmapData ? (
+                      <>
+                        {heatmapData.statistics?.total_projects || 0} projects
+                        {heatmapData.statistics?.total_applicants ? (
+                          <>, {heatmapData.statistics.total_applicants} applicants</>
+                        ) : null}
+                      </>
+                    ) : (
+                      'No heatmap data available'
+                    )}
                   </div>
-                  <div className="flex items-center space-x-2 text-xs">
-                    <div className="w-3 h-3 bg-teal-500 rounded-full"></div>
-                    <span>Project Supply</span>
-                  </div>
-                  <div className="flex items-center space-x-2 text-xs">
-                    <div className="w-3 h-3 bg-amber-500 rounded-full"></div>
-                    <span>Applicant Demand</span>
-                  </div>
+                  {heatmapData && (heatmapData.projects?.length > 0 || heatmapData.demand_zones?.length > 0) && (
+                    <>
+                      <div className="flex items-center space-x-2 text-xs">
+                        <div className="w-3 h-3 bg-teal-500 rounded-full"></div>
+                        <span>Project Supply</span>
+                      </div>
+                      <div className="flex items-center space-x-2 text-xs">
+                        <div className="w-3 h-3 bg-amber-500 rounded-full"></div>
+                        <span>Applicant Demand</span>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </CardContent>
