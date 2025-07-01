@@ -150,7 +150,10 @@ export async function updateApplicationStatus(
   // by verifying the application belongs to a project in their company
   const { data: application } = await supabase
     .from('applications')
-    .select('project_id, projects(company_id)')
+    .select(`
+      project_id,
+      projects!inner(company_id)
+    `)
     .eq('id', applicationId)
     .single()
   
@@ -161,9 +164,13 @@ export async function updateApplicationStatus(
   // Check if user has permission to update this application
   // Admin can update any, developers can update their company's projects
   if (profile.role === 'developer') {
-    // Type assertion for the joined data
-    const projectData = application.projects as { company_id: string } | null
-    if (!projectData || projectData.company_id !== profile.company_id) {
+    // Type the application data properly
+    const appWithProject = application as { 
+      project_id: string, 
+      projects: { company_id: string } 
+    }
+    
+    if (!appWithProject.projects || appWithProject.projects.company_id !== profile.company_id) {
       throw new Error('Access denied - application belongs to another company')
     }
   } else if (profile.role !== 'admin') {
