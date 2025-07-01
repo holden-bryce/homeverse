@@ -164,8 +164,8 @@ export async function updateApplicationStatus(
   // Check if user has permission to update this application
   // Admin can update any, developers can update their company's projects
   if (profile.role === 'developer') {
-    // Type the application data properly
-    const appWithProject = application as { 
+    // Type the application data properly - use unknown first as TypeScript suggests
+    const appWithProject = application as unknown as { 
       project_id: string, 
       projects: { company_id: string } 
     }
