@@ -29,7 +29,7 @@ export default async function ApplicationsPage() {
     .from('applications')
     .select(`
       *,
-      projects!inner(name),
+      projects(name),
       applicants(first_name, last_name, email, phone)
     `)
     .order('submitted_at', { ascending: false })
@@ -74,10 +74,42 @@ export default async function ApplicationsPage() {
     }
   }
   
-  const { data: applications, error } = await applicationsQuery
+  let { data: applications, error } = await applicationsQuery
+  
+  // If join query fails, try simpler query
+  if (error) {
+    console.error('Error fetching applications with joins:', error)
+    
+    // Try a simpler query without joins
+    const simpleQuery = supabase
+      .from('applications')
+      .select('*')
+      .order('submitted_at', { ascending: false })
+    
+    if (profile.role === 'developer' || profile.role === 'admin') {
+      simpleQuery.eq('company_id', profile.company_id)
+    } else if (profile.role === 'buyer' || profile.role === 'applicant') {
+      const { data: applicant } = await supabase
+        .from('applicants')
+        .select('id')
+        .eq('email', profile.email)
+        .eq('company_id', profile.company_id)
+        .single()
+      
+      if (applicant) {
+        simpleQuery.eq('applicant_id', applicant.id)
+      }
+    }
+    
+    const simpleResult = await simpleQuery
+    if (!simpleResult.error) {
+      applications = simpleResult.data
+      error = null
+    }
+  }
   
   if (error) {
-    console.error('Error fetching applications:', error)
+    console.error('Error fetching applications (all attempts failed):', error)
     return (
       <div className="p-6">
         <div className="flex justify-between items-center mb-6">
