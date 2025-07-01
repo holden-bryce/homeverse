@@ -712,10 +712,15 @@ export const useApplications = (filters?: any) => {
           .from('applications')
           .select(`
             *,
-            projects(name, address, city, state),
+            projects(name, address, city, state, total_units, affordable_units),
             applicants(first_name, last_name, email, phone)
           `)
           .order('submitted_at', { ascending: false })
+        
+        // Filter by company_id to get all applications in the company
+        if (profile?.company_id) {
+          query = query.eq('company_id', profile.company_id)
+        }
         
         if (filters?.status) {
           query = query.eq('status', filters.status)
@@ -726,9 +731,20 @@ export const useApplications = (filters?: any) => {
         if (filters?.applicant_id) {
           query = query.eq('applicant_id', filters.applicant_id)
         }
-        if (filters?.email) {
-          // Join with applicants table to filter by email
-          query = query.eq('applicants.email', filters.email)
+        
+        // For buyers, filter by user email (in the applicants joined table)
+        if (filters?.email || (profile?.role === 'buyer' && user?.email)) {
+          const emailToFilter = filters?.email || user.email
+          // Use a RPC or raw SQL approach for complex joins
+          const { data: applicantIds } = await supabase
+            .from('applicants')
+            .select('id')
+            .eq('email', emailToFilter)
+          
+          if (applicantIds && applicantIds.length > 0) {
+            const ids = applicantIds.map(a => a.id)
+            query = query.in('applicant_id', ids)
+          }
         }
         
         const { data, error } = await query

@@ -90,9 +90,10 @@ export function ApplicationForm({ projectId, projectName, userProfile }: Applica
                 id="email"
                 name="email"
                 type="email"
-                defaultValue={userProfile.email}
+                value={userProfile.email}
+                readOnly
                 required
-                className="rounded-lg border-sage-200"
+                className="rounded-lg border-sage-200 bg-gray-50"
                 disabled={isSubmitting}
               />
             </div>
