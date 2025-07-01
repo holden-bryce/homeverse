@@ -53,30 +53,6 @@ export async function apiBrowserClient(endpoint: string, options: ApiOptions = {
   return response.json()
 }
 
-// Analytics API calls for browser
-export const analyticsAPI = {
-  async getHeatmapData(params: { 
-    data_type?: string; 
-    bounds?: string; 
-  } = {}) {
-    const searchParams = new URLSearchParams()
-    if (params.data_type) searchParams.append('data_type', params.data_type)
-    if (params.bounds) searchParams.append('bounds', params.bounds)
-    
-    const query = searchParams.toString()
-    const endpoint = query ? `/api/v1/analytics/heatmap?${query}` : '/api/v1/analytics/heatmap'
-    
-    return apiBrowserClient(endpoint)
-  },
-
-  async getDeveloperOverview() {
-    return apiBrowserClient('/api/v1/analytics/developer/overview')
-  },
-
-  async getLenderOverview() {
-    return apiBrowserClient('/api/v1/analytics/lender/overview')
-  },
-}
 
 // Matching API calls for browser
 export const matchingAPI = {
@@ -118,5 +94,30 @@ export const applicantsAPI = {
 
   async get(id: string) {
     return apiBrowserClient(`/api/v1/applicants/${id}`)
+  },
+}
+
+// Analytics API calls for browser
+export const analyticsAPI = {
+  async getDeveloperOverview() {
+    return apiBrowserClient('/api/v1/analytics/developer/overview')
+  },
+
+  async getLenderOverview() {
+    return apiBrowserClient('/api/v1/analytics/lender/overview')
+  },
+
+  async getHeatmapData(params: { 
+    data_type?: string; 
+    bounds?: string; 
+  } = {}) {
+    const searchParams = new URLSearchParams()
+    if (params.data_type) searchParams.append('data_type', params.data_type)
+    if (params.bounds) searchParams.append('bounds', params.bounds)
+    
+    const query = searchParams.toString()
+    const endpoint = query ? `/api/v1/analytics/heatmap?${query}` : '/api/v1/analytics/heatmap'
+    
+    return apiBrowserClient(endpoint)
   },
 }

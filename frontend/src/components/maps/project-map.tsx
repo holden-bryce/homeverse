@@ -88,30 +88,42 @@ export function ProjectMap({
       
       // Backend expects bounds in format: lat1,lng1,lat2,lng2
       const bounds = `${mapBounds.south},${mapBounds.west},${mapBounds.north},${mapBounds.east}`
-      console.log('Fetching heatmap data with bounds:', bounds, 'Type:', heatmapType)
+      console.log('🔥 Fetching heatmap data with bounds:', bounds, 'Type:', heatmapType)
+      console.log('🔥 Query enabled conditions:', { showHeatmap, mapBounds: !!mapBounds })
       
       try {
         const data = await analyticsAPI.getHeatmapData({
           data_type: heatmapType,
           bounds: bounds
         })
-        console.log('Heatmap data received:', data)
+        console.log('🔥 Heatmap data received successfully:', {
+          projects: data?.projects?.length || 0,
+          demand_zones: data?.demand_zones?.length || 0,
+          statistics: data?.statistics
+        })
         return data
       } catch (error) {
-        console.error('Error fetching heatmap data:', error)
+        console.error('🔥 Error fetching heatmap data:', error)
         throw error
       }
     },
     enabled: showHeatmap && !!mapBounds,
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    retry: 1, // Only retry once on failure
   })
   
-  // Log heatmap error
+  // Log heatmap error and loading state
   useEffect(() => {
     if (heatmapError) {
       console.error('Heatmap query error:', heatmapError)
     }
-  }, [heatmapError])
+    if (heatmapLoading) {
+      console.log('Heatmap loading...', { showHeatmap, mapBounds })
+    }
+    if (heatmapData) {
+      console.log('Heatmap data received:', heatmapData)
+    }
+  }, [heatmapError, heatmapLoading, heatmapData])
 
   useEffect(() => {
     if (map.current || !mapContainer.current) return
@@ -181,6 +193,14 @@ export function ProjectMap({
         
         // Set initial bounds
         updateMapBounds()
+        
+        // Force initial bounds if they weren't set
+        setTimeout(() => {
+          if (!mapBounds) {
+            console.log('🗺️ Force setting initial bounds after map load')
+            updateMapBounds()
+          }
+        }, 1000)
         
         // If heatmap is already toggled on, ensure it gets added after map loads
         if (showHeatmap) {
@@ -784,15 +804,39 @@ export function ProjectMap({
             <CardContent className="p-3">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium">Heatmap</span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-6 px-2"
-                  onClick={() => onHeatmapToggle?.(!showHeatmap)}
-                >
-                  <Thermometer className="h-3 w-3 mr-1" />
-                  {showHeatmap ? 'Hide' : 'Show'}
-                </Button>
+                <div className="flex space-x-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-6 px-2"
+                    onClick={() => onHeatmapToggle?.(!showHeatmap)}
+                  >
+                    <Thermometer className="h-3 w-3 mr-1" />
+                    {showHeatmap ? 'Hide' : 'Show'}
+                  </Button>
+                  {showHeatmap && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-6 px-1 text-xs"
+                      onClick={async () => {
+                        console.log('🧪 Manual heatmap test triggered')
+                        console.log('🧪 Current bounds:', mapBounds)
+                        try {
+                          const testData = await analyticsAPI.getHeatmapData({
+                            data_type: heatmapType,
+                            bounds: mapBounds ? `${mapBounds.south},${mapBounds.west},${mapBounds.north},${mapBounds.east}` : undefined
+                          })
+                          console.log('🧪 Manual test successful:', testData)
+                        } catch (error) {
+                          console.error('🧪 Manual test failed:', error)
+                        }
+                      }}
+                    >
+                      Test
+                    </Button>
+                  )}
+                </div>
               </div>
               {showHeatmap && (
                 <div className="space-y-1">
