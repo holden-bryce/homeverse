@@ -707,6 +707,9 @@ export const useApplications = (filters?: any) => {
       const supabase = createClient()
       
       try {
+        console.log('useApplications - profile:', profile)
+        console.log('useApplications - user:', user)
+        
         // First try with joins - use correct column names
         let query = supabase
           .from('applications')
@@ -719,6 +722,7 @@ export const useApplications = (filters?: any) => {
         
         // Filter by company_id to get all applications in the company
         if (profile?.company_id) {
+          console.log('Filtering applications by company_id:', profile.company_id)
           query = query.eq('company_id', profile.company_id)
         }
         
@@ -749,6 +753,8 @@ export const useApplications = (filters?: any) => {
         
         const { data, error } = await query
         
+        console.log('Applications query result:', { data, error })
+        
         if (error) {
           console.error('Error fetching applications with joins:', error)
           
@@ -757,6 +763,8 @@ export const useApplications = (filters?: any) => {
             .from('applications')
             .select('*')
             .order('submitted_at', { ascending: false })
+          
+          console.log('Simple query result:', { data: simpleData, error: simpleError })
           
           if (simpleError) {
             console.error('Error fetching applications (simple query):', simpleError)
