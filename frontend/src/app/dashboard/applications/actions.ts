@@ -154,8 +154,20 @@ export async function updateApplicationStatus(
     .eq('id', applicationId)
     .single()
   
-  if (!application || !application.projects || application.projects.company_id !== profile.company_id) {
-    throw new Error('Application not found or access denied')
+  if (!application) {
+    throw new Error('Application not found')
+  }
+  
+  // Check if user has permission to update this application
+  // Admin can update any, developers can update their company's projects
+  if (profile.role === 'developer') {
+    // Type assertion for the joined data
+    const projectData = application.projects as { company_id: string } | null
+    if (!projectData || projectData.company_id !== profile.company_id) {
+      throw new Error('Access denied - application belongs to another company')
+    }
+  } else if (profile.role !== 'admin') {
+    throw new Error('Access denied - insufficient permissions')
   }
   
   const { error } = await supabase
