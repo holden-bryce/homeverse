@@ -17,7 +17,7 @@
 
 | Variable | Description | Value |
 |----------|-------------|-------|
-| `SENDGRID_API_KEY` | SendGrid API key for email delivery | `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` |
+| `RESEND_API_KEY` | Resend API key for email delivery | `re_C2pYVRM7_4Wq5ksZ5PbQGxL5BSi9cDv6w` |
 
 ### Optional Variables (AI/Integration Features)
 
@@ -42,7 +42,7 @@
 
 ### ✅ Required Environment Variables Already Set
 
-1. **SENDGRID_API_KEY** - ✅ Contact form emails working
+1. **RESEND_API_KEY** - ✅ Contact form emails working
 2. **CORS_ORIGINS** - ✅ Frontend can access backend APIs
 3. **JWT_SECRET_KEY** - ✅ Authentication working
 

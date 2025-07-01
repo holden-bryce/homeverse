@@ -26,7 +26,7 @@ def create_render_yaml_fix():
         value: "homeverse_demo.db"
       - key: CORS_ORIGINS
         value: "*"
-      - key: SENDGRID_API_KEY
+      - key: RESEND_API_KEY
         sync: false
 
 databases:

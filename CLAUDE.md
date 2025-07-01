@@ -131,7 +131,7 @@ raise HTTPException(status_code=400, detail="Error message")
 - `REDIS_URL`: Redis connection string (required)
 - `JWT_SECRET_KEY`: JWT signing secret (required)
 - `OPENAI_API_KEY`: OpenAI API key for embeddings (required)
-- `SENDGRID_API_KEY`: Email notifications (optional)
+- `RESEND_API_KEY`: Email notifications (optional)
 - `UNSTRUCTURED_API_KEY`: Document processing (optional)
 
 ### Company Provisioning

@@ -43,13 +43,12 @@ logger = logging.getLogger(__name__)
 
 # SendGrid imports for email functionality
 try:
-    from sendgrid import SendGridAPIClient
-    from sendgrid.helpers.mail import Mail, From, To
-    SENDGRID_AVAILABLE = True
-    logger.info("📧 SendGrid email functionality enabled")
+    import resend
+    RESEND_AVAILABLE = True
+    logger.info("📧 Resend email functionality enabled")
 except ImportError:
-    logger.warning("📧 SendGrid not installed. Email functionality disabled.")
-    SENDGRID_AVAILABLE = False
+    logger.warning("📧 Resend not installed. Email functionality disabled.")
+    RESEND_AVAILABLE = False
 
 # Supabase Configuration
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -57,7 +56,7 @@ SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
 
 # Email Configuration
-SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
+RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 
 if not all([SUPABASE_URL, SUPABASE_SERVICE_KEY]):
     logger.error("Missing Supabase configuration. Please set SUPABASE_URL and SUPABASE_SERVICE_KEY in .env")
@@ -139,8 +138,8 @@ async def send_notification_email(
     user_id: str = None
 ) -> bool:
     """Send email notification with user preference checking"""
-    if not SENDGRID_AVAILABLE or not SENDGRID_API_KEY:
-        logger.warning(f"📧 Email not sent - SendGrid not configured: {subject}")
+    if not RESEND_AVAILABLE or not RESEND_API_KEY:
+        logger.warning(f"📧 Email not sent - Resend not configured: {subject}")
         return False
     
     try:
@@ -158,13 +157,16 @@ async def send_notification_email(
                 logger.warning(f"📧 Could not check user preferences: {e}")
                 # Continue with sending email if preference check fails
         
-        # Send email
-        from_email = From("noreply@homeverse.io", "HomeVerse")
-        to_email_obj = To(to_email)
-        mail = Mail(from_email, to_email_obj, subject, html_content)
+        # Configure Resend
+        resend.api_key = RESEND_API_KEY
         
-        sg = SendGridAPIClient(SENDGRID_API_KEY)
-        response = sg.send(mail)
+        # Send email using Resend
+        response = resend.Emails.send({
+            "from": "HomeVerse <noreply@homeverse.io>",
+            "to": [to_email],
+            "subject": subject,
+            "html": html_content
+        })
         
         logger.info(f"📧 Email sent successfully to {to_email}: {subject}")
         
@@ -1141,10 +1143,10 @@ async def submit_contact_form(
         }).execute()
         
         # Send email notification if configured
-        if SENDGRID_API_KEY:
+        if RESEND_API_KEY:
             try:
-                from_email = From("noreply@homeverse.io")
-                to_email = To("holdenbryce06@gmail.com")
+                resend.api_key = RESEND_API_KEY
+                
                 subject = f"New HomeVerse Contact Form Submission from {name}"
                 
                 html_content = f"""
@@ -1157,23 +1159,26 @@ async def submit_contact_form(
                 <p>{message}</p>
                 """
                 
-                mail = Mail(from_email, to_email, subject, html_content)
-                sg = SendGridAPIClient(SENDGRID_API_KEY)
-                sg.send(mail)
+                # Send notification to admin
+                resend.Emails.send({
+                    "from": "HomeVerse <noreply@homeverse.io>",
+                    "to": ["holdenbryce06@gmail.com"],
+                    "subject": subject,
+                    "html": html_content
+                })
                 
                 # Send auto-reply
-                auto_reply = Mail(
-                    from_email,
-                    To(email),
-                    "Thank you for contacting HomeVerse",
-                    f"""
+                resend.Emails.send({
+                    "from": "HomeVerse <noreply@homeverse.io>",
+                    "to": [email],
+                    "subject": "Thank you for contacting HomeVerse",
+                    "html": f"""
                     <h2>Thank you for reaching out!</h2>
                     <p>Hi {name},</p>
                     <p>We've received your message and will get back to you within 24-48 hours.</p>
                     <p>Best regards,<br>The HomeVerse Team</p>
                     """
-                )
-                sg.send(auto_reply)
+                })
             except Exception as e:
                 logger.error(f"Error sending email: {e}")
         

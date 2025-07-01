@@ -314,7 +314,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 OPENAI_API_KEY=your-openai-api-key-here
 
 # Optional Services
-SENDGRID_API_KEY=your-sendgrid-key
+RESEND_API_KEY=your-resend-key
 UNSTRUCTURED_API_KEY=your-unstructured-key
 MAPBOX_TOKEN=your-mapbox-token
 ```

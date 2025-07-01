@@ -35,7 +35,7 @@ services:
         value: "https://homeverse-frontend.onrender.com,https://homeverse.com"
       
       # External Services
-      - key: SENDGRID_API_KEY
+      - key: RESEND_API_KEY
         sync: false
       - key: OPENAI_API_KEY
         sync: false
