@@ -120,75 +120,77 @@ export async function updateApplicationStatus(
   status: string,
   notes?: string
 ) {
-  const profile = await getUserProfile()
-  if (!profile) {
-    throw new Error('Unauthorized')
-  }
-  
-  // Only developers and admins can update application status
-  if (!['developer', 'admin'].includes(profile.role)) {
-    throw new Error('Insufficient permissions')
-  }
-  
-  const supabase = createClient()
-  
-  const updateData: any = {
-    status,
-    updated_at: new Date().toISOString()
-  }
-  
-  if (status === 'reviewed' || status === 'approved' || status === 'rejected') {
-    updateData.reviewed_by = profile.id
-    updateData.reviewed_at = new Date().toISOString()
-  }
-  
-  if (notes) {
-    updateData.developer_notes = notes
-  }
-  
-  // For developers, we need to check if they can update this application
-  // by verifying the application belongs to a project in their company
-  const { data: application } = await supabase
-    .from('applications')
-    .select(`
-      project_id,
-      projects!inner(company_id)
-    `)
-    .eq('id', applicationId)
-    .single()
-  
-  if (!application) {
-    throw new Error('Application not found')
-  }
-  
-  // Check if user has permission to update this application
-  // Admin can update any, developers can update their company's projects
-  if (profile.role === 'developer') {
-    // Type the application data properly - use unknown first as TypeScript suggests
-    const appWithProject = application as unknown as { 
-      project_id: string, 
-      projects: { company_id: string } 
+  try {
+    console.log('Updating application status:', { applicationId, status, notes })
+    
+    const profile = await getUserProfile()
+    if (!profile) {
+      throw new Error('Unauthorized - no user profile')
     }
     
-    if (!appWithProject.projects || appWithProject.projects.company_id !== profile.company_id) {
-      throw new Error('Access denied - application belongs to another company')
+    console.log('User profile:', { id: profile.id, role: profile.role, company_id: profile.company_id })
+    
+    // Only developers and admins can update application status
+    if (!['developer', 'admin'].includes(profile.role)) {
+      throw new Error('Insufficient permissions - must be developer or admin')
     }
-  } else if (profile.role !== 'admin') {
-    throw new Error('Access denied - insufficient permissions')
+    
+    const supabase = createClient()
+    
+    const updateData: any = {
+      status,
+      updated_at: new Date().toISOString()
+    }
+    
+    if (status === 'reviewed' || status === 'approved' || status === 'rejected') {
+      updateData.reviewed_by = profile.id
+      updateData.reviewed_at = new Date().toISOString()
+    }
+    
+    if (notes) {
+      updateData.developer_notes = notes
+    }
+    
+    console.log('Update data:', updateData)
+    
+    // Simple permission check - just verify application exists and user has right company
+    if (profile.role === 'developer') {
+      const { data: application, error: applicationError } = await supabase
+        .from('applications')
+        .select('company_id')
+        .eq('id', applicationId)
+        .single()
+      
+      if (applicationError) {
+        console.error('Error fetching application for permission check:', applicationError)
+        throw new Error('Application not found or access denied')
+      }
+      
+      if (!application || application.company_id !== profile.company_id) {
+        throw new Error('Access denied - application belongs to another company')
+      }
+    }
+    
+    // Perform the update
+    const { error } = await supabase
+      .from('applications')
+      .update(updateData)
+      .eq('id', applicationId)
+    
+    if (error) {
+      console.error('Error updating application:', error)
+      throw new Error(`Failed to update application: ${error.message}`)
+    }
+    
+    console.log('Application updated successfully')
+    
+    revalidatePath('/dashboard/applications')
+    return { success: true }
+    
+  } catch (error) {
+    console.error('Error in updateApplicationStatus:', error)
+    throw error
   }
-  
-  const { error } = await supabase
-    .from('applications')
-    .update(updateData)
-    .eq('id', applicationId)
-  
-  if (error) {
-    console.error('Error updating application:', error)
-    throw new Error(error.message)
-  }
-  
-  revalidatePath('/dashboard/applications')
-  return { success: true }
 }
 
 export async function deleteApplication(id: string) {
