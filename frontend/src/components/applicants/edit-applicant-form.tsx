@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { ArrowLeft, Save } from 'lucide-react'
 import Link from 'next/link'
 import { updateApplicant } from '@/app/dashboard/applicants/actions'
-import { useToast } from '@/components/ui/use-toast'
+import { useToast } from '@/components/ui/toast'
 
 interface EditApplicantFormProps {
   applicant: {

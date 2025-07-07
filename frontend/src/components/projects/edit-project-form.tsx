@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { ArrowLeft, Save } from 'lucide-react'
 import Link from 'next/link'
 import { updateProject } from '@/app/dashboard/projects/actions'
-import { useToast } from '@/components/ui/use-toast'
+import { useToast } from '@/components/ui/toast'
 
 interface EditProjectFormProps {
   project: {
