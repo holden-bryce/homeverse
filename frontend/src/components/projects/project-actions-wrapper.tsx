@@ -25,16 +25,15 @@ export function ProjectActionsWrapper({ project, profile }: ProjectActionsWrappe
 
   return (
     <div className="flex gap-2">
-      <Button
-        variant="outline"
-        className="border-sage-200 text-sage-700 hover:bg-sage-50"
-        asChild
-      >
-        <Link href={`/dashboard/projects/${project.id}/edit`}>
+      <Link href={`/dashboard/projects/${project.id}/edit`}>
+        <Button
+          variant="outline"
+          className="border-sage-200 text-sage-700 hover:bg-sage-50"
+        >
           <Edit className="h-4 w-4 mr-2" />
           Edit
-        </Link>
-      </Button>
+        </Button>
+      </Link>
       <ProjectActions project={project} />
     </div>
   )
