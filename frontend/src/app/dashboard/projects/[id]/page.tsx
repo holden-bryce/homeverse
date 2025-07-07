@@ -21,7 +21,7 @@ import {
   Trash2,
   FileText
 } from 'lucide-react'
-import { ProjectActions } from '@/components/projects/project-actions'
+import { ProjectActionsWrapper } from '@/components/projects/project-actions-wrapper'
 
 interface ProjectDetailPageProps {
   params: {
@@ -56,28 +56,6 @@ async function getProject(id: string) {
   }
 }
 
-function ProjectActionsGroup({ project, profile }: { project: any, profile: any }) {
-  const canEdit = profile?.role && ['developer', 'admin'].includes(profile.role) && 
-                  profile.company_id === project.company_id
-
-  if (!canEdit) return null
-
-  return (
-    <div className="flex gap-2">
-      <Button
-        variant="outline"
-        className="border-sage-200 text-sage-700 hover:bg-sage-50"
-        asChild
-      >
-        <Link href={`/dashboard/projects/${project.id}/edit`}>
-          <Edit className="h-4 w-4 mr-2" />
-          Edit
-        </Link>
-      </Button>
-      <ProjectActions project={project} />
-    </div>
-  )
-}
 
 // Simple Images Display Component (no upload/delete for now)
 function ProjectImagesDisplay({ images }: { images: any[] }) {
@@ -199,7 +177,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
               </div>
             </div>
             <div className="flex gap-3">
-              <ProjectActionsGroup project={project} profile={profile} />
+              <ProjectActionsWrapper project={project} profile={profile} />
             </div>
           </div>
 
