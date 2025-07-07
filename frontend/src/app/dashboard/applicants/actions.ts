@@ -77,8 +77,7 @@ export async function createApplicant(formData: FormData) {
     const lastName = nameParts.slice(1).join(' ') || ''
     
     const applicantData = {
-      first_name: firstName,
-      last_name: lastName,
+      full_name: trimmedFullName,
       email: formData.get('email') as string,
       phone: formData.get('phone') as string || null,
       household_size: parseInt(formData.get('household_size') as string) || 1,
@@ -137,8 +136,7 @@ export async function updateApplicant(id: string, formData: FormData) {
   const lastName = nameParts.slice(1).join(' ') || ''
   
   const updateData = {
-    first_name: firstName,
-    last_name: lastName,
+    full_name: trimmedFullName,
     email: formData.get('email') as string,
     phone: formData.get('phone') as string || null,
     household_size: parseInt(formData.get('household_size') as string) || 1,
