@@ -51,7 +51,9 @@ export default async function ApplicationDetailPage({ params }: ApplicationDetai
   const supabase = createClient()
   
   // Get application with all related data
-  const { data: application, error } = await supabase
+  let application = null
+  
+  const { data: joinedApplication, error } = await supabase
     .from('applications')
     .select(`
       *,
@@ -85,7 +87,7 @@ export default async function ApplicationDetailPage({ params }: ApplicationDetai
     .single()
   
   // If error fetching with joins, try separate queries
-  if (error || !application) {
+  if (error || !joinedApplication) {
     console.log('Join query failed, trying separate queries...', error?.message)
     
     // Get application first
@@ -140,13 +142,12 @@ export default async function ApplicationDetailPage({ params }: ApplicationDetai
       applicants: applicantData,
       projects: projectData
     }
-    
-    console.log('Combined application data:', {
-      hasApplicant: !!applicantData,
-      hasProject: !!projectData,
-      applicantName: applicantData ? `${applicantData.first_name} ${applicantData.last_name}` : 'None',
-      projectName: projectData?.name || 'None'
-    })
+  } else {
+    application = joinedApplication
+  }
+  
+  if (!application) {
+    notFound()
   }
   
   // Check permissions
