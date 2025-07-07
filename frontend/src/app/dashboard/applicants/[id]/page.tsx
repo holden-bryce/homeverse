@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import { ArrowLeft, Edit, Mail, Phone, Users, DollarSign, MapPin, Trash2 } from 'lucide-react'
 import { ApplicantActions } from '@/components/applicants/applicant-actions'
+import { ApplicantDetailActions } from '@/components/applicants/applicant-detail-actions'
 
 interface ApplicantDetailPageProps {
   params: {
@@ -214,13 +215,7 @@ export default async function ApplicantDetailPage({ params }: ApplicantDetailPag
                     View Matches
                   </Button>
                 </Link>
-                <Button
-                  variant="outline"
-                  onClick={() => window.open(`mailto:${applicant.email}`, '_blank')}
-                >
-                  <Mail className="h-4 w-4 mr-2" />
-                  Send Email
-                </Button>
+                <ApplicantDetailActions email={applicant.email} />
                 {canEdit && (
                   <Link href={`/dashboard/applicants/${resolvedParams.id}/edit`}>
                     <Button className="bg-teal-600 hover:bg-teal-700">
