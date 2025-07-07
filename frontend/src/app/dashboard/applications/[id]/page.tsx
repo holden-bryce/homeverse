@@ -84,20 +84,69 @@ export default async function ApplicationDetailPage({ params }: ApplicationDetai
     .eq('id', params.id)
     .single()
   
-  // If error fetching with joins, try simpler query
+  // If error fetching with joins, try separate queries
   if (error || !application) {
-    const { data: simpleApp } = await supabase
+    console.log('Join query failed, trying separate queries...', error?.message)
+    
+    // Get application first
+    const { data: simpleApp, error: appError } = await supabase
       .from('applications')
       .select('*')
       .eq('id', params.id)
       .single()
     
-    if (!simpleApp) {
+    if (appError || !simpleApp) {
+      console.error('Failed to fetch application:', appError)
       notFound()
     }
     
-    // For simple app, we'll show limited info
-    return <SimpleApplicationView application={simpleApp} profile={profile} />
+    // Try to get related data separately
+    let applicantData = null
+    let projectData = null
+    
+    if (simpleApp.applicant_id) {
+      console.log('Fetching applicant data for ID:', simpleApp.applicant_id)
+      const { data: applicant, error: applicantError } = await supabase
+        .from('applicants')
+        .select('*')
+        .eq('id', simpleApp.applicant_id)
+        .single()
+      
+      if (applicantError) {
+        console.error('Failed to fetch applicant:', applicantError)
+      } else {
+        applicantData = applicant
+      }
+    }
+    
+    if (simpleApp.project_id) {
+      console.log('Fetching project data for ID:', simpleApp.project_id)
+      const { data: project, error: projectError } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('id', simpleApp.project_id)
+        .single()
+      
+      if (projectError) {
+        console.error('Failed to fetch project:', projectError)
+      } else {
+        projectData = project
+      }
+    }
+    
+    // Combine the data
+    application = {
+      ...simpleApp,
+      applicants: applicantData,
+      projects: projectData
+    }
+    
+    console.log('Combined application data:', {
+      hasApplicant: !!applicantData,
+      hasProject: !!projectData,
+      applicantName: applicantData ? `${applicantData.first_name} ${applicantData.last_name}` : 'None',
+      projectName: projectData?.name || 'None'
+    })
   }
   
   // Check permissions
@@ -168,6 +217,91 @@ export default async function ApplicationDetailPage({ params }: ApplicationDetai
     }).format(amount)
   }
   
+  // Check if we have the minimum required data
+  const hasMinimumData = application && (application.applicants || application.projects || application.additional_notes)
+  
+  // If we don't have enough data, show a comprehensive fallback view
+  if (!hasMinimumData) {
+    return (
+      <div className="p-6 max-w-4xl mx-auto">
+        <Link href="/dashboard/applications">
+          <Button variant="ghost" size="sm" className="mb-4">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Applications
+          </Button>
+        </Link>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle>Application #{application.id.slice(0, 8)}</CardTitle>
+            <CardDescription>
+              Complete application data (fallback view)
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-6">
+              {/* Application Core Data */}
+              <div>
+                <h3 className="font-semibold mb-2">Application Details</h3>
+                <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+                  <p><span className="font-medium">Status:</span> {application.status}</p>
+                  <p><span className="font-medium">Submitted:</span> {new Date(application.submitted_at).toLocaleString()}</p>
+                  {application.reviewed_at && (
+                    <p><span className="font-medium">Reviewed:</span> {new Date(application.reviewed_at).toLocaleString()}</p>
+                  )}
+                  {application.preferred_move_in_date && (
+                    <p><span className="font-medium">Preferred Move-in:</span> {new Date(application.preferred_move_in_date).toLocaleDateString()}</p>
+                  )}
+                  {application.additional_notes && (
+                    <div>
+                      <p className="font-medium">Applicant Notes:</p>
+                      <p className="mt-1 text-gray-700">{application.additional_notes}</p>
+                    </div>
+                  )}
+                  {application.developer_notes && (
+                    <div className="mt-2">
+                      <p className="font-medium">Developer Notes:</p>
+                      <p className="mt-1 text-gray-700">{application.developer_notes}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Raw Data Dump */}
+              <div>
+                <h3 className="font-semibold mb-2">Complete Raw Data</h3>
+                <pre className="bg-gray-100 p-4 rounded-lg overflow-auto text-xs">
+                  {JSON.stringify(application, null, 2)}
+                </pre>
+              </div>
+              
+              {/* IDs for manual lookup */}
+              <div>
+                <h3 className="font-semibold mb-2">Related IDs</h3>
+                <div className="bg-blue-50 p-4 rounded-lg space-y-1">
+                  <p className="text-sm"><span className="font-medium">Application ID:</span> {application.id}</p>
+                  <p className="text-sm"><span className="font-medium">Applicant ID:</span> {application.applicant_id || 'None'}</p>
+                  <p className="text-sm"><span className="font-medium">Project ID:</span> {application.project_id || 'None'}</p>
+                  <p className="text-sm"><span className="font-medium">Company ID:</span> {application.company_id || 'None'}</p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Actions */}
+            {canUpdateStatus && (
+              <div className="mt-6 pt-6 border-t">
+                <ApplicationActions 
+                  applicationId={application.id}
+                  currentStatus={application.status}
+                />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+  
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <div className="mb-6">
@@ -217,7 +351,9 @@ export default async function ApplicationDetailPage({ params }: ApplicationDetai
                 <div>
                   <p className="text-sm text-gray-500">Full Name</p>
                   <p className="font-medium">
-                    {application.applicants?.first_name} {application.applicants?.last_name}
+                    {application.applicants?.first_name || application.applicants?.last_name ? 
+                      `${application.applicants?.first_name || ''} ${application.applicants?.last_name || ''}`.trim() :
+                      'Not provided'}
                   </p>
                 </div>
                 
@@ -293,60 +429,78 @@ export default async function ApplicationDetailPage({ params }: ApplicationDetai
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div>
-                <p className="text-sm text-gray-500">Project Name</p>
-                <p className="font-medium text-lg">{application.projects?.name}</p>
-              </div>
-              
-              <div>
-                <p className="text-sm text-gray-500">Address</p>
-                <p className="font-medium">
-                  {application.projects?.address}<br />
-                  {application.projects?.city}, {application.projects?.state} {application.projects?.zip_code}
-                </p>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-gray-500">Total Units</p>
-                  <p className="font-medium flex items-center gap-2">
-                    <Home className="h-4 w-4 text-gray-400" />
-                    {application.projects?.total_units || 'N/A'}
-                  </p>
-                </div>
-                
-                <div>
-                  <p className="text-sm text-gray-500">Affordable Units</p>
-                  <p className="font-medium flex items-center gap-2">
-                    <Home className="h-4 w-4 text-gray-400" />
-                    {application.projects?.affordable_units || 'N/A'}
-                  </p>
-                </div>
-              </div>
-              
-              {(application.projects?.min_income || application.projects?.max_income) && (
-                <div>
-                  <p className="text-sm text-gray-500">Income Range</p>
-                  <p className="font-medium">
-                    {formatCurrency(application.projects?.min_income)} - {formatCurrency(application.projects?.max_income)}
-                  </p>
+              {application.projects ? (
+                <>
+                  <div>
+                    <p className="text-sm text-gray-500">Project Name</p>
+                    <p className="font-medium text-lg">{application.projects.name || 'Unnamed Project'}</p>
+                  </div>
+                  
+                  <div>
+                    <p className="text-sm text-gray-500">Address</p>
+                    <p className="font-medium">
+                      {application.projects.address || 'No address'}<br />
+                      {application.projects.city || 'City'}, {application.projects.state || 'ST'} {application.projects.zip_code || '00000'}
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-4 text-gray-500">
+                  <Building2 className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                  <p>No project information available</p>
+                  {application.project_id && (
+                    <p className="text-xs mt-1">Project ID: {application.project_id}</p>
+                  )}
                 </div>
               )}
               
-              {application.projects?.description && (
-                <div>
-                  <p className="text-sm text-gray-500">Description</p>
-                  <p className="text-gray-700">{application.projects.description}</p>
-                </div>
+              {application.projects && (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-500">Total Units</p>
+                      <p className="font-medium flex items-center gap-2">
+                        <Home className="h-4 w-4 text-gray-400" />
+                        {application.projects.total_units || 'N/A'}
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <p className="text-sm text-gray-500">Affordable Units</p>
+                      <p className="font-medium flex items-center gap-2">
+                        <Home className="h-4 w-4 text-gray-400" />
+                        {application.projects.affordable_units || 'N/A'}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {(application.projects.min_income || application.projects.max_income) && (
+                    <div>
+                      <p className="text-sm text-gray-500">Income Range</p>
+                      <p className="font-medium">
+                        {formatCurrency(application.projects.min_income)} - {formatCurrency(application.projects.max_income)}
+                      </p>
+                    </div>
+                  )}
+                  
+                  {application.projects.description && (
+                    <div>
+                      <p className="text-sm text-gray-500">Description</p>
+                      <p className="text-gray-700">{application.projects.description}</p>
+                    </div>
+                  )}
+                </>
               )}
               
-              <div className="pt-2">
-                <Link href={`/dashboard/projects/${application.project_id}`}>
-                  <Button variant="outline" size="sm">
-                    View Project Details
-                  </Button>
-                </Link>
-              </div>
+              {application.project_id && (
+                <div className="pt-2">
+                  <Link href={`/dashboard/projects/${application.project_id}`}>
+                    <Button variant="outline" size="sm">
+                      View Project Details
+                    </Button>
+                  </Link>
+                </div>
+              )}
             </CardContent>
           </Card>
           
@@ -519,6 +673,26 @@ export default async function ApplicationDetailPage({ params }: ApplicationDetai
               )}
             </CardContent>
           </Card>
+          
+          {/* Debug Info - Remove in production */}
+          {process.env.NODE_ENV === 'development' && (
+            <Card className="border-orange-200 bg-orange-50">
+              <CardHeader>
+                <CardTitle className="text-orange-800">Debug Info</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <pre className="text-xs overflow-auto">
+                  {JSON.stringify({
+                    hasApplicantData: !!application.applicants,
+                    hasProjectData: !!application.projects,
+                    applicantFields: application.applicants ? Object.keys(application.applicants) : [],
+                    projectFields: application.projects ? Object.keys(application.projects) : [],
+                    applicationFields: Object.keys(application),
+                  }, null, 2)}
+                </pre>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>
