@@ -125,6 +125,12 @@ export async function updateProject(id: string, formData: FormData) {
   
   const supabase = createClient()
   
+  // Helper function to parse comma-separated values
+  const parseCommaSeparated = (value: string | null): string[] => {
+    if (!value) return []
+    return value.split(',').map(item => item.trim()).filter(item => item.length > 0)
+  }
+
   const updateData = {
     name: formData.get('name') as string,
     description: formData.get('description') as string || null,
@@ -134,8 +140,40 @@ export async function updateProject(id: string, formData: FormData) {
     zip_code: formData.get('zip_code') as string,
     total_units: parseInt(formData.get('total_units') as string) || 0,
     affordable_units: parseInt(formData.get('affordable_units') as string) || 0,
-    ami_levels: JSON.parse(formData.get('ami_levels') as string || '[]'),
+    ami_levels: parseCommaSeparated(formData.get('ami_levels') as string),
     status: formData.get('status') as string || 'planning',
+    price_range: formData.get('price_range') as string || null,
+    
+    // Unit details
+    bedrooms: formData.get('bedrooms') ? parseInt(formData.get('bedrooms') as string) : null,
+    bathrooms: formData.get('bathrooms') ? parseFloat(formData.get('bathrooms') as string) : null,
+    square_feet: formData.get('square_feet') ? parseInt(formData.get('square_feet') as string) : null,
+    unit_types: parseCommaSeparated(formData.get('unit_types') as string),
+    monthly_rent: formData.get('monthly_rent') ? parseFloat(formData.get('monthly_rent') as string) : null,
+    estimated_delivery: formData.get('estimated_delivery') as string || null,
+    
+    // Amenities & features
+    amenities: parseCommaSeparated(formData.get('amenities') as string),
+    pet_policy: formData.get('pet_policy') as string || null,
+    parking: formData.get('parking') as string || null,
+    laundry: formData.get('laundry') as string || null,
+    
+    // Fees & costs
+    application_fee: formData.get('application_fee') ? parseFloat(formData.get('application_fee') as string) : null,
+    security_deposit: formData.get('security_deposit') ? parseFloat(formData.get('security_deposit') as string) : null,
+    move_in_cost: formData.get('move_in_cost') ? parseFloat(formData.get('move_in_cost') as string) : null,
+    
+    // Transportation & area
+    transit_notes: formData.get('transit_notes') as string || null,
+    school_district: formData.get('school_district') as string || null,
+    walk_score: formData.get('walk_score') ? parseInt(formData.get('walk_score') as string) : null,
+    transit_score: formData.get('transit_score') ? parseInt(formData.get('transit_score') as string) : null,
+    
+    // Contact information
+    contact_email: formData.get('contact_email') as string || null,
+    contact_phone: formData.get('contact_phone') as string || null,
+    website: formData.get('website') as string || null,
+    
     updated_at: new Date().toISOString(),
   }
   

@@ -241,6 +241,192 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
                 </CardContent>
               </Card>
 
+              {/* Unit Details */}
+              <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+                <CardHeader>
+                  <CardTitle>Unit Details</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {project.bedrooms && (
+                      <div>
+                        <h3 className="font-semibold text-sm text-gray-600 mb-1">Bedrooms</h3>
+                        <p className="text-gray-900">{project.bedrooms}</p>
+                      </div>
+                    )}
+                    {project.bathrooms && (
+                      <div>
+                        <h3 className="font-semibold text-sm text-gray-600 mb-1">Bathrooms</h3>
+                        <p className="text-gray-900">{project.bathrooms}</p>
+                      </div>
+                    )}
+                    {project.square_feet && (
+                      <div>
+                        <h3 className="font-semibold text-sm text-gray-600 mb-1">Square Feet</h3>
+                        <p className="text-gray-900">{project.square_feet.toLocaleString()} sq ft</p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {project.unit_types && project.unit_types.length > 0 && (
+                    <div>
+                      <h3 className="font-semibold text-sm text-gray-600 mb-2">Unit Types</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {project.unit_types.map((type: string, index: number) => (
+                          <Badge key={index} variant="secondary" className="bg-sage-100 text-sage-800">
+                            {type}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {project.monthly_rent && (
+                    <div>
+                      <h3 className="font-semibold text-sm text-gray-600 mb-1">Monthly Rent</h3>
+                      <p className="text-gray-900">${project.monthly_rent.toLocaleString()}</p>
+                    </div>
+                  )}
+                  
+                  {project.estimated_delivery && (
+                    <div>
+                      <h3 className="font-semibold text-sm text-gray-600 mb-1">Estimated Completion</h3>
+                      <p className="text-gray-900">{new Date(project.estimated_delivery).toLocaleDateString()}</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Amenities & Features */}
+              {(project.amenities?.length > 0 || project.pet_policy || project.parking || project.laundry) && (
+                <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+                  <CardHeader>
+                    <CardTitle>Amenities & Features</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {project.amenities && project.amenities.length > 0 && (
+                      <div>
+                        <h3 className="font-semibold text-sm text-gray-600 mb-2">Amenities</h3>
+                        <div className="flex flex-wrap gap-2">
+                          {project.amenities.map((amenity: string, index: number) => (
+                            <Badge key={index} variant="secondary" className="bg-teal-100 text-teal-800">
+                              {amenity}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {project.pet_policy && (
+                        <div>
+                          <h3 className="font-semibold text-sm text-gray-600 mb-1">Pet Policy</h3>
+                          <p className="text-gray-900">{project.pet_policy}</p>
+                        </div>
+                      )}
+                      {project.parking && (
+                        <div>
+                          <h3 className="font-semibold text-sm text-gray-600 mb-1">Parking</h3>
+                          <p className="text-gray-900">{project.parking}</p>
+                        </div>
+                      )}
+                      {project.laundry && (
+                        <div>
+                          <h3 className="font-semibold text-sm text-gray-600 mb-1">Laundry</h3>
+                          <p className="text-gray-900">{project.laundry}</p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Fees & Costs */}
+              {(project.application_fee || project.security_deposit || project.move_in_cost) && (
+                <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+                  <CardHeader>
+                    <CardTitle>Fees & Costs</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      {project.application_fee && (
+                        <div>
+                          <h3 className="font-semibold text-sm text-gray-600 mb-1">Application Fee</h3>
+                          <p className="text-gray-900">${project.application_fee}</p>
+                        </div>
+                      )}
+                      {project.security_deposit && (
+                        <div>
+                          <h3 className="font-semibold text-sm text-gray-600 mb-1">Security Deposit</h3>
+                          <p className="text-gray-900">${project.security_deposit.toLocaleString()}</p>
+                        </div>
+                      )}
+                      {project.move_in_cost && (
+                        <div>
+                          <h3 className="font-semibold text-sm text-gray-600 mb-1">Total Move-in Cost</h3>
+                          <p className="text-gray-900">${project.move_in_cost.toLocaleString()}</p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Transportation & Location */}
+              {(project.transit_notes || project.school_district || project.walk_score || project.transit_score) && (
+                <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+                  <CardHeader>
+                    <CardTitle>Transportation & Area</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {project.transit_notes && (
+                      <div>
+                        <h3 className="font-semibold text-sm text-gray-600 mb-1">Transit Information</h3>
+                        <p className="text-gray-900">{project.transit_notes}</p>
+                      </div>
+                    )}
+                    
+                    {project.school_district && (
+                      <div>
+                        <h3 className="font-semibold text-sm text-gray-600 mb-1">School District</h3>
+                        <p className="text-gray-900">{project.school_district}</p>
+                      </div>
+                    )}
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {project.walk_score && (
+                        <div>
+                          <h3 className="font-semibold text-sm text-gray-600 mb-1">Walk Score</h3>
+                          <div className="flex items-center gap-2">
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div 
+                                className="bg-sage-600 h-2 rounded-full" 
+                                style={{ width: `${project.walk_score}%` }}
+                              />
+                            </div>
+                            <span className="font-semibold text-sage-600">{project.walk_score}/100</span>
+                          </div>
+                        </div>
+                      )}
+                      {project.transit_score && (
+                        <div>
+                          <h3 className="font-semibold text-sm text-gray-600 mb-1">Transit Score</h3>
+                          <div className="flex items-center gap-2">
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div 
+                                className="bg-teal-600 h-2 rounded-full" 
+                                style={{ width: `${project.transit_score}%` }}
+                              />
+                            </div>
+                            <span className="font-semibold text-teal-600">{project.transit_score}/100</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               {/* Simplified Images Section */}
               <ProjectImagesDisplay images={project.images || []} />
               
