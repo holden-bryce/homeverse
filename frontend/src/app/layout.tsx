@@ -5,6 +5,7 @@ import { QueryProvider } from '@/providers/query-provider'
 import { SupabaseAuthProvider } from '@/providers/supabase-auth-provider'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ToastProvider, ToastViewport } from '@/components/ui/toast'
+import { Toaster } from '@/components/ui/toaster'
 import { ErrorBoundary } from '@/components/ui/error-boundary'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -81,10 +82,8 @@ export default function RootLayout({
           <QueryProvider>
             <SupabaseAuthProvider>
               <TooltipProvider>
-                <ToastProvider>
-                  {children}
-                  <ToastViewport />
-                </ToastProvider>
+                {children}
+                <Toaster />
               </TooltipProvider>
             </SupabaseAuthProvider>
           </QueryProvider>

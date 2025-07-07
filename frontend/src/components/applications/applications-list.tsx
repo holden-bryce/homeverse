@@ -76,10 +76,14 @@ export function ApplicationsList({ initialApplications, userRole }: Applications
       toast({
         title: 'Application Updated',
         description: statusMessages[newStatus] || `Application status updated to ${newStatus}.`,
-        variant: newStatus === 'approved' ? 'success' : 'default'
+        variant: newStatus === 'approved' ? 'default' : 'default'
       })
       
-      router.refresh()
+      // Force a hard refresh to ensure UI updates
+      setTimeout(() => {
+        router.refresh()
+        window.location.reload()
+      }, 500)
     } catch (error: any) {
       console.error('Error updating application:', error)
       toast({
