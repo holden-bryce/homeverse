@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import { ArrowLeft, Edit, Mail, Phone, Users, DollarSign, MapPin, Trash2 } from 'lucide-react'
-import { ApplicantActions } from '@/components/applicants/applicant-actions'
+import { ApplicantActionsSimple } from '@/components/applicants/applicant-actions-simple'
 import { ApplicantDetailActions } from '@/components/applicants/applicant-detail-actions'
 
 interface ApplicantDetailPageProps {
@@ -106,7 +106,7 @@ export default async function ApplicantDetailPage({ params }: ApplicantDetailPag
                       Edit
                     </Button>
                   </Link>
-                  <ApplicantActions applicant={applicant} />
+                  <ApplicantActionsSimple applicant={applicant} />
                 </>
               )}
             </div>
