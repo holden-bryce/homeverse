@@ -16,10 +16,12 @@ import {
   Clock, 
   XCircle,
   Search,
-  Loader2
+  Loader2,
+  Eye
 } from 'lucide-react'
 import { updateApplicationStatus } from '@/app/dashboard/applications/actions'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 interface Application {
   id: string
@@ -236,9 +238,20 @@ export function ApplicationsList({ initialApplications, userRole }: Applications
                     )}
                   </div>
 
-                  {canUpdateStatus && (
-                    <div className="flex gap-2 ml-4">
-                      {application.status === 'submitted' && (
+                  <div className="flex gap-2 ml-4">
+                    <Link href={`/dashboard/applications/${application.id}`}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        View
+                      </Button>
+                    </Link>
+                    
+                    {canUpdateStatus && (
+                      <>
+                        {application.status === 'submitted' && (
                         <>
                           <Button
                             size="sm"
@@ -276,9 +289,9 @@ export function ApplicationsList({ initialApplications, userRole }: Applications
                             Reject
                           </Button>
                         </>
-                      )}
-                      
-                      {application.status === 'under_review' && (
+                        )}
+                        
+                        {canUpdateStatus && application.status === 'under_review' && (
                         <>
                           <Button
                             size="sm"
@@ -307,9 +320,10 @@ export function ApplicationsList({ initialApplications, userRole }: Applications
                             Reject
                           </Button>
                         </>
-                      )}
-                    </div>
-                  )}
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>

@@ -228,3 +228,68 @@ export async function deleteApplication(id: string) {
   revalidatePath('/dashboard/applications')
   redirect('/dashboard/applications')
 }
+
+export async function getApplicationDetail(id: string) {
+  try {
+    const profile = await getUserProfile()
+    if (!profile) {
+      throw new Error('Unauthorized')
+    }
+    
+    const supabase = createClient()
+    
+    // Fetch application with all related data
+    const { data: application, error } = await supabase
+      .from('applications')
+      .select(`
+        *,
+        projects(
+          id,
+          name,
+          address,
+          city,
+          state,
+          zip_code,
+          total_units,
+          affordable_units,
+          min_income,
+          max_income,
+          description,
+          company_id
+        ),
+        applicants(
+          id,
+          first_name,
+          last_name,
+          email,
+          phone,
+          income,
+          household_size,
+          ami_percent,
+          location_preference,
+          created_at
+        )
+      `)
+      .eq('id', id)
+      .single()
+    
+    if (error || !application) {
+      console.error('Error fetching application:', error)
+      return null
+    }
+    
+    // Check permissions
+    const canView = profile.role === 'admin' || 
+      application.company_id === profile.company_id ||
+      (application.applicants?.email === profile.email)
+    
+    if (!canView) {
+      throw new Error('Access denied')
+    }
+    
+    return application
+  } catch (error) {
+    console.error('Error in getApplicationDetail:', error)
+    return null
+  }
+}
