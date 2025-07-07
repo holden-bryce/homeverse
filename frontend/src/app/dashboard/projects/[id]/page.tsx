@@ -21,7 +21,7 @@ import {
   Trash2,
   FileText
 } from 'lucide-react'
-import { ProjectActionsWrapper } from '@/components/projects/project-actions-wrapper'
+import { SimpleProjectActions } from '@/components/projects/simple-project-actions'
 
 interface ProjectDetailPageProps {
   params: {
@@ -177,7 +177,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
               </div>
             </div>
             <div className="flex gap-3">
-              <ProjectActionsWrapper project={project} profile={profile} />
+              <SimpleProjectActions project={project} profile={profile} />
             </div>
           </div>
 
