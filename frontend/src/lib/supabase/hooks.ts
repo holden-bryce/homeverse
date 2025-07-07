@@ -131,6 +131,8 @@ export const useCreateApplicant = () => {
       const transformedData = {
         company_id: companyId,
         full_name: `${applicantData.first_name || ''} ${applicantData.last_name || ''}`.trim(),
+        first_name: applicantData.first_name || '',
+        last_name: applicantData.last_name || '',
         email: applicantData.email,
         phone: applicantData.phone,
         income: applicantData.income,
