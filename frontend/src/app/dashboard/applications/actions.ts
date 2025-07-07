@@ -143,7 +143,9 @@ export async function updateApplicationStatus(
     }
     
     if (status === 'reviewed' || status === 'approved' || status === 'rejected') {
-      updateData.reviewed_by = profile.id
+      // Temporarily disable reviewer tracking to avoid RLS issues
+      // updateData.reviewed_by = profile.id
+      // updateData.reviewed_by_name = profile.full_name || profile.email
       updateData.reviewed_at = new Date().toISOString()
     }
     
