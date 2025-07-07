@@ -21,6 +21,7 @@ import {
   Trash2,
   FileText
 } from 'lucide-react'
+import { ProjectActions } from '@/components/projects/project-actions'
 
 interface ProjectDetailPageProps {
   params: {
@@ -55,14 +56,14 @@ async function getProject(id: string) {
   }
 }
 
-function ProjectActions({ project, profile }: { project: any, profile: any }) {
+function ProjectActionsGroup({ project, profile }: { project: any, profile: any }) {
   const canEdit = profile?.role && ['developer', 'admin'].includes(profile.role) && 
                   profile.company_id === project.company_id
 
   if (!canEdit) return null
 
   return (
-    <>
+    <div className="flex gap-2">
       <Button
         variant="outline"
         className="border-sage-200 text-sage-700 hover:bg-sage-50"
@@ -73,7 +74,8 @@ function ProjectActions({ project, profile }: { project: any, profile: any }) {
           Edit
         </Link>
       </Button>
-    </>
+      <ProjectActions project={project} />
+    </div>
   )
 }
 
@@ -197,7 +199,7 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
               </div>
             </div>
             <div className="flex gap-3">
-              <ProjectActions project={project} profile={profile} />
+              <ProjectActionsGroup project={project} profile={profile} />
             </div>
           </div>
 
