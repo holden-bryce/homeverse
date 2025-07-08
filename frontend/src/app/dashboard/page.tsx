@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Users, Home, FileText, TrendingUp, Plus, Search, Calculator, Map, Building2, UserCheck, DollarSign, BarChart3, Settings, ArrowRight } from 'lucide-react'
+import { Users, Home, FileText, TrendingUp, Plus, Search, Calculator, Map, Building2, UserCheck, DollarSign, BarChart3, Settings, ArrowRight, Database } from 'lucide-react'
 import { cookies } from 'next/headers'
 import Link from 'next/link'
 
@@ -505,6 +505,14 @@ async function QuickActions({ profile }: { profile: any }) {
         href: '/dashboard/reports',
         color: 'text-orange-600',
         bgColor: 'bg-orange-100'
+      },
+      {
+        title: 'Demo Data',
+        description: 'Add sample data for demos',
+        icon: Database,
+        href: '/dashboard/demo',
+        color: 'text-indigo-600',
+        bgColor: 'bg-indigo-100'
       }
     ]
   }
